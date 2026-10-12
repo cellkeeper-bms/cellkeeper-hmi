@@ -559,7 +559,7 @@ sensor:
   # 0.125 mV per count). With the inverter running, Pack- to Chassis follows the
   # inverter DC-bus bottom half because its battery port is not isolated.
   - platform: template
-    name: "Pack+ to Chassis"
+    name: "Pack Pos to Chassis"
     id: pack_pos_to_chassis
     unit_of_measurement: "V"
     device_class: voltage
@@ -573,7 +573,7 @@ sensor:
     update_interval: 2s
 
   - platform: template
-    name: "Pack- to Chassis"
+    name: "Pack Neg to Chassis"
     id: pack_neg_to_chassis
     unit_of_measurement: "V"
     device_class: voltage

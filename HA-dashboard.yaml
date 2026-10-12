@@ -25,6 +25,21 @@ decluttering_templates:
           name: SOC Voltage Based
         - entity: 'sensor.[[node]]_soc_basic_count'
           name: SOC Basic Count
+  detail2_isolation:
+    card:
+      type: entities
+      title: Isolation
+      entities:
+        - entity: 'sensor.[[node]]_pack_pos_to_chassis'
+          name: Pack Pos to Chassis
+        - entity: 'sensor.[[node]]_pack_neg_to_chassis'
+          name: Pack Neg to Chassis
+        - entity: 'sensor.[[node]]_isolation_resistance'
+          name: Isolation Resistance
+        - entity: 'sensor.[[node]]_isolation_pos_raw'
+          name: Isolation Pos Raw
+        - entity: 'sensor.[[node]]_isolation_neg_raw'
+          name: Isolation Neg Raw
   detail2_inverter_can_values:
     card:
       type: entities
@@ -259,6 +274,14 @@ views:
               - entity: sensor.ck0_soc_voltage_based
               - entity: sensor.ck0_soc_basic_count
           - type: entities
+            title: Isolation
+            entities:
+              - entity: sensor.ck0_pack_pos_to_chassis
+              - entity: sensor.ck0_pack_neg_to_chassis
+              - entity: sensor.ck0_isolation_resistance
+              - entity: sensor.ck0_isolation_pos_raw
+              - entity: sensor.ck0_isolation_neg_raw
+          - type: entities
             title: Inverter CAN Values
             entities:
               - entity: sensor.ck0_inverter_can_soc
@@ -321,6 +344,30 @@ views:
                   'sensor.ck0_soc',
                   'sensor.ck0_soc_voltage_based',
                   'sensor.ck0_soc_basic_count'
+                ] %}
+                {% for entity_id in ids -%}
+                  {{
+                    {
+                      "entity": entity_id,
+                      "name": ((state_attr(entity_id, "friendly_name") if state_attr(entity_id, "friendly_name") else entity_id) | replace("CellKeeper0 ", "") | replace("CK0 ", "") | trim)
+                    }
+                  }},
+                {%- endfor %}
+            show_empty: false
+            unique: true
+          - type: custom:auto-entities
+            card:
+              type: entities
+              title: Isolation
+            card_param: entities
+            filter:
+              template: >
+                {% set ids = [
+                  'sensor.ck0_pack_pos_to_chassis',
+                  'sensor.ck0_pack_neg_to_chassis',
+                  'sensor.ck0_isolation_resistance',
+                  'sensor.ck0_isolation_pos_raw',
+                  'sensor.ck0_isolation_neg_raw'
                 ] %}
                 {% for entity_id in ids -%}
                   {{
@@ -443,6 +490,10 @@ views:
             heading: Battery Details
           - type: custom:decluttering-card
             template: detail2_voltage_capacity
+            variables:
+              - node: ck0
+          - type: custom:decluttering-card
+            template: detail2_isolation
             variables:
               - node: ck0
           - type: custom:decluttering-card
@@ -1370,6 +1421,33 @@ views:
                 features:
                   - type: numeric-input
                     style: buttons
+      - cards:
+          - type: heading
+            heading: Isolation Calibration
+          - type: markdown
+            content: >
+              Pack Pos/Neg to Chassis = (raw - Isolation Zero) x 0.125 mV x
+              Divider Ratio. Press **Calibrate Isolation Zero** only with the
+              contactors open; it sets Zero to the midpoint of the two raw
+              channels. The ratio is 501 on every board (12 Mohm / 24 kohm).
+          - type: entities
+            entities:
+              - entity: sensor.ck0_contactor_state_text
+                name: Contactor State
+              - entity: number.ck0_isolation_zero
+                name: Isolation Zero
+              - entity: number.ck0_isolation_divider_ratio
+                name: Isolation Divider Ratio
+              - entity: button.ck0_calibrate_isolation_zero
+                name: Calibrate Isolation Zero
+              - entity: sensor.ck0_isolation_pos_raw
+                name: Isolation Pos Raw
+              - entity: sensor.ck0_isolation_neg_raw
+                name: Isolation Neg Raw
+              - entity: sensor.ck0_pack_pos_to_chassis
+                name: Pack Pos to Chassis
+              - entity: sensor.ck0_pack_neg_to_chassis
+                name: Pack Neg to Chassis
   - title: System
     type: sections
     max_columns: 2
