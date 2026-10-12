@@ -6,6 +6,7 @@ substitutions:
   # divider (12 Mohm / 24 kohm = 501 on every board).
   isolation_zero_counts: "13317"
   isolation_divider_ratio: "501"
+  isolation_divider_ohms: "12024000"
 
 debug:
 
@@ -152,11 +153,8 @@ sensor:
     isolation_neg_raw:
       id: isolation_neg_raw
       name: "Isolation Neg Raw"
-    isolation_resistance:
-      name: "Isolation Resistance"
-      unit_of_measurement: "MΩ"
-      accuracy_decimals: 2
-      filters: [multiply: 0.000001]
+    # isolation_resistance (register 62) is left out: the firmware uses a fixed
+    # Rev0 midpoint. The template "Isolation Resistance" below uses Isolation Zero.
     cell_voltage_delta:
       id: cell_delta
       name: "Cell Voltage Delta"
@@ -584,6 +582,40 @@ sensor:
         return NAN;
       }
       return (id(isolation_neg_raw).state - id(isolation_zero).state) * (4.096f / 32768.0f) * id(isolation_ratio).state;
+    update_interval: 2s
+
+  # Leakage from one pack terminal to chassis, valid only with the contactors open
+  # (closed, the inverter's non-isolated port sets the chassis voltage). Each
+  # terminal sees the divider (Rd) to chassis; a leak in parallel on one side
+  # unbalances the two channels: r = Vpos/|Vneg|, r < 1 -> pack+ leak Rd*r/(1-r),
+  # r > 1 -> pack- leak Rd/(r-1). Leaks of equal size on both sides are invisible.
+  # Capped at 100 MOhm.
+  - platform: template
+    name: "Isolation Resistance"
+    id: isolation_resistance
+    unit_of_measurement: "MΩ"
+    icon: mdi:shield-check-outline
+    state_class: measurement
+    accuracy_decimals: 2
+    lambda: |-
+      if (!id(contactor_state).has_state() || id(contactor_state).state != 0 || !id(isolation_zero).has_state()) {
+        return NAN;
+      }
+      float pos = id(isolation_pos_raw).state - id(isolation_zero).state;
+      float neg = id(isolation_zero).state - id(isolation_neg_raw).state;
+      if (isnan(pos) || isnan(neg) || pos + neg < 500.0f) {
+        return NAN;  // no readings, or under ~30 V across the pack
+      }
+      const float rd = ${isolation_divider_ohms};
+      const float cap = 100e6f;
+      float r_ohms;
+      if (pos <= 0.0f || neg <= 0.0f) {
+        r_ohms = 0.0f;  // one terminal at or past chassis: hard short
+      } else {
+        float r = pos / neg;
+        r_ohms = r < 1.0f ? rd * r / (1.0f - r) : (r > 1.0f ? rd / (r - 1.0f) : cap);
+      }
+      return fminf(r_ohms, cap) / 1e6f;
     update_interval: 2s
 
   - platform: template

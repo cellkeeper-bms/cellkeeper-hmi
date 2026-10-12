@@ -1430,6 +1430,8 @@ views:
               Divider Ratio. Press **Calibrate Isolation Zero** only with the
               contactors open; it sets Zero to the midpoint of the two raw
               channels. The ratio is 501 on every board (12 Mohm / 24 kohm).
+              Isolation Resistance only reads with the contactors open (capped
+              at 100 Mohm); closed, the inverter sets the chassis voltage.
           - type: entities
             entities:
               - entity: sensor.ck0_contactor_state_text
@@ -1448,6 +1450,8 @@ views:
                 name: Pack Pos to Chassis
               - entity: sensor.ck0_pack_neg_to_chassis
                 name: Pack Neg to Chassis
+              - entity: sensor.ck0_isolation_resistance
+                name: Isolation Resistance
   - title: System
     type: sections
     max_columns: 2
