@@ -1,6 +1,11 @@
 substitutions:
   cell_width: "9"
   cell_gap: "6"
+  # Isolation monitor calibration (device files override these per BMS). Zero is the
+  # ADC count both channels sit at when the pack is floating; the ratio is the HV
+  # divider (12 Mohm / 24 kohm = 501 on every board).
+  isolation_zero_counts: "13317"
+  isolation_divider_ratio: "501"
 
 debug:
 
@@ -142,8 +147,10 @@ sensor:
     # Isolation monitor (needs BMS firmware with HMI registers 60-62). The raw ADC counts are
     # valid on every board; the resistance uses a fixed calibration that only fits some boards.
     isolation_pos_raw:
+      id: isolation_pos_raw
       name: "Isolation Pos Raw"
     isolation_neg_raw:
+      id: isolation_neg_raw
       name: "Isolation Neg Raw"
     isolation_resistance:
       name: "Isolation Resistance"
@@ -547,6 +554,37 @@ sensor:
         name: "Raw Temp 0x236"
       - id: raw_temp_0x237
         name: "Raw Temp 0x237"
+
+  # Pack terminals relative to chassis, from the isolation channels (4.096 V PGA:
+  # 0.125 mV per count). With the inverter running, Pack- to Chassis follows the
+  # inverter DC-bus bottom half because its battery port is not isolated.
+  - platform: template
+    name: "Pack+ to Chassis"
+    id: pack_pos_to_chassis
+    unit_of_measurement: "V"
+    device_class: voltage
+    state_class: measurement
+    accuracy_decimals: 1
+    lambda: |-
+      if (isnan(id(isolation_pos_raw).state) || !id(isolation_zero).has_state() || !id(isolation_ratio).has_state()) {
+        return NAN;
+      }
+      return (id(isolation_pos_raw).state - id(isolation_zero).state) * (4.096f / 32768.0f) * id(isolation_ratio).state;
+    update_interval: 2s
+
+  - platform: template
+    name: "Pack- to Chassis"
+    id: pack_neg_to_chassis
+    unit_of_measurement: "V"
+    device_class: voltage
+    state_class: measurement
+    accuracy_decimals: 1
+    lambda: |-
+      if (isnan(id(isolation_neg_raw).state) || !id(isolation_zero).has_state() || !id(isolation_ratio).has_state()) {
+        return NAN;
+      }
+      return (id(isolation_neg_raw).state - id(isolation_zero).state) * (4.096f / 32768.0f) * id(isolation_ratio).state;
+    update_interval: 2s
 
   - platform: template
     name: "SOC"
@@ -1116,6 +1154,31 @@ button:
       - lambda: |-
           id(hub).send_system_request(5);
 
+  # Sets Isolation Zero to the midpoint of the two channels. Only valid while the
+  # contactors are open and the pack is floating.
+  - platform: template
+    name: "Calibrate Isolation Zero"
+    id: btn_isolation_zero
+    entity_category: config
+    icon: mdi:target
+    on_press:
+      - lambda: |-
+          float pos = id(isolation_pos_raw).state;
+          float neg = id(isolation_neg_raw).state;
+          if (!id(contactor_state).has_state() || id(contactor_state).state != 0) {
+            ESP_LOGW("isolation", "Zero not calibrated: contactors must be open");
+            return;
+          }
+          if (isnan(pos) || isnan(neg)) {
+            ESP_LOGW("isolation", "Zero not calibrated: no isolation readings");
+            return;
+          }
+          float zero = roundf((pos + neg) / 2.0f);
+          ESP_LOGI("isolation", "Zero calibrated: %.0f counts (pos %.1f, neg %.1f)", zero, pos, neg);
+          auto call = id(isolation_zero).make_call();
+          call.set_value(zero);
+          call.perform();
+
 switch:
   - platform: hmi_bms
     log_enable:
@@ -1219,3 +1282,30 @@ number:
     set_action:
       - lambda: |-
           id(hub).set_log_update_interval((uint32_t)(x * 1000));
+
+  - platform: template
+    name: "Isolation Zero"
+    id: isolation_zero
+    entity_category: config
+    unit_of_measurement: "counts"
+    icon: mdi:target
+    min_value: 0
+    max_value: 32767
+    step: 1
+    initial_value: ${isolation_zero_counts}
+    restore_value: true
+    optimistic: true
+    mode: box
+
+  - platform: template
+    name: "Isolation Divider Ratio"
+    id: isolation_ratio
+    entity_category: config
+    icon: mdi:division
+    min_value: 1
+    max_value: 2000
+    step: 0.1
+    initial_value: ${isolation_divider_ratio}
+    restore_value: true
+    optimistic: true
+    mode: box

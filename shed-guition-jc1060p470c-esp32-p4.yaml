@@ -17,6 +17,11 @@ esphome:
           id: display_backlight
           brightness: 30%
 
+substitutions:
+  # Rev0 board: zero is the firmware's Rev0 calibration midpoint until it is
+  # recalibrated with "Calibrate Isolation Zero" (contactors open).
+  isolation_zero_counts: "22496"
+
 packages:
   core: !include bms_core.yaml
   ui: !include bms_ui_scripts.yaml
