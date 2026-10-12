@@ -119,10 +119,10 @@ void HMIBMS::update() {
     if (this->supply_voltage_5V_mV_sensor_) add_reg(HMI_REG_SUPPLY_VOLTAGE_5V);
     if (this->supply_voltage_12V_mV_sensor_) add_reg(HMI_REG_SUPPLY_VOLTAGE_12V);
     if (this->supply_voltage_contactor_mV_sensor_) add_reg(HMI_REG_SUPPLY_VOLTAGE_CTR);
-    // Isolation monitor (BMS firmware with registers 60-62; older firmware just doesn't answer)
-    if (this->isolation_pos_raw_sensor_) add_reg(HMI_REG_ISOLATION_POS_RAW);
-    if (this->isolation_neg_raw_sensor_) add_reg(HMI_REG_ISOLATION_NEG_RAW);
+    // Isolation monitor, all calculated on the BMS (registers 62-64; older firmware just doesn't answer)
     if (this->isolation_resistance_sensor_) add_reg(HMI_REG_ISOLATION_RESISTANCE);
+    if (this->pack_pos_to_chassis_sensor_) add_reg(HMI_REG_PACK_POS_TO_CHASSIS);
+    if (this->pack_neg_to_chassis_sensor_) add_reg(HMI_REG_PACK_NEG_TO_CHASSIS);
     if (this->inverter_soc_sensor_) add_reg(HMI_REG_INVERTER_SOC);
     if (this->inverter_full_capacity_sensor_) add_reg(HMI_REG_INVERTER_FULL_CAPACITY_DAH);
     if (this->inverter_remaining_capacity_sensor_) add_reg(HMI_REG_INVERTER_REMAINING_CAPACITY_DAH);
@@ -784,16 +784,16 @@ void HMIBMS::handle_read_registers_response_(const uint8_t *data, size_t length)
     } else if (reg_id == HMI_REG_SUPPLY_VOLTAGE_CTR && this->supply_voltage_contactor_mV_sensor_ != nullptr) {
       uint16_t val = v[0] | (v[1] << 8);
       this->publish_queue_.push_back({this->supply_voltage_contactor_mV_sensor_, (float)val});
-    } else if ((reg_id == HMI_REG_ISOLATION_POS_RAW || reg_id == HMI_REG_ISOLATION_NEG_RAW ||
-                reg_id == HMI_REG_ISOLATION_RESISTANCE) && reg_type == HMI_TYPE_FLOAT) {
+    } else if ((reg_id == HMI_REG_ISOLATION_RESISTANCE || reg_id == HMI_REG_PACK_POS_TO_CHASSIS ||
+                reg_id == HMI_REG_PACK_NEG_TO_CHASSIS) && reg_type == HMI_TYPE_FLOAT) {
       uint32_t raw = (uint32_t)v[0] | ((uint32_t)v[1] << 8) | ((uint32_t)v[2] << 16) | ((uint32_t)v[3] << 24);
       union {
         uint32_t u;
         float f;
       } conv{raw};
-      sensor::Sensor *s = reg_id == HMI_REG_ISOLATION_POS_RAW   ? this->isolation_pos_raw_sensor_
-                          : reg_id == HMI_REG_ISOLATION_NEG_RAW ? this->isolation_neg_raw_sensor_
-                                                                : this->isolation_resistance_sensor_;
+      sensor::Sensor *s = reg_id == HMI_REG_PACK_POS_TO_CHASSIS   ? this->pack_pos_to_chassis_sensor_
+                          : reg_id == HMI_REG_PACK_NEG_TO_CHASSIS ? this->pack_neg_to_chassis_sensor_
+                                                                  : this->isolation_resistance_sensor_;
       if (s != nullptr) this->publish_queue_.push_back({s, conv.f});
     } else if (reg_id == HMI_REG_INVERTER_SOC && this->inverter_soc_sensor_ != nullptr) {
       int16_t val = (int16_t)(v[0] | (v[1] << 8));

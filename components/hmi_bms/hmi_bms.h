@@ -131,9 +131,10 @@ enum HMIRegister {
   HMI_REG_DELTA_CHARGE_CURRENT_LIMIT_DA = 53,           // uint16 (0.1A)
   HMI_REG_HARD_CHARGE_CURRENT_LIMIT_DA = 54,            // uint16 (0.1A)
   HMI_REG_HARD_DISCHARGE_CURRENT_LIMIT_DA = 55,         // uint16 (0.1A)
-  HMI_REG_ISOLATION_POS_RAW = 60,                       // float (ADC counts), battery+ isolation channel
-  HMI_REG_ISOLATION_NEG_RAW = 61,                       // float (ADC counts), battery- isolation channel
-  HMI_REG_ISOLATION_RESISTANCE = 62,                    // float (ohms)
+  // 60/61 (raw isolation ADC counts) exist on the BMS but are not shown here
+  HMI_REG_ISOLATION_RESISTANCE = 62,                    // float (ohms), NAN unless contactors open
+  HMI_REG_PACK_POS_TO_CHASSIS = 63,                     // float (V)
+  HMI_REG_PACK_NEG_TO_CHASSIS = 64,                     // float (V)
   HMI_REG_CELL_VOLTAGES_START = 0x100,
   HMI_REG_CELL_VOLTAGES_END = 0x1FF,
   HMI_REG_MODULE_TEMPS_START = 0x200,
@@ -175,8 +176,8 @@ class HMIBMS : public PollingComponent, public uart::UARTDevice {
   void set_supply_voltage_5V_mV_sensor(sensor::Sensor *s) { supply_voltage_5V_mV_sensor_ = s; }
   void set_supply_voltage_12V_mV_sensor(sensor::Sensor *s) { supply_voltage_12V_mV_sensor_ = s; }
   void set_supply_voltage_contactor_mV_sensor(sensor::Sensor *s) { supply_voltage_contactor_mV_sensor_ = s; }
-  void set_isolation_pos_raw_sensor(sensor::Sensor *s) { isolation_pos_raw_sensor_ = s; }
-  void set_isolation_neg_raw_sensor(sensor::Sensor *s) { isolation_neg_raw_sensor_ = s; }
+  void set_pack_pos_to_chassis_sensor(sensor::Sensor *s) { pack_pos_to_chassis_sensor_ = s; }
+  void set_pack_neg_to_chassis_sensor(sensor::Sensor *s) { pack_neg_to_chassis_sensor_ = s; }
   void set_isolation_resistance_sensor(sensor::Sensor *s) { isolation_resistance_sensor_ = s; }
   void set_inverter_soc_sensor(sensor::Sensor *s) { inverter_soc_sensor_ = s; }
   void set_inverter_full_capacity_sensor(sensor::Sensor *s) { inverter_full_capacity_sensor_ = s; }
@@ -305,8 +306,8 @@ class HMIBMS : public PollingComponent, public uart::UARTDevice {
   sensor::Sensor *supply_voltage_5V_mV_sensor_{nullptr};
   sensor::Sensor *supply_voltage_12V_mV_sensor_{nullptr};
   sensor::Sensor *supply_voltage_contactor_mV_sensor_{nullptr};
-  sensor::Sensor *isolation_pos_raw_sensor_{nullptr};
-  sensor::Sensor *isolation_neg_raw_sensor_{nullptr};
+  sensor::Sensor *pack_pos_to_chassis_sensor_{nullptr};
+  sensor::Sensor *pack_neg_to_chassis_sensor_{nullptr};
   sensor::Sensor *isolation_resistance_sensor_{nullptr};
   sensor::Sensor *inverter_soc_sensor_{nullptr};
   sensor::Sensor *inverter_full_capacity_sensor_{nullptr};

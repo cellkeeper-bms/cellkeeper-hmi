@@ -39,10 +39,6 @@ decluttering_templates:
           name: Pack Neg to Chassis
         - entity: 'sensor.[[node]]_isolation_resistance'
           name: Isolation Resistance
-        - entity: 'sensor.[[node]]_isolation_pos_raw'
-          name: Isolation Pos Raw
-        - entity: 'sensor.[[node]]_isolation_neg_raw'
-          name: Isolation Neg Raw
   detail2_inverter_can_values:
     card:
       type: entities
@@ -282,8 +278,6 @@ views:
               - entity: sensor.ck1_pack_pos_to_chassis
               - entity: sensor.ck1_pack_neg_to_chassis
               - entity: sensor.ck1_isolation_resistance
-              - entity: sensor.ck1_isolation_pos_raw
-              - entity: sensor.ck1_isolation_neg_raw
           - type: entities
             title: Inverter CAN Values
             entities:
@@ -368,9 +362,7 @@ views:
                 {% set ids = [
                   'sensor.ck1_pack_pos_to_chassis',
                   'sensor.ck1_pack_neg_to_chassis',
-                  'sensor.ck1_isolation_resistance',
-                  'sensor.ck1_isolation_pos_raw',
-                  'sensor.ck1_isolation_neg_raw'
+                  'sensor.ck1_isolation_resistance'
                 ] %}
                 {% for entity_id in ids -%}
                   {{
@@ -1429,26 +1421,17 @@ views:
             heading: Isolation Calibration
           - type: markdown
             content: >
-              Pack Pos/Neg to Chassis = (raw - Isolation Zero) x 0.125 mV x
-              Divider Ratio. Press **Calibrate Isolation Zero** only with the
-              contactors open; it sets Zero to the midpoint of the two raw
-              channels. The ratio is 501 on every board (12 Mohm / 24 kohm).
-              Isolation Resistance only reads with the contactors open (capped
-              at 100 Mohm); closed, the inverter sets the chassis voltage.
+              All isolation values are calculated by the BMS. Press **Calibrate
+              Isolation Zero** with the battery stopped (contactors open); the
+              BMS stores the zero and ignores the request otherwise. Isolation
+              Resistance only reads with the contactors open (capped at 100
+              Mohm); closed, the inverter sets the chassis voltage.
           - type: entities
             entities:
               - entity: sensor.ck1_contactor_state_text
                 name: Contactor State
-              - entity: number.ck1_isolation_zero
-                name: Isolation Zero
-              - entity: number.ck1_isolation_divider_ratio
-                name: Isolation Divider Ratio
               - entity: button.ck1_calibrate_isolation_zero
                 name: Calibrate Isolation Zero
-              - entity: sensor.ck1_isolation_pos_raw
-                name: Isolation Pos Raw
-              - entity: sensor.ck1_isolation_neg_raw
-                name: Isolation Neg Raw
               - entity: sensor.ck1_pack_pos_to_chassis
                 name: Pack Pos to Chassis
               - entity: sensor.ck1_pack_neg_to_chassis

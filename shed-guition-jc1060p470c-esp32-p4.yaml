@@ -17,14 +17,6 @@ esphome:
           id: display_backlight
           brightness: 30%
 
-substitutions:
-  # Rev0 board: zero is the firmware's Rev0 calibration midpoint until it is
-  # recalibrated with "Calibrate Isolation Zero" (contactors open).
-  isolation_zero_counts: "22496"
-  # Measured on ck1 (Rev0): channel span (Vpos + Vneg) = pack / 420, e.g. 0.877 V at 368.25 V
-  # (2026-10-12) and 0.781 V at 327.84 V (May log). ck0 (Rev1) measures ~497, close to 501.
-  isolation_divider_ratio: "420"
-
 packages:
   core: !include bms_core.yaml
   ui: !include bms_ui_scripts.yaml

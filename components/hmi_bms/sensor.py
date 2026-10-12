@@ -75,8 +75,8 @@ CONF_DELTA_CHARGE_CURRENT_LIMIT = "delta_charge_current_limit"
 CONF_HARD_CHARGE_CURRENT_LIMIT = "hard_charge_current_limit"
 CONF_HARD_DISCHARGE_CURRENT_LIMIT = "hard_discharge_current_limit"
 CONF_INVERTER_SOC = "inverter_soc"
-CONF_ISOLATION_POS_RAW = "isolation_pos_raw"
-CONF_ISOLATION_NEG_RAW = "isolation_neg_raw"
+CONF_PACK_POS_TO_CHASSIS = "pack_pos_to_chassis"
+CONF_PACK_NEG_TO_CHASSIS = "pack_neg_to_chassis"
 CONF_ISOLATION_RESISTANCE = "isolation_resistance"
 CONF_INVERTER_FULL_CAPACITY = "inverter_full_capacity"
 CONF_INVERTER_REMAINING_CAPACITY = "inverter_remaining_capacity"
@@ -234,12 +234,16 @@ CONFIG_SCHEMA = cv.Schema({
         device_class=DEVICE_CLASS_VOLTAGE,
         state_class=STATE_CLASS_MEASUREMENT,
     ),
-    cv.Optional(CONF_ISOLATION_POS_RAW): sensor.sensor_schema(
-        accuracy_decimals=0,
+    cv.Optional(CONF_PACK_POS_TO_CHASSIS): sensor.sensor_schema(
+        unit_of_measurement=UNIT_VOLT,
+        accuracy_decimals=1,
+        device_class=DEVICE_CLASS_VOLTAGE,
         state_class=STATE_CLASS_MEASUREMENT,
     ),
-    cv.Optional(CONF_ISOLATION_NEG_RAW): sensor.sensor_schema(
-        accuracy_decimals=0,
+    cv.Optional(CONF_PACK_NEG_TO_CHASSIS): sensor.sensor_schema(
+        unit_of_measurement=UNIT_VOLT,
+        accuracy_decimals=1,
+        device_class=DEVICE_CLASS_VOLTAGE,
         state_class=STATE_CLASS_MEASUREMENT,
     ),
     cv.Optional(CONF_ISOLATION_RESISTANCE): sensor.sensor_schema(
@@ -509,12 +513,12 @@ async def to_code(config):
     if CONF_SUPPLY_VOLTAGE_CONTACTOR_MV in config:
         sens = await sensor.new_sensor(config[CONF_SUPPLY_VOLTAGE_CONTACTOR_MV])
         cg.add(parent.set_supply_voltage_contactor_mV_sensor(sens))
-    if CONF_ISOLATION_POS_RAW in config:
-        sens = await sensor.new_sensor(config[CONF_ISOLATION_POS_RAW])
-        cg.add(parent.set_isolation_pos_raw_sensor(sens))
-    if CONF_ISOLATION_NEG_RAW in config:
-        sens = await sensor.new_sensor(config[CONF_ISOLATION_NEG_RAW])
-        cg.add(parent.set_isolation_neg_raw_sensor(sens))
+    if CONF_PACK_POS_TO_CHASSIS in config:
+        sens = await sensor.new_sensor(config[CONF_PACK_POS_TO_CHASSIS])
+        cg.add(parent.set_pack_pos_to_chassis_sensor(sens))
+    if CONF_PACK_NEG_TO_CHASSIS in config:
+        sens = await sensor.new_sensor(config[CONF_PACK_NEG_TO_CHASSIS])
+        cg.add(parent.set_pack_neg_to_chassis_sensor(sens))
     if CONF_ISOLATION_RESISTANCE in config:
         sens = await sensor.new_sensor(config[CONF_ISOLATION_RESISTANCE])
         cg.add(parent.set_isolation_resistance_sensor(sens))
