@@ -61,12 +61,16 @@ static const char* EVENT_TYPES[] = {
     "VOLTAGE_MISMATCH",
     "BMB_READ_ERROR",
     "BMB_CRC_MISMATCH",
+    "CELL_VOLTAGE_GLITCH",
+    "MODULE_TEMPERATURE_GLITCH",
     "INVERTER_DETECTED",
     "ESTOP_PRESSED",
     "BOOT_NORMAL",
     "BOOT_WATCHDOG",
     "LOOP_OVERRUN",
-    "RESTARTING"
+    "RESTARTING",
+    "LINK_VOLTAGE_MISMATCH",
+    "FUSE_VOLTAGE_DROP_HIGH"
 };
 
 #define MAX_EVENT_TYPE_ID 69
@@ -80,8 +84,10 @@ void HMIBMS::update() {
     return;
   }
 
-  this->update_count_++;
+  // Use slot 0 on first update so slow/detail registers are available
+  // immediately after boot/reconnect (instead of after ~10 poll cycles).
   uint8_t slot = this->update_count_ % 10;
+  this->update_count_++;
 
   // 1. Prepare Register Read Payload (Combines Slow and Fast polls)
   std::vector<uint8_t> payload;
@@ -113,6 +119,10 @@ void HMIBMS::update() {
     if (this->supply_voltage_5V_mV_sensor_) add_reg(HMI_REG_SUPPLY_VOLTAGE_5V);
     if (this->supply_voltage_12V_mV_sensor_) add_reg(HMI_REG_SUPPLY_VOLTAGE_12V);
     if (this->supply_voltage_contactor_mV_sensor_) add_reg(HMI_REG_SUPPLY_VOLTAGE_CTR);
+    // Isolation monitor (BMS firmware with registers 60-62; older firmware just doesn't answer)
+    if (this->isolation_pos_raw_sensor_) add_reg(HMI_REG_ISOLATION_POS_RAW);
+    if (this->isolation_neg_raw_sensor_) add_reg(HMI_REG_ISOLATION_NEG_RAW);
+    if (this->isolation_resistance_sensor_) add_reg(HMI_REG_ISOLATION_RESISTANCE);
     if (this->inverter_soc_sensor_) add_reg(HMI_REG_INVERTER_SOC);
     if (this->inverter_full_capacity_sensor_) add_reg(HMI_REG_INVERTER_FULL_CAPACITY_DAH);
     if (this->inverter_remaining_capacity_sensor_) add_reg(HMI_REG_INVERTER_REMAINING_CAPACITY_DAH);
@@ -132,10 +142,7 @@ void HMIBMS::update() {
     if (this->balancing_periods_per_mV_number_) add_reg(HMI_REG_BALANCING_PERIODS_PER_MV);
     if (this->balance_min_offset_mV_number_) add_reg(HMI_REG_BALANCE_MIN_OFFSET_MV);
     if (this->minimum_balancing_voltage_mV_number_) add_reg(HMI_REG_MINIMUM_BALANCING_VOLTAGE_MV);
-    if (this->max_charge_current_number_) add_reg(HMI_REG_MAX_CHARGE_CURRENT);
-    if (this->max_discharge_current_number_) add_reg(HMI_REG_MAX_DISCHARGE_CURRENT);
-    if (this->adc_sample_count_sensor_) add_reg(HMI_REG_ADC_SAMPLE_COUNT);
-    if (this->loop_frequency_hz_sensor_) add_reg(HMI_REG_LOOP_FREQUENCY_HZ);
+    if (this->balancing_start_voltage_mV_number_) add_reg(HMI_REG_BALANCING_START_VOLTAGE_MV);
 
     // Add configured raw temperature sensors
     for (size_t i = 0; i < this->raw_temperature_sensors_.size(); i++) {
@@ -155,7 +162,42 @@ void HMIBMS::update() {
     this->send_packet_(payload);
   }
 
-  // 2. Read Module Temperatures (Tick 1) in a dedicated request.
+  // 2. Read current-limit registers (Tick 3) in a dedicated request.
+  // This keeps them on the slow cadence while avoiding truncation in
+  // the larger slot-0 slow poll packet.
+  if (slot == 3) {
+    std::vector<uint8_t> limit_payload;
+    limit_payload.push_back(HMI_MSG_READ_REGISTERS);
+    limit_payload.push_back(this->address_);
+    auto add_limit_reg = [&](uint16_t reg) {
+      limit_payload.push_back(reg & 0xFF);
+      limit_payload.push_back(reg >> 8);
+    };
+
+    if (this->max_charge_current_number_) add_limit_reg(HMI_REG_USER_CHARGE_CURRENT_LIMIT_DA);
+    if (this->max_discharge_current_number_) add_limit_reg(HMI_REG_USER_DISCHARGE_CURRENT_LIMIT_DA);
+    if (this->charge_current_limit_sensor_) add_limit_reg(HMI_REG_CHARGE_CURRENT_LIMIT_DA);
+    if (this->discharge_current_limit_sensor_) add_limit_reg(HMI_REG_DISCHARGE_CURRENT_LIMIT_DA);
+    if (this->temp_charge_current_limit_sensor_) add_limit_reg(HMI_REG_TEMP_CHARGE_CURRENT_LIMIT_DA);
+    if (this->temp_discharge_current_limit_sensor_) add_limit_reg(HMI_REG_TEMP_DISCHARGE_CURRENT_LIMIT_DA);
+    if (this->cell_voltage_charge_current_limit_sensor_) add_limit_reg(HMI_REG_CELL_VOLTAGE_CHARGE_CURRENT_LIMIT_DA);
+    if (this->cell_voltage_discharge_current_limit_sensor_) add_limit_reg(HMI_REG_CELL_VOLTAGE_DISCHARGE_CURRENT_LIMIT_DA);
+    if (this->working_charge_current_limit_sensor_) add_limit_reg(HMI_REG_WORKING_CHARGE_CURRENT_LIMIT_DA);
+    if (this->working_discharge_current_limit_sensor_) add_limit_reg(HMI_REG_WORKING_DISCHARGE_CURRENT_LIMIT_DA);
+    if (this->delta_charge_current_limit_sensor_) add_limit_reg(HMI_REG_DELTA_CHARGE_CURRENT_LIMIT_DA);
+    if (this->hard_charge_current_limit_sensor_ || this->max_charge_current_number_) {
+      add_limit_reg(HMI_REG_HARD_CHARGE_CURRENT_LIMIT_DA);
+    }
+    if (this->hard_discharge_current_limit_sensor_ || this->max_discharge_current_number_) {
+      add_limit_reg(HMI_REG_HARD_DISCHARGE_CURRENT_LIMIT_DA);
+    }
+
+    if (limit_payload.size() > 2) {
+      this->send_packet_(limit_payload);
+    }
+  }
+
+  // 3. Read Module Temperatures (Tick 1) in a dedicated request.
   // Module temps are now float payloads, so keeping them separate avoids
   // response truncation when the slot-0 slow poll is large.
   if (slot == 1 && !this->module_temperature_sensors_.empty()) {
@@ -174,7 +216,7 @@ void HMIBMS::update() {
     }
   }
 
-  // 3. Read Cell Voltages (Tick 2)
+  // 4. Read Cell Voltages (Tick 2)
   if (slot == 2 && !this->cell_voltage_sensors_.empty()) {
     ESP_LOGV(TAG, "Polling cell voltages (slot 2). Sensors: %zu", this->cell_voltage_sensors_.size());
     std::vector<uint8_t> cv_payload;
@@ -183,7 +225,7 @@ void HMIBMS::update() {
     this->send_packet_(cv_payload);
   }
 
-  // 4. Read Events (Tick 5)
+  // 5. Read Events (Tick 5)
   if (slot == 5) {
     std::vector<uint8_t> event_payload;
     event_payload.push_back(HMI_MSG_READ_EVENTS);
@@ -193,15 +235,16 @@ void HMIBMS::update() {
     this->send_packet_(event_payload);
   }
 
-  // 5. Read Balancing Times (Tick 7)
-  if (slot == 7 && this->balancing_cells_text_sensor_) {
+  // 6. Read Balancing Times (Tick 7)
+  if (slot == 7 && (this->cells_balancing_text_sensor_ || this->cells_balancing_active_text_sensor_ ||
+                    !this->balancing_time_sensors_.empty())) {
     std::vector<uint8_t> bal_payload;
     bal_payload.push_back(HMI_MSG_READ_BALANCING_TIMES);
     bal_payload.push_back(this->address_);
     this->send_packet_(bal_payload);
   }
 
-  // 6. Read Log (Tick 9) - Poll for new log messages
+  // 7. Read Log (Tick 9) - Poll for new log messages
   //    Send 2 requests back-to-back to double throughput (each response carries up to 256 bytes,
   //    so 2 requests can drain up to 512 bytes per round-trip instead of 256).
   //    Flow control uses log_busy_ which clears when a non-full response arrives (<240 bytes),
@@ -354,13 +397,40 @@ void HMIBMSNumber::control(float value) {
     this->parent_->update();
     return;
   }
+
+  // Enforce user current limits against hard limits when available.
+  float out_value = value;
+  bool clamped_to_hard_limit = false;
+  if (this->reg_id_ == HMI_REG_USER_CHARGE_CURRENT_LIMIT_DA &&
+      this->parent_->has_hard_charge_current_limit()) {
+    const float hard_limit = this->parent_->get_hard_charge_current_limit_a();
+    if (!std::isnan(hard_limit) && out_value > hard_limit) {
+      out_value = hard_limit;
+      clamped_to_hard_limit = true;
+    }
+  } else if (this->reg_id_ == HMI_REG_USER_DISCHARGE_CURRENT_LIMIT_DA &&
+             this->parent_->has_hard_discharge_current_limit()) {
+    const float hard_limit = this->parent_->get_hard_discharge_current_limit_a();
+    if (!std::isnan(hard_limit) && out_value > hard_limit) {
+      out_value = hard_limit;
+      clamped_to_hard_limit = true;
+    }
+  }
+
   // SOC setpoint is intended as a command-style input.
   // Keep the entered value visible here; live SOC remains on the SOC sensor.
   if (this->reg_id_ == HMI_REG_SOC) {
-    this->publish_state(value);
+    this->publish_state(out_value);
+  } else if (clamped_to_hard_limit) {
+    // Reflect the clamped number immediately in HA controls.
+    this->publish_state(out_value);
   }
-  this->parent_->write_register(this->reg_id_, this->type_, value, this->scale_);
-  this->parent_->publish_settings_status_temporary("Settings applied", 3000);
+  this->parent_->write_register(this->reg_id_, this->type_, out_value, this->scale_);
+  if (clamped_to_hard_limit) {
+    this->parent_->publish_settings_status_temporary("Clamped to hard limit", 5000);
+  } else {
+    this->parent_->publish_settings_status_temporary("Settings applied", 3000);
+  }
 }
 
 void HMIBMSLogSwitch::write_state(bool state) {
@@ -604,6 +674,9 @@ void HMIBMS::handle_read_registers_response_(const uint8_t *data, size_t length)
   float t_max = NAN;
   float v_min = NAN;
   float v_max = NAN;
+  auto decode_current_limit_a = [](uint16_t raw) -> float {
+    return (float) raw * 0.1f;
+  };
 
   while (offset + 3 <= length) {
     uint16_t reg_id = data[offset] | (data[offset + 1] << 8);
@@ -711,6 +784,17 @@ void HMIBMS::handle_read_registers_response_(const uint8_t *data, size_t length)
     } else if (reg_id == HMI_REG_SUPPLY_VOLTAGE_CTR && this->supply_voltage_contactor_mV_sensor_ != nullptr) {
       uint16_t val = v[0] | (v[1] << 8);
       this->publish_queue_.push_back({this->supply_voltage_contactor_mV_sensor_, (float)val});
+    } else if ((reg_id == HMI_REG_ISOLATION_POS_RAW || reg_id == HMI_REG_ISOLATION_NEG_RAW ||
+                reg_id == HMI_REG_ISOLATION_RESISTANCE) && reg_type == HMI_TYPE_FLOAT) {
+      uint32_t raw = (uint32_t)v[0] | ((uint32_t)v[1] << 8) | ((uint32_t)v[2] << 16) | ((uint32_t)v[3] << 24);
+      union {
+        uint32_t u;
+        float f;
+      } conv{raw};
+      sensor::Sensor *s = reg_id == HMI_REG_ISOLATION_POS_RAW   ? this->isolation_pos_raw_sensor_
+                          : reg_id == HMI_REG_ISOLATION_NEG_RAW ? this->isolation_neg_raw_sensor_
+                                                                : this->isolation_resistance_sensor_;
+      if (s != nullptr) this->publish_queue_.push_back({s, conv.f});
     } else if (reg_id == HMI_REG_INVERTER_SOC && this->inverter_soc_sensor_ != nullptr) {
       int16_t val = (int16_t)(v[0] | (v[1] << 8));
       this->publish_queue_.push_back({this->inverter_soc_sensor_, (float)val * 0.01f});
@@ -762,18 +846,85 @@ void HMIBMS::handle_read_registers_response_(const uint8_t *data, size_t length)
     } else if (reg_id == HMI_REG_MINIMUM_BALANCING_VOLTAGE_MV && this->minimum_balancing_voltage_mV_number_ != nullptr) {
       uint16_t val = v[0] | (v[1] << 8);
       this->minimum_balancing_voltage_mV_number_->publish_from_bus((float)val);
-    } else if (reg_id == HMI_REG_MAX_CHARGE_CURRENT && this->max_charge_current_number_ != nullptr) {
-      int32_t val = (int32_t)((uint32_t)v[0] | ((uint32_t)v[1] << 8) | ((uint32_t)v[2] << 16) | ((uint32_t)v[3] << 24));
-      this->max_charge_current_number_->publish_from_bus((float)val);
-    } else if (reg_id == HMI_REG_MAX_DISCHARGE_CURRENT && this->max_discharge_current_number_ != nullptr) {
-      int32_t val = (int32_t)((uint32_t)v[0] | ((uint32_t)v[1] << 8) | ((uint32_t)v[2] << 16) | ((uint32_t)v[3] << 24));
-      this->max_discharge_current_number_->publish_from_bus((float)val);
-    } else if (reg_id == HMI_REG_ADC_SAMPLE_COUNT && this->adc_sample_count_sensor_ != nullptr) {
+    } else if (reg_id == HMI_REG_BALANCING_START_VOLTAGE_MV && this->balancing_start_voltage_mV_number_ != nullptr) {
       uint16_t val = v[0] | (v[1] << 8);
-      this->publish_queue_.push_back({this->adc_sample_count_sensor_, (float)val});
-    } else if (reg_id == HMI_REG_LOOP_FREQUENCY_HZ && this->loop_frequency_hz_sensor_ != nullptr) {
+      this->balancing_start_voltage_mV_number_->publish_from_bus((float)val);
+    } else if (reg_id == HMI_REG_USER_CHARGE_CURRENT_LIMIT_DA && this->max_charge_current_number_ != nullptr) {
       uint16_t val = v[0] | (v[1] << 8);
-      this->publish_queue_.push_back({this->loop_frequency_hz_sensor_, (float)val});
+      float out = decode_current_limit_a(val);
+      // Keep all readbacks numeric. For user "no limit" sentinel, prefer hard limit if known.
+      if (val == 0xFFFF && this->has_last_hard_charge_current_limit_) {
+        out = this->last_hard_charge_current_limit_a_;
+      }
+      this->max_charge_current_number_->publish_from_bus(out);
+    } else if (reg_id == HMI_REG_USER_DISCHARGE_CURRENT_LIMIT_DA && this->max_discharge_current_number_ != nullptr) {
+      uint16_t val = v[0] | (v[1] << 8);
+      float out = decode_current_limit_a(val);
+      if (val == 0xFFFF && this->has_last_hard_discharge_current_limit_) {
+        out = this->last_hard_discharge_current_limit_a_;
+      }
+      this->max_discharge_current_number_->publish_from_bus(out);
+    } else if (reg_id == HMI_REG_CHARGE_CURRENT_LIMIT_DA && this->charge_current_limit_sensor_ != nullptr) {
+      uint16_t val = v[0] | (v[1] << 8);
+      this->publish_queue_.push_back({this->charge_current_limit_sensor_, decode_current_limit_a(val)});
+    } else if (reg_id == HMI_REG_DISCHARGE_CURRENT_LIMIT_DA && this->discharge_current_limit_sensor_ != nullptr) {
+      uint16_t val = v[0] | (v[1] << 8);
+      this->publish_queue_.push_back({this->discharge_current_limit_sensor_, decode_current_limit_a(val)});
+    } else if (reg_id == HMI_REG_TEMP_CHARGE_CURRENT_LIMIT_DA && this->temp_charge_current_limit_sensor_ != nullptr) {
+      uint16_t val = v[0] | (v[1] << 8);
+      this->publish_queue_.push_back({this->temp_charge_current_limit_sensor_, decode_current_limit_a(val)});
+    } else if (reg_id == HMI_REG_TEMP_DISCHARGE_CURRENT_LIMIT_DA && this->temp_discharge_current_limit_sensor_ != nullptr) {
+      uint16_t val = v[0] | (v[1] << 8);
+      this->publish_queue_.push_back({this->temp_discharge_current_limit_sensor_, decode_current_limit_a(val)});
+    } else if (reg_id == HMI_REG_CELL_VOLTAGE_CHARGE_CURRENT_LIMIT_DA && this->cell_voltage_charge_current_limit_sensor_ != nullptr) {
+      uint16_t val = v[0] | (v[1] << 8);
+      this->publish_queue_.push_back({this->cell_voltage_charge_current_limit_sensor_, decode_current_limit_a(val)});
+    } else if (reg_id == HMI_REG_CELL_VOLTAGE_DISCHARGE_CURRENT_LIMIT_DA && this->cell_voltage_discharge_current_limit_sensor_ != nullptr) {
+      uint16_t val = v[0] | (v[1] << 8);
+      this->publish_queue_.push_back({this->cell_voltage_discharge_current_limit_sensor_, decode_current_limit_a(val)});
+    } else if (reg_id == HMI_REG_WORKING_CHARGE_CURRENT_LIMIT_DA && this->working_charge_current_limit_sensor_ != nullptr) {
+      uint16_t val = v[0] | (v[1] << 8);
+      this->publish_queue_.push_back({this->working_charge_current_limit_sensor_, decode_current_limit_a(val)});
+    } else if (reg_id == HMI_REG_WORKING_DISCHARGE_CURRENT_LIMIT_DA && this->working_discharge_current_limit_sensor_ != nullptr) {
+      uint16_t val = v[0] | (v[1] << 8);
+      this->publish_queue_.push_back({this->working_discharge_current_limit_sensor_, decode_current_limit_a(val)});
+    } else if (reg_id == HMI_REG_DELTA_CHARGE_CURRENT_LIMIT_DA && this->delta_charge_current_limit_sensor_ != nullptr) {
+      uint16_t val = v[0] | (v[1] << 8);
+      this->publish_queue_.push_back({this->delta_charge_current_limit_sensor_, decode_current_limit_a(val)});
+    } else if (reg_id == HMI_REG_HARD_CHARGE_CURRENT_LIMIT_DA && this->hard_charge_current_limit_sensor_ != nullptr) {
+      uint16_t val = v[0] | (v[1] << 8);
+      float out = decode_current_limit_a(val);
+      this->last_hard_charge_current_limit_a_ = out;
+      this->has_last_hard_charge_current_limit_ = true;
+      if (this->max_charge_current_number_ != nullptr) {
+        this->max_charge_current_number_->traits.set_max_value(out);
+      }
+      this->publish_queue_.push_back({this->hard_charge_current_limit_sensor_, out});
+    } else if (reg_id == HMI_REG_HARD_DISCHARGE_CURRENT_LIMIT_DA && this->hard_discharge_current_limit_sensor_ != nullptr) {
+      uint16_t val = v[0] | (v[1] << 8);
+      float out = decode_current_limit_a(val);
+      this->last_hard_discharge_current_limit_a_ = out;
+      this->has_last_hard_discharge_current_limit_ = true;
+      if (this->max_discharge_current_number_ != nullptr) {
+        this->max_discharge_current_number_->traits.set_max_value(out);
+      }
+      this->publish_queue_.push_back({this->hard_discharge_current_limit_sensor_, out});
+    } else if (reg_id == HMI_REG_HARD_CHARGE_CURRENT_LIMIT_DA) {
+      uint16_t val = v[0] | (v[1] << 8);
+      float out = decode_current_limit_a(val);
+      this->last_hard_charge_current_limit_a_ = out;
+      this->has_last_hard_charge_current_limit_ = true;
+      if (this->max_charge_current_number_ != nullptr) {
+        this->max_charge_current_number_->traits.set_max_value(out);
+      }
+    } else if (reg_id == HMI_REG_HARD_DISCHARGE_CURRENT_LIMIT_DA) {
+      uint16_t val = v[0] | (v[1] << 8);
+      float out = decode_current_limit_a(val);
+      this->last_hard_discharge_current_limit_a_ = out;
+      this->has_last_hard_discharge_current_limit_ = true;
+      if (this->max_discharge_current_number_ != nullptr) {
+        this->max_discharge_current_number_->traits.set_max_value(out);
+      }
     } else if (reg_id >= HMI_REG_MODULE_TEMPS_START && reg_id <= HMI_REG_MODULE_TEMPS_END) {
       uint16_t idx = reg_id - HMI_REG_MODULE_TEMPS_START;
       if (idx < this->module_temperature_sensors_.size() && this->module_temperature_sensors_[idx] != nullptr) {
@@ -833,6 +984,7 @@ void HMIBMS::handle_read_cell_voltages_response_(const uint8_t *data, size_t len
   size_t offset = 3;
   int16_t last_cell_voltage = 0;
   uint16_t cells_found = 0;
+  uint16_t nonzero_cells = 0;
   
   for (int i = 0; i < num_cells && offset < length; i++) {
     int16_t cell_voltage;
@@ -868,7 +1020,18 @@ void HMIBMS::handle_read_cell_voltages_response_(const uint8_t *data, size_t len
         cells_found++;
       }
     }
+    if (cell_voltage > 0) {
+      nonzero_cells++;
+    }
     last_cell_voltage = cell_voltage;
+  }
+
+  // Publish only the number of parsed cells with non-zero voltage.
+  // No fallbacks to header or configured count.
+  if (this->cell_count_sensor_ != nullptr) {
+    this->publish_queue_.push_back({this->cell_count_sensor_, (float)nonzero_cells});
+    ESP_LOGD(TAG, "Cell count nonzero=%u (header=%u valid=%u)",
+             nonzero_cells, num_cells, cells_found);
   }
   ESP_LOGD(TAG, "Read %u cell voltages from 0x%02X (queued)", cells_found, address);
 }
@@ -879,21 +1042,61 @@ void HMIBMS::handle_read_balancing_times_response_(const uint8_t *data, size_t l
   uint8_t num_cells = data[2];
   
   size_t offset = 3;
-  int16_t last_time = 0;
-  std::string active_cells = "";
+  int32_t last_time = 0;
+  std::string cells_balancing = "";
+  std::string cells_balancing_active = "";
+  const uint32_t now_ms = millis();
+  const uint32_t active_window_ms = 5000;
+  if (this->balancing_time_prev_.size() < (size_t) num_cells) {
+    this->balancing_time_prev_.resize(num_cells, 0);
+  }
+  if (this->balancing_active_until_ms_.size() < (size_t) num_cells) {
+    this->balancing_active_until_ms_.resize(num_cells, 0);
+  }
+
+  int balancing_run_start = -1;
+  int balancing_run_end = -1;
+  auto flush_balancing_run = [&]() {
+    if (balancing_run_start < 0) return;
+    if (!cells_balancing.empty()) {
+      cells_balancing += ",";
+    }
+    if (balancing_run_start == balancing_run_end) {
+      cells_balancing += std::to_string(balancing_run_start + 1);
+    } else {
+      cells_balancing += std::to_string(balancing_run_start + 1);
+      cells_balancing += "-";
+      cells_balancing += std::to_string(balancing_run_end + 1);
+    }
+    balancing_run_start = -1;
+    balancing_run_end = -1;
+  };
+
+  int active_run_start = -1;
+  int active_run_end = -1;
+  auto flush_active_run = [&]() {
+    if (active_run_start < 0) return;
+    if (!cells_balancing_active.empty()) {
+      cells_balancing_active += ",";
+    }
+    if (active_run_start == active_run_end) {
+      cells_balancing_active += std::to_string(active_run_start + 1);
+    } else {
+      cells_balancing_active += std::to_string(active_run_start + 1);
+      cells_balancing_active += "-";
+      cells_balancing_active += std::to_string(active_run_end + 1);
+    }
+    active_run_start = -1;
+    active_run_end = -1;
+  };
   
   for (int i = 0; i < num_cells && offset < length; i++) {
-    int16_t time_val;
+    int32_t time_val;
     if (data[offset] & 0x80) {
-      // Absolute value (2 bytes, big-endian)
+      // Absolute value (2 bytes, big-endian), encoded as 15-bit unsigned.
       if (offset + 1 >= length) break;
       uint16_t val = (((uint16_t)data[offset] & 0x7F) << 8) | data[offset + 1];
-      // Sign extend 15-bit to 16-bit
-      if (val & 0x4000) {
-        time_val = (int16_t)(val | 0x8000);
-      } else {
-        time_val = (int16_t)val;
-      }
+      time_val = (int32_t) val;
       offset += 2;
     } else {
       // Delta value (1 byte, signed 7-bit)
@@ -907,24 +1110,84 @@ void HMIBMS::handle_read_balancing_times_response_(const uint8_t *data, size_t l
       time_val = last_time + delta;
       offset += 1;
     }
+
+    // Balancing-time counters are non-negative.
+    if (time_val < 0) {
+      time_val = 0;
+    }
     
     last_time = time_val;
 
-    if (time_val > 0) {
-      if (!active_cells.empty()) {
-        active_cells += ", ";
+    if (i < this->balancing_time_sensors_.size() && this->balancing_time_sensors_[i] != nullptr) {
+      this->publish_queue_.push_back({this->balancing_time_sensors_[i], (float) time_val});
+    }
+
+    int32_t prev_time_val = 0;
+    if (i < (int) this->balancing_time_prev_.size()) {
+      prev_time_val = this->balancing_time_prev_[i];
+      this->balancing_time_prev_[i] = time_val;
+    }
+
+    if (time_val <= 0) {
+      if (i < (int) this->balancing_active_until_ms_.size()) {
+        this->balancing_active_until_ms_[i] = 0;
       }
-      active_cells += std::to_string(i + 1);
+    } else if (prev_time_val > time_val) {
+      if (i < (int) this->balancing_active_until_ms_.size()) {
+        this->balancing_active_until_ms_[i] = now_ms + active_window_ms;
+      }
+    }
+    const bool is_active_now = i < (int) this->balancing_active_until_ms_.size() &&
+                               this->balancing_active_until_ms_[i] > now_ms;
+
+    if (time_val > 0) {
+      if (balancing_run_start < 0) {
+        balancing_run_start = i;
+        balancing_run_end = i;
+      } else if (i == balancing_run_end + 1) {
+        balancing_run_end = i;
+      } else {
+        flush_balancing_run();
+        balancing_run_start = i;
+        balancing_run_end = i;
+      }
+    } else if (balancing_run_start >= 0) {
+      flush_balancing_run();
+    }
+
+    if (is_active_now) {
+      if (active_run_start < 0) {
+        active_run_start = i;
+        active_run_end = i;
+      } else if (i == active_run_end + 1) {
+        active_run_end = i;
+      } else {
+        flush_active_run();
+        active_run_start = i;
+        active_run_end = i;
+      }
+    } else if (active_run_start >= 0) {
+      flush_active_run();
     }
   }
+  flush_balancing_run();
+  flush_active_run();
 
-  if (active_cells.empty()) {
-    active_cells = "None";
+  if (cells_balancing.empty()) {
+    cells_balancing = "None";
+  }
+  if (cells_balancing_active.empty()) {
+    cells_balancing_active = "None";
   }
 
-  ESP_LOGD(TAG, "Balancing cells: %s", active_cells.c_str());
-  if (this->balancing_cells_text_sensor_) {
-    this->balancing_cells_text_sensor_->publish_state(active_cells);
+  ESP_LOGD(TAG, "Balancing cells (time > 0): %s", cells_balancing.c_str());
+  ESP_LOGD(TAG, "Balancing active cells (decrementing): %s", cells_balancing_active.c_str());
+
+  if (this->cells_balancing_text_sensor_) {
+    this->cells_balancing_text_sensor_->publish_state(cells_balancing);
+  }
+  if (this->cells_balancing_active_text_sensor_) {
+    this->cells_balancing_active_text_sensor_->publish_state(cells_balancing_active);
   }
 }
 
@@ -1041,11 +1304,10 @@ void HMIBMS::handle_read_events_response_(const uint8_t *data, size_t length) {
   uint16_t highest_level = 0;
   uint16_t latest_event_type = 0xFFFF;
   int latest_event_level = 0;
+  uint16_t latest_event_count = 0;
   std::string latest_event_type_str = "UNKNOWN";
   std::string history = "";
   std::map<int, std::vector<std::string>> categorized_events;
-  uint32_t now_millis = millis();
-  
   // Track which error sensors we've updated in this loop
   std::vector<bool> error_updated(this->error_sensors_.size(), false);
 
@@ -1054,8 +1316,8 @@ void HMIBMS::handle_read_events_response_(const uint8_t *data, size_t length) {
     uint16_t level = data[offset + 2] | (data[offset + 3] << 8);
     uint16_t event_count = data[offset + 4] | (data[offset + 5] << 8);
     
-    // Override: Inverter Detected (Type 43) is always Info level
-    if (type == 43) {
+    // Override: Inverter Detected (Type 45) is always Info level
+    if (type == 45) {
       level = 1; // INFO
     }
     
@@ -1066,13 +1328,17 @@ void HMIBMS::handle_read_events_response_(const uint8_t *data, size_t length) {
     snprintf(state_buf, sizeof(state_buf), "%s (%u)", level_str, event_count);
 
     if (type < this->error_sensors_.size() && this->error_sensors_[type] != nullptr) {
-      this->error_sensors_[type]->publish_state(state_buf);
+      auto *error_sensor = this->error_sensors_[type];
+      if (!error_sensor->has_state() || error_sensor->state != state_buf) {
+        error_sensor->publish_state(state_buf);
+      }
       error_updated[type] = true;
     }
 
     if (i == 0) {
       latest_event_type = type;
       latest_event_level = level;
+      latest_event_count = event_count;
       latest_event_type_str = type_str;
     }
     
@@ -1099,9 +1365,10 @@ void HMIBMS::handle_read_events_response_(const uint8_t *data, size_t length) {
   // we likely fit most active errors in one packet.
   for (size_t i = 0; i < this->error_sensors_.size(); i++) {
     if (this->error_sensors_[i] != nullptr && !error_updated[i]) {
-      // Only update if it wasn't already "NONE" to save bandwidth? 
-      // TextSensor handles deduplication, so just publish.
-      this->error_sensors_[i]->publish_state("INACTIVE");
+      auto *error_sensor = this->error_sensors_[i];
+      if (!error_sensor->has_state() || error_sensor->state != "INACTIVE") {
+        error_sensor->publish_state("INACTIVE");
+      }
     }
   }
 
@@ -1146,10 +1413,13 @@ void HMIBMS::handle_read_events_response_(const uint8_t *data, size_t length) {
   
   this->last_event_code_ = (latest_event_type == 0xFFFF) ? -1 : latest_event_type;
   this->last_event_level_ = latest_event_level;
+  this->last_event_count_ = (latest_event_type == 0xFFFF) ? 0 : latest_event_count;
   this->last_event_type_str_ = latest_event_type_str;
 
   if (this->event_history_text_sensor_ && !history.empty()) {
-    this->event_history_text_sensor_->publish_state(history);
+    if (!this->event_history_text_sensor_->has_state() || this->event_history_text_sensor_->state != history) {
+      this->event_history_text_sensor_->publish_state(history);
+    }
   }
 }
 

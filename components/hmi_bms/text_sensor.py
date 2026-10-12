@@ -7,7 +7,8 @@ from . import HMIBMS
 
 CONF_SERIAL = "serial"
 CONF_EVENT_HISTORY = "event_history"
-CONF_BALANCING_CELLS = "balancing_cells"
+CONF_CELLS_BALANCING = "cells_balancing"
+CONF_CELLS_BALANCING_ACTIVE = "cells_balancing_active"
 CONF_SETTINGS_WRITE_STATUS = "settings_write_status"
 CONF_LOG = "log"
 CONF_LOG_LINES = "log_lines"
@@ -57,19 +58,24 @@ EVENT_TYPES = [
     "VOLTAGE_MISMATCH",
     "BMB_READ_ERROR",
     "BMB_CRC_MISMATCH",
+    "CELL_VOLTAGE_GLITCH",
+    "MODULE_TEMPERATURE_GLITCH",
     "INVERTER_DETECTED",
     "ESTOP_PRESSED",
     "BOOT_NORMAL",
     "BOOT_WATCHDOG",
     "LOOP_OVERRUN",
-    "RESTARTING"
+    "RESTARTING",
+    "LINK_VOLTAGE_MISMATCH",
+    "FUSE_VOLTAGE_DROP_HIGH"
 ]
 
 CONFIG_SCHEMA = cv.Schema({
     cv.GenerateID(): cv.use_id(HMIBMS),
     cv.Optional(CONF_SERIAL): text_sensor.text_sensor_schema(),
     cv.Optional(CONF_EVENT_HISTORY): text_sensor.text_sensor_schema(),
-    cv.Optional(CONF_BALANCING_CELLS): text_sensor.text_sensor_schema(),
+    cv.Optional(CONF_CELLS_BALANCING): text_sensor.text_sensor_schema(),
+    cv.Optional(CONF_CELLS_BALANCING_ACTIVE): text_sensor.text_sensor_schema(),
     cv.Optional(CONF_SETTINGS_WRITE_STATUS): text_sensor.text_sensor_schema(),
     cv.Optional(CONF_LOG): text_sensor.text_sensor_schema(),
     cv.Optional(CONF_LOG_LINES): cv.ensure_list(text_sensor.text_sensor_schema()),
@@ -92,9 +98,12 @@ async def to_code(config):
     if CONF_EVENT_HISTORY in config:
         sens = await text_sensor.new_text_sensor(config[CONF_EVENT_HISTORY])
         cg.add(parent.set_event_history_text_sensor(sens))
-    if CONF_BALANCING_CELLS in config:
-        sens = await text_sensor.new_text_sensor(config[CONF_BALANCING_CELLS])
-        cg.add(parent.set_balancing_cells_text_sensor(sens))
+    if CONF_CELLS_BALANCING in config:
+        sens = await text_sensor.new_text_sensor(config[CONF_CELLS_BALANCING])
+        cg.add(parent.set_cells_balancing_text_sensor(sens))
+    if CONF_CELLS_BALANCING_ACTIVE in config:
+        sens = await text_sensor.new_text_sensor(config[CONF_CELLS_BALANCING_ACTIVE])
+        cg.add(parent.set_cells_balancing_active_text_sensor(sens))
     if CONF_SETTINGS_WRITE_STATUS in config:
         sens = await text_sensor.new_text_sensor(config[CONF_SETTINGS_WRITE_STATUS])
         cg.add(parent.set_settings_status_text_sensor(sens))

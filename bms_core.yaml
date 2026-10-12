@@ -16,7 +16,7 @@ time:
     id: homeassistant_time
 
 hmi_bms:
-  id: bms_hub
+  id: hub
   uart_id: uart_bus
   update_interval: 100ms
   bypass_crc: true
@@ -25,8 +25,8 @@ hmi_bms:
 
 sensor:
   - platform: uptime
-    id: uptime_sec
-    name: "HMI Uptime"
+    id: uptime_hmi_sec
+    name: "Uptime HMI"
     update_interval: 5s
 
   - platform: internal_temperature
@@ -42,129 +42,176 @@ sensor:
 
   - platform: hmi_bms
     soc_voltage_based:
-      id: bms_soc_voltage_based
-      name: "BMS SOC Voltage Based"
+      id: soc_voltage_based
+      name: "SOC Voltage Based"
       unit_of_measurement: "%"
       device_class: battery
     soc_basic_count:
-      id: bms_soc_basic_count
-      name: "BMS SOC Basic Count"
+      id: soc_basic_count
+      name: "SOC Basic Count"
       unit_of_measurement: "%"
       device_class: battery
     current_mA:
-      id: bms_current_mA
-      name: "BMS Current"
+      id: current_mA
+      name: "Current"
       unit_of_measurement: "A"
       filters:
         - multiply: 0.001
     charge_raw:
-      id: bms_charge_raw
-      name: "BMS Charge Raw"
+      id: charge_raw
+      name: "Charge Raw"
       unit_of_measurement: "Ah"
     battery_voltage_mV:
-      id: bms_voltage_mV
-      name: "Pack Voltage"
+      id: voltage_mV
+      name: "Pack Internal Voltage"
       unit_of_measurement: "V"
       filters:
         - multiply: 0.001
     output_voltage_mV:
-      id: bms_output_voltage_mV
-      name: "BMS Output Voltage"
+      id: output_voltage_mV
+      name: "Pack Output Voltage"
       unit_of_measurement: "V"
       filters:
         - multiply: 0.001
     capacity_mC:
-      id: bms_capacity_mC
-      name: "BMS Capacity"
+      id: capacity_mC
+      name: "Capacity"
       unit_of_measurement: "Ah"
     temperature_min_dC:
-      id: bms_temp_min
-      name: "BMS Temp Min"
+      id: module_temperature_min
+      name: "Module Temperature Min"
       unit_of_measurement: "°C"
     temperature_max_dC:
-      id: bms_temp_max
-      name: "BMS Temp Max"
+      id: module_temperature_max
+      name: "Module Temperature Max"
       unit_of_measurement: "°C"
     cell_voltage_min_mV:
-      id: bms_cell_min
-      name: "BMS Cell Min"
+      id: cell_min
+      name: "Cell Voltage Min"
       unit_of_measurement: "V"
       filters:
         - multiply: 0.001
     cell_voltage_max_mV:
-      id: bms_cell_max
-      name: "BMS Cell Max"
+      id: cell_max
+      name: "Cell Voltage Max"
       unit_of_measurement: "V"
       filters:
         - multiply: 0.001
     millis:
-      id: bms_millis
-      name: "BMS Millis"
+      id: millis_value
+      name: "Millis"
     system_sm:
-      id: bms_system_state
-      name: "BMS System State"
+      id: system_state
+      name: "System State"
     system_request:
-      id: bms_system_req
-      name: "BMS System Request"
+      id: system_req
+      name: "System Request"
     contactor_sm:
-      id: bms_contactor_state
-      name: "BMS Contactor State"
+      id: contactor_state
+      name: "Contactor State"
     pos_contactor_voltage_mV:
-      name: "BMS Contactor Voltage Positive"
+      id: pos_contactor_voltage
+      name: "Contactor Voltage Positive"
       unit_of_measurement: "V"
       filters: [multiply: 0.001]
     neg_contactor_voltage_mV:
-      name: "BMS Contactor Voltage Negative"
+      id: neg_contactor_voltage
+      name: "Contactor Voltage Negative"
       unit_of_measurement: "V"
       filters: [multiply: 0.001]
     supply_voltage_3V3_mV:
-      name: "BMS Supply 3V3"
+      id: supply_3v3
+      name: "Supply Voltage 3V3"
       unit_of_measurement: "V"
       filters: [multiply: 0.001]
     supply_voltage_5V_mV:
-      name: "BMS Supply 5V"
+      id: supply_5v
+      name: "Supply Voltage 5V"
       unit_of_measurement: "V"
       filters: [multiply: 0.001]
     supply_voltage_12V_mV:
-      name: "BMS Supply 12V"
+      id: supply_12v
+      name: "Supply Voltage 12V"
       unit_of_measurement: "V"
       filters: [multiply: 0.001]
     supply_voltage_contactor_mV:
-      name: "BMS Supply Contactor"
+      id: supply_ctr
+      name: "Supply Voltage Contactor"
       unit_of_measurement: "V"
       filters: [multiply: 0.001]
+    # Isolation monitor (needs BMS firmware with HMI registers 60-62). The raw ADC counts are
+    # valid on every board; the resistance uses a fixed calibration that only fits some boards.
+    isolation_pos_raw:
+      name: "Isolation Pos Raw"
+    isolation_neg_raw:
+      name: "Isolation Neg Raw"
+    isolation_resistance:
+      name: "Isolation Resistance"
+      unit_of_measurement: "MΩ"
+      accuracy_decimals: 2
+      filters: [multiply: 0.000001]
     cell_voltage_delta:
-      id: bms_cell_delta
-      name: "BMS Cell Delta"
+      id: cell_delta
+      name: "Cell Voltage Delta"
       unit_of_measurement: "V"
       filters: [multiply: 0.001]
-    adc_sample_count:
-      id: bms_adc_samples
-      name: "BMS ADC Sample Count"
-    loop_frequency_hz:
-      id: bms_loop_freq
-      name: "BMS Loop Frequency"
+    cell_count:
+      id: cell_count
+      name: "Cell Count"
+    charge_current_limit:
+      id: charge_current_limit
+      name: "Current Limit Effective Charge"
+    discharge_current_limit:
+      id: discharge_current_limit
+      name: "Current Limit Effective Discharge"
+    temp_charge_current_limit:
+      id: temp_charge_current_limit
+      name: "Current Limit Temperature Charge"
+    temp_discharge_current_limit:
+      id: temp_discharge_current_limit
+      name: "Current Limit Temperature Discharge"
+    cell_voltage_charge_current_limit:
+      id: cell_voltage_charge_current_limit
+      name: "Current Limit Cell Voltage Charge"
+    cell_voltage_discharge_current_limit:
+      id: cell_voltage_discharge_current_limit
+      name: "Current Limit Cell Voltage Discharge"
+    working_charge_current_limit:
+      id: working_charge_current_limit
+      name: "Current Limit Working Charge"
+    working_discharge_current_limit:
+      id: working_discharge_current_limit
+      name: "Current Limit Working Discharge"
+    delta_charge_current_limit:
+      id: delta_charge_current_limit
+      name: "Current Limit Delta Charge"
+    hard_charge_current_limit:
+      id: hard_charge_current_limit
+      name: "Current Limit Hard Charge"
+    hard_discharge_current_limit:
+      id: hard_discharge_current_limit
+      name: "Current Limit Hard Discharge"
     inverter_soc:
-      id: bms_inverter_soc
+      id: inverter_can_soc
       name: "Inverter CAN SOC"
       unit_of_measurement: "%"
       device_class: battery
     inverter_full_capacity:
-      id: bms_inverter_full_cap
-      name: "Inverter CAN Full Capacity"
+      id: inverter_can_capacity_full
+      name: "Inverter CAN Capacity Full"
       unit_of_measurement: "Ah"
     inverter_remaining_capacity:
-      id: bms_inverter_rem_cap
-      name: "Inverter CAN Remaining Capacity"
+      id: inverter_can_capacity_remaining
+      name: "Inverter CAN Capacity Remaining"
       unit_of_measurement: "Ah"
     inverter_min_voltage_limit:
-      id: bms_inverter_min_v
-      name: "Inverter CAN Min Voltage Limit"
+      id: inverter_can_voltage_limit_min
+      name: "Inverter CAN Voltage Limit Min"
       unit_of_measurement: "V"
       device_class: voltage
     inverter_max_voltage_limit:
-      id: bms_inverter_max_v
-      name: "Inverter CAN Max Voltage Limit"
+      id: inverter_can_voltage_limit_max
+      name: "Inverter CAN Voltage Limit Max"
       unit_of_measurement: "V"
       device_class: voltage
     cell_voltages:
@@ -277,41 +324,255 @@ sensor:
       - name: "Cell Voltage 106"
       - name: "Cell Voltage 107"
       - name: "Cell Voltage 108"
+    balancing_times:
+      - name: "Cell Balancing Time 001"
+      - name: "Cell Balancing Time 002"
+      - name: "Cell Balancing Time 003"
+      - name: "Cell Balancing Time 004"
+      - name: "Cell Balancing Time 005"
+      - name: "Cell Balancing Time 006"
+      - name: "Cell Balancing Time 007"
+      - name: "Cell Balancing Time 008"
+      - name: "Cell Balancing Time 009"
+      - name: "Cell Balancing Time 010"
+      - name: "Cell Balancing Time 011"
+      - name: "Cell Balancing Time 012"
+      - name: "Cell Balancing Time 013"
+      - name: "Cell Balancing Time 014"
+      - name: "Cell Balancing Time 015"
+      - name: "Cell Balancing Time 016"
+      - name: "Cell Balancing Time 017"
+      - name: "Cell Balancing Time 018"
+      - name: "Cell Balancing Time 019"
+      - name: "Cell Balancing Time 020"
+      - name: "Cell Balancing Time 021"
+      - name: "Cell Balancing Time 022"
+      - name: "Cell Balancing Time 023"
+      - name: "Cell Balancing Time 024"
+      - name: "Cell Balancing Time 025"
+      - name: "Cell Balancing Time 026"
+      - name: "Cell Balancing Time 027"
+      - name: "Cell Balancing Time 028"
+      - name: "Cell Balancing Time 029"
+      - name: "Cell Balancing Time 030"
+      - name: "Cell Balancing Time 031"
+      - name: "Cell Balancing Time 032"
+      - name: "Cell Balancing Time 033"
+      - name: "Cell Balancing Time 034"
+      - name: "Cell Balancing Time 035"
+      - name: "Cell Balancing Time 036"
+      - name: "Cell Balancing Time 037"
+      - name: "Cell Balancing Time 038"
+      - name: "Cell Balancing Time 039"
+      - name: "Cell Balancing Time 040"
+      - name: "Cell Balancing Time 041"
+      - name: "Cell Balancing Time 042"
+      - name: "Cell Balancing Time 043"
+      - name: "Cell Balancing Time 044"
+      - name: "Cell Balancing Time 045"
+      - name: "Cell Balancing Time 046"
+      - name: "Cell Balancing Time 047"
+      - name: "Cell Balancing Time 048"
+      - name: "Cell Balancing Time 049"
+      - name: "Cell Balancing Time 050"
+      - name: "Cell Balancing Time 051"
+      - name: "Cell Balancing Time 052"
+      - name: "Cell Balancing Time 053"
+      - name: "Cell Balancing Time 054"
+      - name: "Cell Balancing Time 055"
+      - name: "Cell Balancing Time 056"
+      - name: "Cell Balancing Time 057"
+      - name: "Cell Balancing Time 058"
+      - name: "Cell Balancing Time 059"
+      - name: "Cell Balancing Time 060"
+      - name: "Cell Balancing Time 061"
+      - name: "Cell Balancing Time 062"
+      - name: "Cell Balancing Time 063"
+      - name: "Cell Balancing Time 064"
+      - name: "Cell Balancing Time 065"
+      - name: "Cell Balancing Time 066"
+      - name: "Cell Balancing Time 067"
+      - name: "Cell Balancing Time 068"
+      - name: "Cell Balancing Time 069"
+      - name: "Cell Balancing Time 070"
+      - name: "Cell Balancing Time 071"
+      - name: "Cell Balancing Time 072"
+      - name: "Cell Balancing Time 073"
+      - name: "Cell Balancing Time 074"
+      - name: "Cell Balancing Time 075"
+      - name: "Cell Balancing Time 076"
+      - name: "Cell Balancing Time 077"
+      - name: "Cell Balancing Time 078"
+      - name: "Cell Balancing Time 079"
+      - name: "Cell Balancing Time 080"
+      - name: "Cell Balancing Time 081"
+      - name: "Cell Balancing Time 082"
+      - name: "Cell Balancing Time 083"
+      - name: "Cell Balancing Time 084"
+      - name: "Cell Balancing Time 085"
+      - name: "Cell Balancing Time 086"
+      - name: "Cell Balancing Time 087"
+      - name: "Cell Balancing Time 088"
+      - name: "Cell Balancing Time 089"
+      - name: "Cell Balancing Time 090"
+      - name: "Cell Balancing Time 091"
+      - name: "Cell Balancing Time 092"
+      - name: "Cell Balancing Time 093"
+      - name: "Cell Balancing Time 094"
+      - name: "Cell Balancing Time 095"
+      - name: "Cell Balancing Time 096"
+      - name: "Cell Balancing Time 097"
+      - name: "Cell Balancing Time 098"
+      - name: "Cell Balancing Time 099"
+      - name: "Cell Balancing Time 100"
+      - name: "Cell Balancing Time 101"
+      - name: "Cell Balancing Time 102"
+      - name: "Cell Balancing Time 103"
+      - name: "Cell Balancing Time 104"
+      - name: "Cell Balancing Time 105"
+      - name: "Cell Balancing Time 106"
+      - name: "Cell Balancing Time 107"
+      - name: "Cell Balancing Time 108"
     module_temperatures:
-      - name: "BMS Module Temp 1"
-      - name: "BMS Module Temp 2"
-      - name: "BMS Module Temp 3"
-      - name: "BMS Module Temp 4"
-      - name: "BMS Module Temp 5"
-      - name: "BMS Module Temp 6"
-      - name: "BMS Module Temp 7"
-      - name: "BMS Module Temp 8"
+      - id: module_temperature_1
+        name: "Module Temperature 1"
+      - id: module_temperature_2
+        name: "Module Temperature 2"
+      - id: module_temperature_3
+        name: "Module Temperature 3"
+      - id: module_temperature_4
+        name: "Module Temperature 4"
+      - id: module_temperature_5
+        name: "Module Temperature 5"
+      - id: module_temperature_6
+        name: "Module Temperature 6"
+      - id: module_temperature_7
+        name: "Module Temperature 7"
+      - id: module_temperature_8
+        name: "Module Temperature 8"
+    raw_temperatures:
+      - id: raw_temp_0x208
+        name: "Raw Temp 0x208"
+      - id: raw_temp_0x209
+        name: "Raw Temp 0x209"
+      - id: raw_temp_0x20a
+        name: "Raw Temp 0x20A"
+      - id: raw_temp_0x20b
+        name: "Raw Temp 0x20B"
+      - id: raw_temp_0x20c
+        name: "Raw Temp 0x20C"
+      - id: raw_temp_0x20d
+        name: "Raw Temp 0x20D"
+      - id: raw_temp_0x20e
+        name: "Raw Temp 0x20E"
+      - id: raw_temp_0x20f
+        name: "Raw Temp 0x20F"
+      - id: raw_temp_0x210
+        name: "Raw Temp 0x210"
+      - id: raw_temp_0x211
+        name: "Raw Temp 0x211"
+      - id: raw_temp_0x212
+        name: "Raw Temp 0x212"
+      - id: raw_temp_0x213
+        name: "Raw Temp 0x213"
+      - id: raw_temp_0x214
+        name: "Raw Temp 0x214"
+      - id: raw_temp_0x215
+        name: "Raw Temp 0x215"
+      - id: raw_temp_0x216
+        name: "Raw Temp 0x216"
+      - id: raw_temp_0x217
+        name: "Raw Temp 0x217"
+      - id: raw_temp_0x218
+        name: "Raw Temp 0x218"
+      - id: raw_temp_0x219
+        name: "Raw Temp 0x219"
+      - id: raw_temp_0x21a
+        name: "Raw Temp 0x21A"
+      - id: raw_temp_0x21b
+        name: "Raw Temp 0x21B"
+      - id: raw_temp_0x21c
+        name: "Raw Temp 0x21C"
+      - id: raw_temp_0x21d
+        name: "Raw Temp 0x21D"
+      - id: raw_temp_0x21e
+        name: "Raw Temp 0x21E"
+      - id: raw_temp_0x21f
+        name: "Raw Temp 0x21F"
+      - id: raw_temp_0x220
+        name: "Raw Temp 0x220"
+      - id: raw_temp_0x221
+        name: "Raw Temp 0x221"
+      - id: raw_temp_0x222
+        name: "Raw Temp 0x222"
+      - id: raw_temp_0x223
+        name: "Raw Temp 0x223"
+      - id: raw_temp_0x224
+        name: "Raw Temp 0x224"
+      - id: raw_temp_0x225
+        name: "Raw Temp 0x225"
+      - id: raw_temp_0x226
+        name: "Raw Temp 0x226"
+      - id: raw_temp_0x227
+        name: "Raw Temp 0x227"
+      - id: raw_temp_0x228
+        name: "Raw Temp 0x228"
+      - id: raw_temp_0x229
+        name: "Raw Temp 0x229"
+      - id: raw_temp_0x22a
+        name: "Raw Temp 0x22A"
+      - id: raw_temp_0x22b
+        name: "Raw Temp 0x22B"
+      - id: raw_temp_0x22c
+        name: "Raw Temp 0x22C"
+      - id: raw_temp_0x22d
+        name: "Raw Temp 0x22D"
+      - id: raw_temp_0x22e
+        name: "Raw Temp 0x22E"
+      - id: raw_temp_0x22f
+        name: "Raw Temp 0x22F"
+      - id: raw_temp_0x230
+        name: "Raw Temp 0x230"
+      - id: raw_temp_0x231
+        name: "Raw Temp 0x231"
+      - id: raw_temp_0x232
+        name: "Raw Temp 0x232"
+      - id: raw_temp_0x233
+        name: "Raw Temp 0x233"
+      - id: raw_temp_0x234
+        name: "Raw Temp 0x234"
+      - id: raw_temp_0x235
+        name: "Raw Temp 0x235"
+      - id: raw_temp_0x236
+        name: "Raw Temp 0x236"
+      - id: raw_temp_0x237
+        name: "Raw Temp 0x237"
 
   - platform: template
-    name: "BMS SOC"
-    id: bms_soc
+    name: "SOC"
+    id: soc
     unit_of_measurement: "%"
     device_class: battery
     state_class: measurement
     accuracy_decimals: 2
     lambda: |-
-      if (id(bms_soc_set_cmd).has_state()) {
-        return id(bms_soc_set_cmd).state;
+      if (id(soc_set_cmd).has_state()) {
+        return id(soc_set_cmd).state;
       }
       return NAN;
     update_interval: 1s
 
   - platform: template
-    name: "BMS Uptime"
-    id: bms_uptime_sec
+    name: "Uptime Pico"
+    id: uptime_pico_sec
     unit_of_measurement: "s"
     state_class: measurement
     accuracy_decimals: 0
     lambda: |-
-      if (std::isnan(id(bms_millis).state)) {
+      if (std::isnan(id(millis_value).state)) {
         return NAN;
       }
-      return id(bms_millis).state / 1000.0f;
+      return id(millis_value).state / 1000.0f;
     update_interval: 1s
 
   - platform: wifi_signal
@@ -319,8 +580,8 @@ sensor:
     name: "WiFi RSSI"
 
   - platform: template
-    name: "Pack Voltage BMB"
-    id: bms_voltage_bmb_sum
+    name: "Pack Internal Voltage BMB"
+    id: voltage_bmb_sum
     unit_of_measurement: "V"
     device_class: voltage
     state_class: measurement
@@ -328,7 +589,7 @@ sensor:
     lambda: |-
       float sum = 0.0f;
       size_t valid = 0;
-      const auto &cells = id(bms_hub).get_cell_voltage_sensors();
+      const auto &cells = id(hub).get_cell_voltage_sensors();
       for (auto *cell : cells) {
         if (cell != nullptr && !isnan(cell->state)) {
           sum += cell->state;
@@ -341,69 +602,100 @@ sensor:
       return sum;
     update_interval: 1s
 
+  - platform: template
+    name: "Balance Cycle Time Remaining Seconds"
+    id: max_balancing_timer
+    internal: true
+    unit_of_measurement: "s"
+    icon: mdi:timer-sand
+    state_class: measurement
+    accuracy_decimals: 0
+    lambda: |-
+      const auto &timers = id(hub).get_balancing_time_sensors();
+      float max_single = 0.0f;
+      float max_adjacent_pair = 0.0f;
+      float prev_timer = 0.0f;
+      for (size_t i = 0; i < timers.size(); i++) {
+        auto *timer = timers[i];
+        float timer_s = 0.0f;
+        if (timer != nullptr && !isnan(timer->state) && timer->state > 0.0f) {
+          timer_s = timer->state;
+        }
+        if (timer_s > max_single) {
+          max_single = timer_s;
+        }
+        const float adjacent_sum = prev_timer + timer_s;
+        if (adjacent_sum > max_adjacent_pair) {
+          max_adjacent_pair = adjacent_sum;
+        }
+        prev_timer = timer_s;
+      }
+      return std::max(max_single, max_adjacent_pair);
+    update_interval: 1s
+
   # --- ENERGY SENSORS ---
 
   # 1. Total Power (kW) - calculated from V and A
   - platform: template
-    name: "BMS Power"
-    id: bms_power_kW
+    name: "Power"
+    id: power_kW
     unit_of_measurement: "kW"
     device_class: power
     state_class: measurement
     accuracy_decimals: 3
     lambda: |-
-      if (std::isnan(id(bms_voltage_mV).state) || std::isnan(id(bms_current_mA).state)) {
+      if (std::isnan(id(voltage_mV).state) || std::isnan(id(current_mA).state)) {
         return NAN;
       }
       // Voltage is V, Current is A -> Power is W. Divide by 1000 for kW.
-      return (id(bms_voltage_mV).state * id(bms_current_mA).state) / 1000.0f;
+      return (id(voltage_mV).state * id(current_mA).state) / 1000.0f;
     update_interval: 100ms
 
   # 1b. Display Power (W) - integer for gauge readability
   - platform: template
-    name: "BMS Power W"
-    id: bms_power_w
+    name: "Power W"
+    id: power_w
     unit_of_measurement: "W"
     device_class: power
     state_class: measurement
     accuracy_decimals: 0
     lambda: |-
-      if (std::isnan(id(bms_power_kW).state)) return NAN;
-      return id(bms_power_kW).state * 1000.0f;
+      if (std::isnan(id(power_kW).state)) return NAN;
+      return id(power_kW).state * 1000.0f;
     update_interval: 100ms
 
   # 2. Split Power into Charging (Positive) and Discharging (Negative -> Positive)
   # Source is now kW, so no extra division needed.
   - platform: template
-    name: "BMS Power Charging"
-    id: bms_power_charging
+    name: "Power Charge"
+    id: power_charging
     unit_of_measurement: "kW"
     device_class: power
     state_class: measurement
     accuracy_decimals: 3
     lambda: |-
-      if (std::isnan(id(bms_power_kW).state)) return NAN;
-      return std::max(0.0f, id(bms_power_kW).state);
+      if (std::isnan(id(power_kW).state)) return NAN;
+      return std::max(0.0f, id(power_kW).state);
     update_interval: 100ms
 
   - platform: template
-    name: "BMS Power Discharging"
-    id: bms_power_discharging
+    name: "Power Discharge"
+    id: power_discharging
     unit_of_measurement: "kW"
     device_class: power
     state_class: measurement
     accuracy_decimals: 3
     lambda: |-
-      if (std::isnan(id(bms_power_kW).state)) return NAN;
+      if (std::isnan(id(power_kW).state)) return NAN;
       // Convert negative power (discharging) to positive value for integration
-      return std::abs(std::min(0.0f, id(bms_power_kW).state));
+      return std::abs(std::min(0.0f, id(power_kW).state));
     update_interval: 100ms
 
   # 3. Daily Energy Sensors (kWh)
   - platform: total_daily_energy
-    name: "BMS Energy Charged Daily"
-    id: bms_energy_charged_daily
-    power_id: bms_power_charging
+    name: "Energy Daily Charge"
+    id: energy_charged_daily
+    power_id: power_charging
     unit_of_measurement: "kWh"
     device_class: energy
     state_class: total_increasing
@@ -412,9 +704,9 @@ sensor:
     time_id: homeassistant_time
 
   - platform: total_daily_energy
-    name: "BMS Energy Discharged Daily"
-    id: bms_energy_discharged_daily
-    power_id: bms_power_discharging
+    name: "Energy Daily Discharge"
+    id: energy_discharged_daily
+    power_id: power_discharging
     unit_of_measurement: "kWh"
     device_class: energy
     state_class: total_increasing
@@ -424,17 +716,113 @@ sensor:
 
   # 4. Net Daily Energy (Charged - Discharged)
   - platform: template
-    name: "BMS Net Energy Daily"
-    id: bms_energy_net_daily
+    name: "Energy Daily Net"
+    id: energy_net_daily
     unit_of_measurement: "kWh"
     device_class: energy
     state_class: total
     accuracy_decimals: 3
     lambda: |-
-      if (std::isnan(id(bms_energy_charged_daily).state) || std::isnan(id(bms_energy_discharged_daily).state)) {
+      if (std::isnan(id(energy_charged_daily).state) || std::isnan(id(energy_discharged_daily).state)) {
         return NAN;
       }
-      return id(bms_energy_charged_daily).state - id(bms_energy_discharged_daily).state;
+      return id(energy_charged_daily).state - id(energy_discharged_daily).state;
+    update_interval: 1s
+
+  - platform: template
+    name: "Cells Balancing Count"
+    id: cells_balancing_count
+    icon: mdi:counter
+    accuracy_decimals: 0
+    lambda: |-
+      if (!id(cells_balancing).has_state()) return 0;
+      const std::string raw = id(cells_balancing).state;
+      if (raw.empty() || raw == "None" || raw == "unknown" || raw == "unavailable") return 0;
+      bool seen[121] = {false};
+      int count = 0;
+      auto mark_cell = [&](int cell) {
+        if (cell >= 1 && cell <= 120 && !seen[cell]) {
+          seen[cell] = true;
+          count++;
+        }
+      };
+      std::string token;
+      for (size_t i = 0; i <= raw.size(); i++) {
+        const char c = (i < raw.size()) ? raw[i] : ',';
+        if (c == ',') {
+          size_t s = 0;
+          size_t e = token.size();
+          while (s < e && (token[s] == ' ' || token[s] == '\t')) s++;
+          while (e > s && (token[e - 1] == ' ' || token[e - 1] == '\t')) e--;
+          if (e > s) {
+            const std::string t = token.substr(s, e - s);
+            const size_t dash = t.find('-');
+            if (dash != std::string::npos) {
+              const int a = atoi(t.substr(0, dash).c_str());
+              const int b = atoi(t.substr(dash + 1).c_str());
+              const int lo = (a < b) ? a : b;
+              const int hi = (a > b) ? a : b;
+              for (int cell = lo; cell <= hi; cell++) mark_cell(cell);
+            } else {
+              mark_cell(atoi(t.c_str()));
+            }
+          }
+          token.clear();
+        } else {
+          token.push_back(c);
+        }
+      }
+      return (float) count;
+    filters:
+      - round: 0
+    update_interval: 1s
+
+  - platform: template
+    name: "Cells Balancing Active Count"
+    id: cells_balancing_active_count
+    icon: mdi:counter
+    accuracy_decimals: 0
+    lambda: |-
+      if (!id(cells_balancing_active).has_state()) return 0;
+      const std::string raw = id(cells_balancing_active).state;
+      if (raw.empty() || raw == "None" || raw == "unknown" || raw == "unavailable") return 0;
+      bool seen[121] = {false};
+      int count = 0;
+      auto mark_cell = [&](int cell) {
+        if (cell >= 1 && cell <= 120 && !seen[cell]) {
+          seen[cell] = true;
+          count++;
+        }
+      };
+      std::string token;
+      for (size_t i = 0; i <= raw.size(); i++) {
+        const char c = (i < raw.size()) ? raw[i] : ',';
+        if (c == ',') {
+          size_t s = 0;
+          size_t e = token.size();
+          while (s < e && (token[s] == ' ' || token[s] == '\t')) s++;
+          while (e > s && (token[e - 1] == ' ' || token[e - 1] == '\t')) e--;
+          if (e > s) {
+            const std::string t = token.substr(s, e - s);
+            const size_t dash = t.find('-');
+            if (dash != std::string::npos) {
+              const int a = atoi(t.substr(0, dash).c_str());
+              const int b = atoi(t.substr(dash + 1).c_str());
+              const int lo = (a < b) ? a : b;
+              const int hi = (a > b) ? a : b;
+              for (int cell = lo; cell <= hi; cell++) mark_cell(cell);
+            } else {
+              mark_cell(atoi(t.c_str()));
+            }
+          }
+          token.clear();
+        } else {
+          token.push_back(c);
+        }
+      }
+      return (float) count;
+    filters:
+      - round: 0
     update_interval: 1s
 
 text_sensor:
@@ -450,315 +838,375 @@ text_sensor:
 
   - platform: hmi_bms
     serial:
-      id: bms_serial
-      name: "BMS Serial"
-    balancing_cells:
-      id: bms_balancing_cells
-      name: "BMS Balancing Cells"
+      id: serial
+      name: "Serial"
+    cells_balancing:
+      id: cells_balancing
+      name: "Cells Balancing"
+    cells_balancing_active:
+      id: cells_balancing_active
+      name: "Cells Balancing Active"
     event_history:
-      id: bms_event_history
-      name: "BMS Event History"
+      id: event_history
+      name: "Event History"
     settings_write_status:
-      id: bms_settings_write_status
-      name: "BMS Settings Status"
+      id: settings_write_status
+      name: "Settings Status"
     log:
-      id: bms_log
-      name: "BMS Log"
+      id: log_text
+      name: "Log"
       internal: true
     log_lines:
-      - id: bms_log_line_01
-        name: "BMS Log 01"
-      - id: bms_log_line_02
-        name: "BMS Log 02"
-      - id: bms_log_line_03
-        name: "BMS Log 03"
-      - id: bms_log_line_04
-        name: "BMS Log 04"
-      - id: bms_log_line_05
-        name: "BMS Log 05"
-      - id: bms_log_line_06
-        name: "BMS Log 06"
-      - id: bms_log_line_07
-        name: "BMS Log 07"
-      - id: bms_log_line_08
-        name: "BMS Log 08"
-      - id: bms_log_line_09
-        name: "BMS Log 09"
-      - id: bms_log_line_10
-        name: "BMS Log 10"
-      - id: bms_log_line_11
-        name: "BMS Log 11"
-      - id: bms_log_line_12
-        name: "BMS Log 12"
-      - id: bms_log_line_13
-        name: "BMS Log 13"
-      - id: bms_log_line_14
-        name: "BMS Log 14"
-      - id: bms_log_line_15
-        name: "BMS Log 15"
-      - id: bms_log_line_16
-        name: "BMS Log 16"
-      - id: bms_log_line_17
-        name: "BMS Log 17"
-      - id: bms_log_line_18
-        name: "BMS Log 18"
-      - id: bms_log_line_19
-        name: "BMS Log 19"
-      - id: bms_log_line_20
-        name: "BMS Log 20"
-      - id: bms_log_line_21
-        name: "BMS Log 21"
-      - id: bms_log_line_22
-        name: "BMS Log 22"
-      - id: bms_log_line_23
-        name: "BMS Log 23"
-      - id: bms_log_line_24
-        name: "BMS Log 24"
-      - id: bms_log_line_25
-        name: "BMS Log 25"
-      - id: bms_log_line_26
-        name: "BMS Log 26"
-      - id: bms_log_line_27
-        name: "BMS Log 27"
-      - id: bms_log_line_28
-        name: "BMS Log 28"
-      - id: bms_log_line_29
-        name: "BMS Log 29"
-      - id: bms_log_line_30
-        name: "BMS Log 30"
-      - id: bms_log_line_31
-        name: "BMS Log 31"
-      - id: bms_log_line_32
-        name: "BMS Log 32"
-      - id: bms_log_line_33
-        name: "BMS Log 33"
-      - id: bms_log_line_34
-        name: "BMS Log 34"
-      - id: bms_log_line_35
-        name: "BMS Log 35"
-      - id: bms_log_line_36
-        name: "BMS Log 36"
-      - id: bms_log_line_37
-        name: "BMS Log 37"
-      - id: bms_log_line_38
-        name: "BMS Log 38"
-      - id: bms_log_line_39
-        name: "BMS Log 39"
-      - id: bms_log_line_40
-        name: "BMS Log 40"
-      - id: bms_log_line_41
-        name: "BMS Log 41"
-      - id: bms_log_line_42
-        name: "BMS Log 42"
-      - id: bms_log_line_43
-        name: "BMS Log 43"
-      - id: bms_log_line_44
-        name: "BMS Log 44"
-      - id: bms_log_line_45
-        name: "BMS Log 45"
-      - id: bms_log_line_46
-        name: "BMS Log 46"
-      - id: bms_log_line_47
-        name: "BMS Log 47"
-      - id: bms_log_line_48
-        name: "BMS Log 48"
-      - id: bms_log_line_49
-        name: "BMS Log 49"
-      - id: bms_log_line_50
-        name: "BMS Log 50"
+      - id: log_line_01
+        name: "Log 01"
+      - id: log_line_02
+        name: "Log 02"
+      - id: log_line_03
+        name: "Log 03"
+      - id: log_line_04
+        name: "Log 04"
+      - id: log_line_05
+        name: "Log 05"
+      - id: log_line_06
+        name: "Log 06"
+      - id: log_line_07
+        name: "Log 07"
+      - id: log_line_08
+        name: "Log 08"
+      - id: log_line_09
+        name: "Log 09"
+      - id: log_line_10
+        name: "Log 10"
+      - id: log_line_11
+        name: "Log 11"
+      - id: log_line_12
+        name: "Log 12"
+      - id: log_line_13
+        name: "Log 13"
+      - id: log_line_14
+        name: "Log 14"
+      - id: log_line_15
+        name: "Log 15"
+      - id: log_line_16
+        name: "Log 16"
+      - id: log_line_17
+        name: "Log 17"
+      - id: log_line_18
+        name: "Log 18"
+      - id: log_line_19
+        name: "Log 19"
+      - id: log_line_20
+        name: "Log 20"
+      - id: log_line_21
+        name: "Log 21"
+      - id: log_line_22
+        name: "Log 22"
+      - id: log_line_23
+        name: "Log 23"
+      - id: log_line_24
+        name: "Log 24"
+      - id: log_line_25
+        name: "Log 25"
+      - id: log_line_26
+        name: "Log 26"
+      - id: log_line_27
+        name: "Log 27"
+      - id: log_line_28
+        name: "Log 28"
+      - id: log_line_29
+        name: "Log 29"
+      - id: log_line_30
+        name: "Log 30"
+      - id: log_line_31
+        name: "Log 31"
+      - id: log_line_32
+        name: "Log 32"
+      - id: log_line_33
+        name: "Log 33"
+      - id: log_line_34
+        name: "Log 34"
+      - id: log_line_35
+        name: "Log 35"
+      - id: log_line_36
+        name: "Log 36"
+      - id: log_line_37
+        name: "Log 37"
+      - id: log_line_38
+        name: "Log 38"
+      - id: log_line_39
+        name: "Log 39"
+      - id: log_line_40
+        name: "Log 40"
+      - id: log_line_41
+        name: "Log 41"
+      - id: log_line_42
+        name: "Log 42"
+      - id: log_line_43
+        name: "Log 43"
+      - id: log_line_44
+        name: "Log 44"
+      - id: log_line_45
+        name: "Log 45"
+      - id: log_line_46
+        name: "Log 46"
+      - id: log_line_47
+        name: "Log 47"
+      - id: log_line_48
+        name: "Log 48"
+      - id: log_line_49
+        name: "Log 49"
+      - id: log_line_50
+        name: "Log 50"
 
     # Event Status Sensors
-    error_contactor_pos_stuck_open: { name: "Fatal: POS Stuck Open" }
-    error_contactor_pos_stuck_closed: { name: "Fatal: POS Stuck Closed" }
-    error_contactor_neg_stuck_open: { name: "Fatal: NEG Stuck Open" }
-    error_contactor_neg_stuck_closed: { name: "Fatal: NEG Stuck Closed" }
-    error_contactor_pre_stuck_open: { name: "Fatal: PRE Stuck Open" }
-    error_contactor_pre_stuck_closed: { name: "Fatal: PRE Stuck Closed" }
-    error_contactor_precharge_voltage_too_high: { name: "Critical: PRE Voltage High" }
-    error_contactor_precharge_current_too_high: { name: "Critical: PRE Current High" }
-    error_contactor_pos_unexpected_open: { name: "Critical: POS Unexpected Open" }
-    error_contactor_neg_unexpected_open: { name: "Critical: NEG Unexpected Open" }
-    error_contactor_closing_failed: { name: "Critical: Closing Failed" }
-    error_supply_voltage_stale: { name: "Warning: Supply Voltage Stale" }
-    error_battery_voltage_stale: { name: "Warning: Batt Voltage Stale" }
-    error_battery_temperature_stale: { name: "Warning: Batt Temp Stale" }
-    error_current_stale: { name: "Warning: Current Stale" }
-    error_cell_voltages_stale: { name: "Warning: Cell Voltages Stale" }
-    error_supply_voltage_3v3_low: { name: "Critical: 3V3 Low" }
-    error_supply_voltage_3v3_high: { name: "Critical: 3V3 High" }
-    error_supply_voltage_5v_low: { name: "Warning: 5V Low" }
-    error_supply_voltage_5v_high: { name: "Warning: 5V High" }
-    error_supply_voltage_12v_low: { name: "Warning: 12V Low" }
-    error_supply_voltage_12v_high: { name: "Warning: 12V High" }
-    error_supply_voltage_contactor_low: { name: "Critical: Ctr Supply Low" }
-    error_supply_voltage_contactor_very_low: { name: "Fatal: Ctr Supply Very Low" }
-    error_supply_voltage_contactor_high: { name: "Warning: Ctr Supply High" }
-    error_battery_voltage_high: { name: "Warning: Batt Voltage High" }
-    error_battery_voltage_very_high: { name: "Critical: Batt Voltage Very High" }
-    error_battery_voltage_low: { name: "Warning: Batt Voltage Low" }
-    error_battery_voltage_very_low: { name: "Critical: Batt Voltage Very Low" }
-    error_cell_voltage_high: { name: "Warning: Cell Voltage High" }
-    error_cell_voltage_very_high: { name: "Critical: Cell Voltage Very High" }
-    error_cell_voltage_low: { name: "Warning: Cell Voltage Low" }
-    error_cell_voltage_very_low: { name: "Critical: Cell Voltage Very Low" }
-    error_soft_charge_buffer_exceeded: { name: "Warning: Soft Charge Exceeded" }
-    error_overcurrent_charging: { name: "Critical: Overcurrent Charging" }
-    error_overcurrent_discharging: { name: "Critical: Overcurrent Discharging" }
-    error_battery_temperature_high: { name: "Warning: Batt Temp High" }
-    error_battery_temperature_very_high: { name: "Critical: Batt Temp Very High" }
-    error_battery_temperature_low: { name: "Warning: Batt Temp Low" }
-    error_battery_temperature_very_low: { name: "Critical: Batt Temp Very Low" }
-    error_voltage_mismatch: { name: "Critical: Voltage Mismatch" }
-    error_bmb_read_error: { name: "Critical: BMB Read Error" }
-    error_bmb_crc_mismatch: { name: "Critical: BMB CRC Mismatch" }
-    error_inverter_detected: { name: "Info: Inverter Detected" }
-    error_estop_pressed: { name: "Fatal: E-Stop Pressed" }
-    error_boot_normal: { name: "Info: Boot Normal" }
-    error_boot_watchdog: { name: "Info: Boot Watchdog" }
-    error_loop_overrun: { name: "Warning: Loop Overrun" }
-    error_restarting: { name: "Info: Restarting" }
+    error_contactor_pos_stuck_open: { name: "Event Fatal POS Stuck Open" }
+    error_contactor_pos_stuck_closed: { name: "Event Fatal POS Stuck Closed" }
+    error_contactor_neg_stuck_open: { name: "Event Fatal NEG Stuck Open" }
+    error_contactor_neg_stuck_closed: { name: "Event Fatal NEG Stuck Closed" }
+    error_contactor_pre_stuck_open: { name: "Event Fatal PRE Stuck Open" }
+    error_contactor_pre_stuck_closed: { name: "Event Fatal PRE Stuck Closed" }
+    error_contactor_precharge_voltage_too_high: { name: "Event Critical PRE Voltage High" }
+    error_contactor_precharge_current_too_high: { name: "Event Critical PRE Current High" }
+    error_contactor_pos_unexpected_open: { name: "Event Critical POS Unexpected Open" }
+    error_contactor_neg_unexpected_open: { name: "Event Critical NEG Unexpected Open" }
+    error_contactor_closing_failed: { name: "Event Critical Closing Failed" }
+    error_supply_voltage_stale: { name: "Event Warning Supply Voltage Stale" }
+    error_battery_voltage_stale: { name: "Event Warning Battery Voltage Stale" }
+    error_battery_temperature_stale: { name: "Event Warning Battery Temperature Stale" }
+    error_current_stale: { name: "Event Warning Current Stale" }
+    error_cell_voltages_stale: { name: "Event Warning Cell Voltages Stale" }
+    error_supply_voltage_3v3_low: { name: "Event Critical 3V3 Low" }
+    error_supply_voltage_3v3_high: { name: "Event Critical 3V3 High" }
+    error_supply_voltage_5v_low: { name: "Event Warning 5V Low" }
+    error_supply_voltage_5v_high: { name: "Event Warning 5V High" }
+    error_supply_voltage_12v_low: { name: "Event Warning 12V Low" }
+    error_supply_voltage_12v_high: { name: "Event Warning 12V High" }
+    error_supply_voltage_contactor_low: { name: "Event Critical Ctr Supply Low" }
+    error_supply_voltage_contactor_very_low: { name: "Event Fatal Ctr Supply Very Low" }
+    error_supply_voltage_contactor_high: { name: "Event Warning Ctr Supply High" }
+    error_battery_voltage_high: { name: "Event Warning Battery Voltage High" }
+    error_battery_voltage_very_high: { name: "Event Critical Battery Voltage Very High" }
+    error_battery_voltage_low: { name: "Event Warning Battery Voltage Low" }
+    error_battery_voltage_very_low: { name: "Event Critical Battery Voltage Very Low" }
+    error_cell_voltage_high: { name: "Event Warning Cell Voltage High" }
+    error_cell_voltage_very_high: { name: "Event Critical Cell Voltage Very High" }
+    error_cell_voltage_low: { name: "Event Warning Cell Voltage Low" }
+    error_cell_voltage_very_low: { name: "Event Critical Cell Voltage Very Low" }
+    error_soft_charge_buffer_exceeded: { name: "Event Warning Soft Charge Exceeded" }
+    error_overcurrent_charging: { name: "Event Critical Overcurrent Charging" }
+    error_overcurrent_discharging: { name: "Event Critical Overcurrent Discharging" }
+    error_battery_temperature_high: { name: "Event Warning Battery Temperature High" }
+    error_battery_temperature_very_high: { name: "Event Critical Battery Temperature Very High" }
+    error_battery_temperature_low: { name: "Event Warning Battery Temperature Low" }
+    error_battery_temperature_very_low: { name: "Event Critical Battery Temperature Very Low" }
+    error_voltage_mismatch: { name: "Event Critical Voltage Mismatch" }
+    error_bmb_read_error: { name: "Event Critical BMB Read Error" }
+    error_bmb_crc_mismatch: { name: "Event Critical BMB CRC Mismatch" }
+    error_cell_voltage_glitch: { name: "Event Warning Cell Voltage Glitch" }
+    error_module_temperature_glitch: { name: "Event Warning Module Temperature Glitch" }
+    error_inverter_detected: { name: "Event Info Inverter Detected" }
+    error_estop_pressed: { name: "Event Fatal E-Stop Pressed" }
+    error_boot_normal: { name: "Event Info Boot Normal" }
+    error_boot_watchdog: { name: "Event Info Boot Watchdog" }
+    error_loop_overrun: { name: "Event Warning Loop Overrun" }
+    error_restarting: { name: "Event Info Restarting" }
+    error_link_voltage_mismatch: { name: "Event Warning Link Voltage Mismatch" }
+    error_fuse_voltage_drop_high: { name: "Event Warning Fuse Voltage Drop High" }
 
   - platform: template
-    id: bms_system_state_text
-    name: "BMS System State Text"
+    id: system_state_text
+    name: "System State Text"
     lambda: |-
       static const char* states[] = {"UNINIT", "INIT", "CALIB", "INACTIVE", "OPERATING", "FAULT"};
-      int val = (int)id(bms_system_state).state;
+      int val = (int)id(system_state).state;
       if (val >= 0 && val <= 5) return {states[val]};
       return {"UNKNOWN"};
     update_interval: 500ms
 
   - platform: template
-    id: bms_contactor_state_text
-    name: "BMS Contactor State Text"
+    id: contactor_state_text
+    name: "Contactor State Text"
     lambda: |-
       static const char* states[] = {
         "OPEN", "TST_PRE_CL", "TST_NEG_OP", "TST_NEG_CL", "TST_POS_OP", "TST_POS_CL",
-        "PRE_NEG", "PRECHARGING", "CLOSED", "CALIB", "CAL_CL_NEG", "CAL_PRE",
-        "CAL_CLOSED", "PRE_FAIL", "TST_FAIL"
+        "PRECHG_INIT", "PRECHARGING", "CLOSED", "AWAIT_OPEN", "CALIB",
+        "CAL_PRE_INIT", "CAL_PRE", "CAL_CLOSED", "CAL_NEG_INIT", "CAL_NEG",
+        "PRE_FAIL", "TST_FAIL"
       };
-      int val = (int)id(bms_contactor_state).state;
-      if (val >= 0 && val <= 14) return {states[val]};
+      int val = (int)id(contactor_state).state;
+      if (val >= 0 && val <= 17) return {states[val]};
       return {"UNKNOWN"};
     update_interval: 500ms
 
   - platform: template
-    id: bms_last_event_text
-    name: "BMS Last Event Text"
+    id: system_req_text
+    name: "System Request Text"
+    update_interval: never
+
+  - platform: template
+    id: last_event_text
+    name: "Last Event Text"
     update_interval: 1s
     lambda: |-
-      auto* bms = (esphome::hmi_bms::HMIBMS*) id(bms_hub);
+      auto* bms = (esphome::hmi_bms::HMIBMS*) id(hub);
       int code = bms->get_last_event_code();
-      if (code == -1) return {"No Events"};
+      if (code == -1) return {"Last Event: none"};
       int level = bms->get_last_event_level();
-      const char* levels[] = {"", "[INFO]", "[WARN]", "[ERR!]", "[CRIT]"};
-      char buf[64];
-      sprintf(buf, "%s %d %s", levels[level % 5], code, bms->get_last_event_type_str());
+      int count = bms->get_last_event_count();
+      const char* levels[] = {"[HIST]", "[INFO]", "[WARN]", "[ERR!]", "[CRIT]"};
+      char buf[96];
+      snprintf(buf, sizeof(buf), "Last Event: %s %d %s (x%d)", levels[level % 5], code, bms->get_last_event_type_str(), count);
+      return {buf};
+
+  - platform: template
+    id: total_balance_cycle_time_remaining_text
+    name: "Balance Cycle Time Remaining"
+    update_interval: 1s
+    lambda: |-
+      const float remaining_s = id(max_balancing_timer).state;
+      if (isnan(remaining_s) || remaining_s < 0.0f) {
+        return {"unavailable"};
+      }
+      const int total_seconds = (int) (remaining_s + 0.5f);
+      const int days = total_seconds / 86400;
+      const int hours = (total_seconds % 86400) / 3600;
+      const int minutes = (total_seconds % 3600) / 60;
+      const int seconds = total_seconds % 60;
+      char buf[48];
+      snprintf(buf, sizeof(buf), "%dd %dh %dm %ds", days, hours, minutes, seconds);
       return {buf};
 
 button:
+  - platform: restart
+    id: hmi_restart
+    name: "HMI Restart"
+
   - platform: template
-    name: "BMS Run"
+    name: "Run"
     id: btn_web_run
     on_press:
       - lambda: |-
-          id(bms_hub).send_system_request(1);
+          id(hub).send_system_request(1);
 
   - platform: template
-    name: "BMS Stop"
+    name: "Stop"
     id: btn_web_stop
     on_press:
       - lambda: |-
-          id(bms_hub).send_system_request(2);
+          id(hub).send_system_request(2);
 
   - platform: template
-    name: "BMS Calibrate"
+    name: "Calibrate"
     id: btn_web_calibrate
     on_press:
       - lambda: |-
-          id(bms_hub).send_system_request(3);
+          id(hub).send_system_request(3);
+
+  - platform: template
+    name: "Calibrate Short"
+    id: btn_web_calibrate_short
+    on_press:
+      - lambda: |-
+          id(hub).send_system_request(4);
+
+  - platform: template
+    name: "Calibrate Online"
+    id: btn_web_calibrate_online
+    on_press:
+      - lambda: |-
+          id(hub).send_system_request(5);
 
 switch:
   - platform: hmi_bms
     log_enable:
-      id: bms_log_enable
-      name: "BMS Log Enable"
+      id: log_enable
+      name: "Log Enable"
       restore_mode: RESTORE_DEFAULT_OFF
 
   - platform: template
-    name: "BMS Settings Unlock"
-    id: bms_settings_unlock
+    name: "Settings Unlock"
+    id: settings_unlock
     icon: mdi:lock-open-variant
     restore_mode: RESTORE_DEFAULT_OFF
     lambda: |-
-      return id(bms_hub).is_settings_unlocked();
+      return id(hub).is_settings_unlocked();
     turn_on_action:
       - lambda: |-
-          id(bms_hub).set_settings_unlocked(true);
+          id(hub).set_settings_unlocked(true);
     turn_off_action:
       - lambda: |-
-          id(bms_hub).set_settings_unlocked(false);
+          id(hub).set_settings_unlocked(false);
 
 number:
   - platform: hmi_bms
     soc_set:
-      id: bms_soc_set_cmd
-      name: "BMS SOC Set Cmd"
+      id: soc_set_cmd
+      name: "SOC Set Cmd"
       mode: box
     soc_scaling_min:
-      name: "BMS SOC Scaling Min"
+      id: soc_scale_min
+      name: "SOC Scaling Min"
       mode: box
     soc_scaling_max:
-      name: "BMS SOC Scaling Max"
+      id: soc_scale_max
+      name: "SOC Scaling Max"
       mode: box
     voltage_limit_offset_lower:
-      name: "BMS Voltage Limit Offset Lower"
+      id: v_offset_lower
+      name: "Voltage Limit Offset Lower"
       mode: box
     voltage_limit_offset_upper:
-      name: "BMS Voltage Limit Offset Upper"
+      id: v_offset_upper
+      name: "Voltage Limit Offset Upper"
       mode: box
     cell_voltage_working_min_mV:
-      name: "BMS Cell Voltage Working Min"
+      id: cv_working_min
+      name: "Cell Voltage Working Min"
       mode: box
     cell_voltage_working_max_mV:
-      name: "BMS Cell Voltage Working Max"
+      id: cv_working_max
+      name: "Cell Voltage Working Max"
       mode: box
     cell_voltage_soft_min_mV:
-      id: bms_cv_soft_min
-      name: "BMS Cell Voltage Soft Min"
+      id: cv_soft_min
+      name: "Cell Voltage Soft Min"
       mode: box
     cell_voltage_soft_max_mV:
-      id: bms_cv_soft_max
-      name: "BMS Cell Voltage Soft Max"
+      id: cv_soft_max
+      name: "Cell Voltage Soft Max"
       mode: box
     auto_balancing_period_ms:
-      id: bms_auto_bal_period
-      name: "BMS Auto Balancing Period"
+      id: auto_bal_period
+      name: "Auto Balancing Period"
       mode: box
     balancing_periods_per_mV:
-      id: bms_bal_periods_mv
-      name: "BMS Balancing Periods per mV"
+      id: bal_periods_mv
+      name: "Balancing Periods per mV"
       mode: box
     balance_min_offset_mV:
-      id: bms_bal_min_offset
-      name: "BMS Balance Min Offset"
+      id: bal_min_offset
+      name: "Balance Min Offset"
       mode: box
     minimum_balancing_voltage_mV:
-      id: bms_min_bal_v
-      name: "BMS Minimum Balancing Voltage"
+      id: min_bal_v
+      name: "Minimum Balancing Voltage"
+      mode: box
+    balancing_start_voltage_mV:
+      id: bal_start_v
+      name: "Balancing Start Voltage"
       mode: box
     max_charge_current:
-      id: bms_max_charge
-      name: "BMS Max Charge Current"
+      id: max_charge
+      name: "Max Charge Current"
       mode: box
     max_discharge_current:
-      id: bms_max_discharge
-      name: "BMS Max Discharge Current"
+      id: max_discharge
+      name: "Max Discharge Current"
       mode: box
 
   - platform: template
-    name: "BMS Log Update Rate"
-    id: bms_log_update_rate
+    name: "Log Update Rate"
+    id: log_update_rate
     unit_of_measurement: "s"
     icon: mdi:timer-outline
     min_value: 1
@@ -770,4 +1218,4 @@ number:
     mode: box
     set_action:
       - lambda: |-
-          id(bms_hub).set_log_update_interval((uint32_t)(x * 1000));
+          id(hub).set_log_update_interval((uint32_t)(x * 1000));

@@ -8,8 +8,8 @@ rp2040:
 
 # Modular Packages
 packages:
-  bms_core: !include bms_core.yaml
-  bms_scripts: !include bms_headless_scripts.yaml
+  core: !include bms_core.yaml
+  scripts: !include bms_headless_scripts.yaml
 
 web_server:
   port: 80
@@ -47,5 +47,5 @@ uart:
 
 sensor:
   - platform: uptime
-    id: uptime_sec
+    id: node_uptime_sec
     update_interval: 5s

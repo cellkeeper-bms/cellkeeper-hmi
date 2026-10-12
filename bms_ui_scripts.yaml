@@ -1,69 +1,403 @@
+globals:
+  # Register currently being edited in the numeric entry pad (0 = none).
+  - id: pad_reg
+    type: int
+    restore_value: no
+    initial_value: '0'
+  # Text buffer for the numeric entry pad.
+  - id: pad_buffer
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+
+script:
+  # Opens the numeric entry pad for a setting.
+  # reg = HMI register number. Entry is in display units:
+  #   3,27,28           -> %
+  #   25,26,31,32,36,42 -> V (entity stores mV)
+  #   29,30             -> V (entity stores dV)
+  #   33                -> s (entity stores ms)
+  #   34                -> raw count
+  #   35                -> mV
+  #   43,44             -> A
+  - id: open_setting_pad
+    mode: single
+    parameters:
+      reg: int
+    then:
+      - lambda: |-
+          if (!id(hub).is_settings_unlocked()) {
+            id(hub).publish_settings_status_temporary("LOCKED - tap UNLOCK to edit", 3000);
+            return;
+          }
+          id(pad_reg) = reg;
+          const char *title = "";
+          float state = NAN;
+          const char *fmt = "%.0f";
+          float mult = 1.0f;
+          switch (reg) {
+            case 3:  title = "SOC Set (%)";                 state = id(soc_set_cmd).state; break;
+            case 25: title = "Cell Working Min (V)";        state = id(cv_working_min).state; fmt = "%.3f"; mult = 0.001f; break;
+            case 26: title = "Cell Working Max (V)";        state = id(cv_working_max).state; fmt = "%.3f"; mult = 0.001f; break;
+            case 27: title = "SOC Scale Min (%)";           state = id(soc_scale_min).state; break;
+            case 28: title = "SOC Scale Max (%)";           state = id(soc_scale_max).state; break;
+            case 29: title = "V Offset Lower (V)";          state = id(v_offset_lower).state; fmt = "%.1f"; mult = 0.1f; break;
+            case 30: title = "V Offset Upper (V)";          state = id(v_offset_upper).state; fmt = "%.1f"; mult = 0.1f; break;
+            case 31: title = "Cell Soft Min (V)";           state = id(cv_soft_min).state; fmt = "%.3f"; mult = 0.001f; break;
+            case 32: title = "Cell Soft Max (V)";           state = id(cv_soft_max).state; fmt = "%.3f"; mult = 0.001f; break;
+            case 33: title = "Auto Balance Period (ms)";    state = id(auto_bal_period).state; break;
+            case 34: title = "Balancing Periods per mV";    state = id(bal_periods_mv).state; break;
+            case 35: title = "Balance Min Offset (mV)";     state = id(bal_min_offset).state; break;
+            case 36: title = "Min Balancing Voltage (V)";   state = id(min_bal_v).state; fmt = "%.3f"; mult = 0.001f; break;
+            case 42: title = "Balancing Start Voltage (V)"; state = id(bal_start_v).state; fmt = "%.3f"; mult = 0.001f; break;
+            case 43: title = "Max Charge Current (A)";      state = id(max_charge).state; fmt = "%.1f"; break;
+            case 44: title = "Max Discharge Current (A)";   state = id(max_discharge).state; fmt = "%.1f"; break;
+            default: return;
+          }
+          id(pad_buffer) = std::isnan(state) ? std::string("") : str_sprintf(fmt, state * mult);
+          lv_label_set_text(id(pad_title), title);
+          lv_label_set_text(id(pad_value_lbl), id(pad_buffer).empty() ? " " : id(pad_buffer).c_str());
+          lv_obj_clear_flag(id(pad_overlay), LV_OBJ_FLAG_HIDDEN);
+
+  # Handles one keypad key. "D" = backspace, "S" = toggle sign,
+  # otherwise the key text is appended (digits / decimal point).
+  - id: pad_key
+    mode: single
+    parameters:
+      key: string
+    then:
+      - lambda: |-
+          std::string &buf = id(pad_buffer);
+          if (key == "D") {
+            if (!buf.empty()) buf.pop_back();
+          } else if (key == "S") {
+            if (!buf.empty() && buf[0] == '-') buf.erase(0, 1);
+            else buf.insert(0, "-");
+          } else if (buf.size() < 8) {
+            if (!(key == "." && buf.find('.') != std::string::npos)) buf += key;
+          }
+          lv_label_set_text(id(pad_value_lbl), buf.empty() ? " " : buf.c_str());
+
+  # OK: parse the buffer, convert display units -> entity units, clamp to the
+  # entity's range and write to the BMS.
+  - id: pad_ok
+    mode: single
+    then:
+      - lambda: |-
+          lv_obj_add_flag(id(pad_overlay), LV_OBJ_FLAG_HIDDEN);
+          const std::string &buf = id(pad_buffer);
+          if (buf.empty()) return;
+          char *endp = nullptr;
+          float in = strtof(buf.c_str(), &endp);
+          if (endp == buf.c_str()) return;
+          if (!id(hub).is_settings_unlocked()) {
+            id(hub).publish_settings_status_temporary("LOCKED - tap UNLOCK to edit", 3000);
+            return;
+          }
+          esphome::number::Number *n = nullptr;
+          float scale = 1.0f;
+          switch (id(pad_reg)) {
+            case 3:  n = id(soc_set_cmd); break;
+            case 25: n = id(cv_working_min); scale = 1000.0f; break;
+            case 26: n = id(cv_working_max); scale = 1000.0f; break;
+            case 27: n = id(soc_scale_min); break;
+            case 28: n = id(soc_scale_max); break;
+            case 29: n = id(v_offset_lower); scale = 10.0f; break;
+            case 30: n = id(v_offset_upper); scale = 10.0f; break;
+            case 31: n = id(cv_soft_min); scale = 1000.0f; break;
+            case 32: n = id(cv_soft_max); scale = 1000.0f; break;
+            case 33: n = id(auto_bal_period); break;
+            case 34: n = id(bal_periods_mv); break;
+            case 35: n = id(bal_min_offset); break;
+            case 36: n = id(min_bal_v); break;
+            case 42: n = id(bal_start_v); break;
+            case 43: n = id(max_charge); break;
+            case 44: n = id(max_discharge); break;
+            default: return;
+          }
+          float v = in * scale;
+          if (v < n->traits.get_min_value()) v = n->traits.get_min_value();
+          if (v > n->traits.get_max_value()) v = n->traits.get_max_value();
+          n->make_call().set_value(v).perform();
+
+  - id: pad_cancel
+    mode: single
+    then:
+      - lambda: |-
+          lv_obj_add_flag(id(pad_overlay), LV_OBJ_FLAG_HIDDEN);
+
+  # Toggles the settings lock from the LCD lock buttons.
+  - id: settings_lock_toggle
+    mode: single
+    then:
+      - lambda: |-
+          id(hub).set_settings_unlocked(!id(hub).is_settings_unlocked());
+
 interval:
   - interval: 250ms
     then:
       - lambda: |-
-          // --- MAIN PAGE UPDATES ---
-          float soc = id(bms_soc).state;
-          if (!std::isnan(soc)) {
-            lv_label_set_text(id(label_soc), str_sprintf("%.0f%%", soc).c_str());
-            lv_arc_set_value(id(soc_arc), (int)soc);
+          static bool energy_delta_style_init = false;
+          if (!energy_delta_style_init) {
+            // Render only the indicator segment in yellow.
+            lv_obj_set_style_arc_opa(id(energy_soc_delta_arc), LV_OPA_TRANSP, LV_PART_MAIN);
+            lv_obj_set_style_arc_opa(id(energy_soc_delta_arc), LV_OPA_100, LV_PART_INDICATOR);
+            lv_obj_set_style_arc_color(id(energy_soc_delta_arc), lv_color_hex(0xFFD54A), LV_PART_INDICATOR);
+            lv_obj_set_style_arc_width(id(energy_soc_delta_arc), lv_obj_get_style_arc_width(id(energy_soc_arc), LV_PART_MAIN), LV_PART_INDICATOR);
+            lv_arc_set_value(id(energy_soc_delta_arc), 100);
+            energy_delta_style_init = true;
           }
 
-          float v = id(bms_voltage_mV).state;
-          float i = id(bms_current_mA).state;
-          if (!std::isnan(v)) lv_label_set_text(id(label_voltage), str_sprintf("%.1fV", v).c_str());
-          if (!std::isnan(i)) lv_label_set_text(id(label_current), str_sprintf("%.2fA", i).c_str());
+          // --- MAIN PAGE UPDATES ---
+          float soc_value = id(soc).state;
+          if (!std::isnan(soc_value)) {
+            lv_label_set_text(id(label_soc_energy), str_sprintf("%.0f%%", soc_value).c_str());
+            lv_arc_set_value(id(energy_soc_arc), (int)soc_value);
+          }
+
+          float v = id(voltage_mV).state;
+          float i = id(current_mA).state;
+          if (!std::isnan(v)) lv_label_set_text(id(label_voltage_energy_value), str_sprintf("%.1f", v).c_str());
+          else lv_label_set_text(id(label_voltage_energy_value), "--.-");
+          if (!std::isnan(i)) lv_label_set_text(id(label_current_energy_value), str_sprintf("%.2f", i).c_str());
+          else lv_label_set_text(id(label_current_energy_value), "--.--");
+          lv_label_set_text(id(label_current_energy_unit), "A");
+          lv_label_set_text(id(label_voltage_energy_unit), "V");
           
           if (!std::isnan(v) && !std::isnan(i)) {
             float p = v * i;
-            if (std::abs(p) >= 1000.0f) lv_label_set_text(id(label_power), str_sprintf("%.2fkW", p / 1000.0f).c_str());
-            else lv_label_set_text(id(label_power), str_sprintf("%.0fW", p).c_str());
+            if (std::abs(p) >= 1000.0f) {
+              lv_label_set_text(id(label_power_energy), str_sprintf("%.2f", p / 1000.0f).c_str());
+              lv_label_set_text(id(label_power_energy_unit), "kW");
+            } else {
+              lv_label_set_text(id(label_power_energy), str_sprintf("%.0f", p).c_str());
+              lv_label_set_text(id(label_power_energy_unit), "W");
+            }
+
+            lv_color_t power_color = (p < 0.0f) ? lv_color_hex(0xFF4D4D) : lv_color_hex(0x66FF66);
+            lv_obj_set_style_text_color(id(label_power_energy), power_color, LV_PART_MAIN);
+            lv_obj_set_style_text_color(id(label_power_energy_unit), power_color, LV_PART_MAIN);
+            lv_obj_set_style_bg_color(id(power_marker_energy), power_color, LV_PART_MAIN);
+            lv_obj_set_style_bg_color(id(power_indicator_energy), power_color, LV_PART_MAIN);
           }
 
-          float t_min = id(bms_temp_min).state;
-          float t_max = id(bms_temp_max).state;
-          if (!std::isnan(t_min) && !std::isnan(t_max)) {
-            lv_label_set_text(id(label_temp), str_sprintf("%.1f / %.1f (%.1f)", t_min, t_max, t_max - t_min).c_str());
+          {
+            lv_obj_t *scale = id(power_scale_energy)->obj;
+            int scale_x = lv_obj_get_x(scale);
+            int scale_w = lv_obj_get_width(scale);
+            int center_x = scale_x + (scale_w / 2);
+            int marker_target_x = center_x;
+            float p_kw_clamped = 0.0f;
+            if (!std::isnan(v) && !std::isnan(i)) {
+              float p_kw = (v * i) / 1000.0f;
+              p_kw_clamped = std::clamp(p_kw, -18.0f, 18.0f);
+              marker_target_x = scale_x + (int)std::round(((p_kw_clamped + 18.0f) / 36.0f) * (float)(scale_w - 1));
+              if (marker_target_x < scale_x) marker_target_x = scale_x;
+              if (marker_target_x > (scale_x + scale_w - 1)) marker_target_x = scale_x + scale_w - 1;
+            }
+            int bar_x = (marker_target_x < center_x) ? marker_target_x : center_x;
+            int bar_w = (marker_target_x < center_x) ? (center_x - marker_target_x + 1) : (marker_target_x - center_x + 1);
+            if (std::abs(p_kw_clamped) < 0.02f) {
+              lv_obj_add_flag(id(power_marker_energy), LV_OBJ_FLAG_HIDDEN);
+            } else {
+              lv_obj_clear_flag(id(power_marker_energy), LV_OBJ_FLAG_HIDDEN);
+              if (bar_w < 5) bar_w = 5;
+              lv_obj_set_x(id(power_marker_energy), bar_x);
+              lv_obj_set_width(id(power_marker_energy), bar_w);
+            }
+            int p_indicator_w = 5;
+            int p_indicator_x = marker_target_x - (p_indicator_w / 2);
+            if (p_indicator_x < scale_x) p_indicator_x = scale_x;
+            if (p_indicator_x > (scale_x + scale_w - p_indicator_w)) p_indicator_x = scale_x + scale_w - p_indicator_w;
+            lv_obj_set_x(id(power_indicator_energy), p_indicator_x);
+            lv_obj_set_width(id(power_indicator_energy), p_indicator_w);
+
+            int gap_px = 4;
+            lv_obj_update_layout(id(label_power_energy));
+            int number_w = lv_obj_get_content_width(id(label_power_energy));
+            // Fixed anchor: unit never moves, number is right-aligned against it,
+            // so the decimal point stays put when the value changes sign or width.
+            int unit_x = center_x + 50;
+            int number_x = unit_x - gap_px - number_w;
+            lv_obj_set_x(id(label_power_energy), number_x);
+            lv_obj_set_x(id(label_power_energy_unit), unit_x);
+            int power_num_y = lv_obj_get_y(id(label_power_energy));
+            int power_num_h = lv_obj_get_height(id(label_power_energy));
+            int power_unit_h = lv_obj_get_height(id(label_power_energy_unit));
+            lv_obj_set_y(id(label_power_energy_unit), power_num_y + power_num_h - power_unit_h - 4);
           }
 
-          float c_min = id(bms_cell_min).state;
-          float c_max = id(bms_cell_max).state;
-          if (!std::isnan(c_min) && !std::isnan(c_max)) {
-            lv_label_set_text(id(label_cells), str_sprintf("%.3f / %.3f (%.3f)", c_min, c_max, c_max - c_min).c_str());
+          {
+            lv_obj_t *i_scale = id(current_scale_energy)->obj;
+            int i_scale_x = lv_obj_get_x(i_scale);
+            int i_scale_w = lv_obj_get_width(i_scale);
+            int i_center_x = i_scale_x + (i_scale_w / 2);
+            int i_target_x = i_center_x;
+            float i_clamped = 0.0f;
+            if (!std::isnan(i)) {
+              i_clamped = std::clamp(i, -50.0f, 50.0f);
+              i_target_x = i_scale_x + (int)std::round(((i_clamped + 50.0f) / 100.0f) * (float)(i_scale_w - 1));
+              if (i_target_x < i_scale_x) i_target_x = i_scale_x;
+              if (i_target_x > (i_scale_x + i_scale_w - 1)) i_target_x = i_scale_x + i_scale_w - 1;
+            }
+            int i_bar_x = (i_target_x < i_center_x) ? i_target_x : i_center_x;
+            int i_bar_w = (i_target_x < i_center_x) ? (i_center_x - i_target_x + 1) : (i_target_x - i_center_x + 1);
+            lv_color_t current_color = lv_color_hex(0xFFD54A);
+            lv_obj_set_style_bg_color(id(current_marker_energy), current_color, LV_PART_MAIN);
+            lv_obj_set_style_bg_color(id(current_indicator_energy), current_color, LV_PART_MAIN);
+            if (std::abs(i_clamped) < 0.02f) {
+              lv_obj_add_flag(id(current_marker_energy), LV_OBJ_FLAG_HIDDEN);
+            } else {
+              lv_obj_clear_flag(id(current_marker_energy), LV_OBJ_FLAG_HIDDEN);
+              if (i_bar_w < 5) i_bar_w = 5;
+              lv_obj_set_x(id(current_marker_energy), i_bar_x);
+              lv_obj_set_width(id(current_marker_energy), i_bar_w);
+            }
+            int i_indicator_w = 5;
+            int i_indicator_x = i_target_x - (i_indicator_w / 2);
+            if (i_indicator_x < i_scale_x) i_indicator_x = i_scale_x;
+            if (i_indicator_x > (i_scale_x + i_scale_w - i_indicator_w)) i_indicator_x = i_scale_x + i_scale_w - i_indicator_w;
+            lv_obj_set_x(id(current_indicator_energy), i_indicator_x);
+            lv_obj_set_width(id(current_indicator_energy), i_indicator_w);
+
+            int gap_px = 4;
+            lv_obj_update_layout(id(label_current_energy_value));
+            int number_w = lv_obj_get_content_width(id(label_current_energy_value));
+            int unit_x = i_center_x + 50;
+            int number_x = unit_x - gap_px - number_w;
+            lv_obj_set_x(id(label_current_energy_value), number_x);
+            lv_obj_set_x(id(label_current_energy_unit), unit_x);
+            int current_num_y = lv_obj_get_y(id(label_current_energy_value));
+            int current_num_h = lv_obj_get_height(id(label_current_energy_value));
+            int current_unit_h = lv_obj_get_height(id(label_current_energy_unit));
+            lv_obj_set_y(id(label_current_energy_unit), current_num_y + current_num_h - current_unit_h - 4);
           }
 
-          if (id(bms_contactor_state_text).has_state())
-            lv_label_set_text(id(label_contactor), ("Contactor: " + id(bms_contactor_state_text).state).c_str());
-          
-          if (id(bms_last_event_text).has_state())
-            lv_label_set_text(id(label_events), id(bms_last_event_text).state.c_str());
+          {
+            float v_min_lim = id(inverter_can_voltage_limit_min).state;
+            float v_max_lim = id(inverter_can_voltage_limit_max).state;
+            lv_obj_t *v_scale = id(voltage_scale_energy)->obj;
+            int v_scale_x = lv_obj_get_x(v_scale);
+            int v_scale_w = lv_obj_get_width(v_scale);
+            int v_center_x = v_scale_x + (v_scale_w / 2);
+            int v_marker_w = 5;
+            int v_target_x = v_scale_x + (v_scale_w / 2);
+            if (!std::isnan(v) && !std::isnan(v_min_lim) && !std::isnan(v_max_lim) && (v_max_lim > v_min_lim + 0.1f)) {
+              lv_label_set_text(id(label_voltage_scale_min_energy), str_sprintf("%.1fV", v_min_lim).c_str());
+              lv_label_set_text(id(label_voltage_scale_max_energy), str_sprintf("%.1fV", v_max_lim).c_str());
+              float v_ratio = (v - v_min_lim) / (v_max_lim - v_min_lim);
+              v_ratio = std::clamp(v_ratio, 0.0f, 1.0f);  // peg to min/max when outside range
+              v_target_x = v_scale_x + (int)(v_ratio * (float)(v_scale_w - 1));
+            } else {
+              lv_label_set_text(id(label_voltage_scale_min_energy), "--.-V");
+              lv_label_set_text(id(label_voltage_scale_max_energy), "--.-V");
+            }
+            int v_marker_x = v_target_x - (v_marker_w / 2);
+            if (v_marker_x < v_scale_x) v_marker_x = v_scale_x;
+            if (v_marker_x > (v_scale_x + v_scale_w - v_marker_w)) v_marker_x = v_scale_x + v_scale_w - v_marker_w;
+            lv_obj_set_x(id(voltage_marker_energy), v_marker_x);
+            lv_obj_set_width(id(voltage_marker_energy), v_marker_w);
 
-          if (!std::isnan(id(bms_uptime_sec).state)) {
-            lv_label_set_text(id(label_uptime), str_sprintf("HMI/BMS: %.0fs / %.0fs", id(uptime_sec).state, id(bms_uptime_sec).state).c_str());
+            int gap_px = 4;
+            lv_obj_update_layout(id(label_voltage_energy_value));
+            int number_w = lv_obj_get_content_width(id(label_voltage_energy_value));
+            int unit_x = v_center_x + 50;
+            int number_x = unit_x - gap_px - number_w;
+            lv_obj_set_x(id(label_voltage_energy_value), number_x);
+            lv_obj_set_x(id(label_voltage_energy_unit), unit_x);
+            int voltage_num_y = lv_obj_get_y(id(label_voltage_energy_value));
+            int voltage_num_h = lv_obj_get_height(id(label_voltage_energy_value));
+            int voltage_unit_h = lv_obj_get_height(id(label_voltage_energy_unit));
+            lv_obj_set_y(id(label_voltage_energy_unit), voltage_num_y + voltage_num_h - voltage_unit_h - 4);
+          }
+
+          float cap_ah = id(capacity_mC).state;
+          if (!std::isnan(soc_value) && !std::isnan(i) && !std::isnan(cap_ah) && cap_ah > 0.1f) {
+            float delta_soc_1h = (i / cap_ah) * 100.0f;
+            float predicted_soc = std::clamp(soc_value + delta_soc_1h, 0.0f, 100.0f);
+            lv_label_set_text(id(label_soc_delta_1h_energy), str_sprintf("1h change: %+.1f%%", delta_soc_1h).c_str());
+
+            float a_soc = 135.0f + (soc_value * 2.7f);
+            float a_pred = 135.0f + (predicted_soc * 2.7f);
+            float a_start = fminf(a_soc, a_pred);
+            float a_end = fmaxf(a_soc, a_pred);
+            if ((a_end - a_start) < 1.0f) {
+              a_end = a_start + 1.0f;
+            }
+            while (a_start >= 360.0f) a_start -= 360.0f;
+            while (a_end >= 360.0f) a_end -= 360.0f;
+            lv_obj_clear_flag(id(energy_soc_delta_arc), LV_OBJ_FLAG_HIDDEN);
+            lv_arc_set_angles(id(energy_soc_delta_arc), (int)a_start, (int)a_end);
+            lv_arc_set_value(id(energy_soc_delta_arc), 100);
           } else {
-            lv_label_set_text(id(label_uptime), str_sprintf("HMI/BMS: %.0fs / --", id(uptime_sec).state).c_str());
+            lv_label_set_text(id(label_soc_delta_1h_energy), "1h change: ---%");
+            lv_obj_add_flag(id(energy_soc_delta_arc), LV_OBJ_FLAG_HIDDEN);
+          }
+
+          float t_min = id(module_temperature_min).state;
+          float t_max = id(module_temperature_max).state;
+          if (!std::isnan(t_min) && !std::isnan(t_max)) {
+            lv_label_set_text(id(label_temp_energy), str_sprintf("%.1f / %.1f (%.1f)", t_min, t_max, t_max - t_min).c_str());
+          }
+
+          float c_min = id(cell_min).state;
+          float c_max = id(cell_max).state;
+          if (!std::isnan(c_min) && !std::isnan(c_max)) {
+            lv_label_set_text(id(label_cells_energy), str_sprintf("%.3f / %.3f (%.3f)", c_min, c_max, c_max - c_min).c_str());
+          }
+
+          if (id(contactor_state_text).has_state())
+            lv_label_set_text(id(label_contactor_energy), ("Contactor: " + id(contactor_state_text).state).c_str());
+
+          if (id(last_event_text).has_state())
+            lv_label_set_text(id(label_events_energy), id(last_event_text).state.c_str());
+
+          const float uptime_hmi_s = id(uptime_hmi_sec).state;
+          const float uptime_pico_s = id(uptime_pico_sec).state;
+          if (!std::isnan(uptime_hmi_s) && !std::isnan(uptime_pico_s)) {
+            lv_label_set_text(id(label_uptime_energy), str_sprintf("HMI/Pico: %.0fs / %.0fs", uptime_hmi_s, uptime_pico_s).c_str());
+          } else if (!std::isnan(uptime_hmi_s)) {
+            lv_label_set_text(id(label_uptime_energy), str_sprintf("HMI/Pico: %.0fs / --", uptime_hmi_s).c_str());
+          } else if (!std::isnan(uptime_pico_s)) {
+            lv_label_set_text(id(label_uptime_energy), str_sprintf("HMI/Pico: -- / %.0fs", uptime_pico_s).c_str());
+          } else {
+            lv_label_set_text(id(label_uptime_energy), "HMI/Pico: -- / --");
           }
 
           // --- DEBUG PAGE UPDATES ---
           if (lv_scr_act() == id(debug_page)->obj) {
-            lv_label_set_text(id(label_debug_millis), str_sprintf("Reg 2: %.0f ms", id(bms_millis).state).c_str());
-            lv_label_set_text(id(debug_reg_3), str_sprintf("Reg 3: %.1f %%", id(bms_soc).state).c_str());
-            lv_label_set_text(id(debug_reg_4), str_sprintf("Reg 4: %.3f A", id(bms_current_mA).state).c_str());
-            lv_label_set_text(id(debug_reg_5), str_sprintf("Reg 5: %.2f Ah", id(bms_capacity_mC).state).c_str());
-            lv_label_set_text(id(debug_reg_6), str_sprintf("Reg 6: %.3f V", id(bms_voltage_mV).state).c_str());
-            lv_label_set_text(id(debug_reg_10), str_sprintf("Reg 10: %.1f C", id(bms_temp_min).state).c_str());
-            lv_label_set_text(id(debug_reg_11), str_sprintf("Reg 11: %.1f C", id(bms_temp_max).state).c_str());
-            lv_label_set_text(id(debug_reg_12), str_sprintf("Reg 12: %.3f V", id(bms_cell_min).state).c_str());
-            lv_label_set_text(id(debug_reg_13), str_sprintf("Reg 13: %.3f V", id(bms_cell_max).state).c_str());
-            lv_label_set_text(id(debug_reg_15), str_sprintf("Reg 15: %s", id(bms_system_state_text).state.c_str()).c_str());
-            lv_label_set_text(id(debug_reg_16), str_sprintf("Reg 16: %s", id(bms_contactor_state_text).state.c_str()).c_str());
-            lv_label_set_text(id(debug_reg_37), str_sprintf("Reg 37 (ADC): %.0f", id(bms_adc_samples).state).c_str());
-            lv_label_set_text(id(debug_reg_38), str_sprintf("Reg 38 (Freq): %.0f Hz", id(bms_loop_freq).state).c_str());
+            if (id(serial).has_state())
+              lv_label_set_text(id(debug_reg_1), str_sprintf("Reg 1 (Serial): %s", id(serial).state.c_str()).c_str());
+            lv_label_set_text(id(label_debug_millis), str_sprintf("Reg 2 (Millis): %.0f ms", id(millis_value).state).c_str());
+            lv_label_set_text(id(debug_reg_3), str_sprintf("Reg 3 (SOC): %.1f %%", id(soc).state).c_str());
+            lv_label_set_text(id(debug_reg_4), str_sprintf("Reg 4 (Current): %.3f A", id(current_mA).state).c_str());
+            lv_label_set_text(id(debug_reg_5), str_sprintf("Reg 5 (Charge): %.2f Ah", id(charge_raw).state).c_str());
+            lv_label_set_text(id(debug_reg_6), str_sprintf("Reg 6 (Battery V): %.3f V", id(voltage_mV).state).c_str());
+            lv_label_set_text(id(debug_reg_7), str_sprintf("Reg 7 (Output V): %.3f V", id(output_voltage_mV).state).c_str());
+            lv_label_set_text(id(debug_reg_8), str_sprintf("Reg 8 (Pos Cont): %.3f V", id(pos_contactor_voltage).state).c_str());
+            lv_label_set_text(id(debug_reg_9), str_sprintf("Reg 9 (Neg Cont): %.3f V", id(neg_contactor_voltage).state).c_str());
+            lv_label_set_text(id(debug_reg_10), str_sprintf("Reg 10 (Temp Min): %.1f C", id(module_temperature_min).state).c_str());
+            lv_label_set_text(id(debug_reg_11), str_sprintf("Reg 11 (Temp Max): %.1f C", id(module_temperature_max).state).c_str());
+            lv_label_set_text(id(debug_reg_12), str_sprintf("Reg 12 (Cell V Min): %.3f V", id(cell_min).state).c_str());
+            lv_label_set_text(id(debug_reg_13), str_sprintf("Reg 13 (Cell V Max): %.3f V", id(cell_max).state).c_str());
+            lv_label_set_text(id(debug_reg_14), str_sprintf("Reg 14 (Sys Req): %.0f", id(system_req).state).c_str());
+            lv_label_set_text(id(debug_reg_15), str_sprintf("Reg 15 (Sys State): %s", id(system_state_text).state.c_str()).c_str());
+            lv_label_set_text(id(debug_reg_16), str_sprintf("Reg 16 (Cont State): %s", id(contactor_state_text).state.c_str()).c_str());
+            lv_label_set_text(id(debug_reg_17), str_sprintf("Reg 17 (SOC Volt): %.1f %%", id(soc_voltage_based).state).c_str());
+            lv_label_set_text(id(debug_reg_18), str_sprintf("Reg 18 (SOC Basic): %.1f %%", id(soc_basic_count).state).c_str());
+            lv_label_set_text(id(debug_reg_20), str_sprintf("Reg 20 (Capacity): %.2f Ah", id(capacity_mC).state).c_str());
+            lv_label_set_text(id(debug_reg_21), str_sprintf("Reg 21 (3V3): %.3f V", id(supply_3v3).state).c_str());
+            lv_label_set_text(id(debug_reg_22), str_sprintf("Reg 22 (5V): %.3f V", id(supply_5v).state).c_str());
+            lv_label_set_text(id(debug_reg_23), str_sprintf("Reg 23 (12V): %.3f V", id(supply_12v).state).c_str());
+            lv_label_set_text(id(debug_reg_24), str_sprintf("Reg 24 (CTR): %.3f V", id(supply_ctr).state).c_str());
+            lv_label_set_text(id(debug_reg_37), str_sprintf("Reg 37 (Inv SOC): %.1f %%", id(inverter_can_soc).state).c_str());
+            lv_label_set_text(id(debug_reg_45), str_sprintf("Reg 45 (Chg Lim): %.1f A", id(charge_current_limit).state).c_str());
+            lv_label_set_text(id(debug_reg_46), str_sprintf("Reg 46 (Dis Lim): %.1f A", id(discharge_current_limit).state).c_str());
           }
 
           // --- EVENT LOG PAGE UPDATES ---
           if (lv_scr_act() == id(debug_page_3)->obj) {
-            auto* bms = (esphome::hmi_bms::HMIBMS*) id(bms_hub);
+            auto* bms = (esphome::hmi_bms::HMIBMS*) id(hub);
             auto* history_sensor = bms->get_event_history_text_sensor();
             if (history_sensor && !history_sensor->state.empty()) {
                lv_label_set_text(id(label_debug_event_log), history_sensor->state.c_str());
@@ -72,100 +406,81 @@ interval:
             }
           }
 
-          // --- BALANCING PAGE UPDATES ---
-          if (lv_scr_act() == id(balancing_page)->obj) {
-            static bool initialized = false;
-            if (!initialized) {
-               // Voltage Spinboxes (31, 32, 35, 36): Range 0-5000 (0-5V), Format 4.3
-               lv_spinbox_set_range(id(sb_reg_31), 0, 5000);
-               lv_spinbox_set_digit_format(id(sb_reg_31), 4, 3);
-               lv_spinbox_step_prev(id(sb_reg_31));
+          // --- SETTINGS PAGES (BALANCING / LIMITS & SOC) ---
+          {
+            bool on_bal = (lv_scr_act() == id(balancing_page)->obj);
+            bool on_lim = (lv_scr_act() == id(limits_page)->obj);
+            if (on_bal || on_lim) {
+              // Lock/unlock button state (green = unlocked, red = locked).
+              bool unlocked = id(hub).is_settings_unlocked();
+              lv_color_t lock_bg = unlocked ? lv_color_hex(0x2E7D32) : lv_color_hex(0x8B1A1A);
+              const char *lock_txt = unlocked ? "LOCK" : "UNLOCK";
+              lv_label_set_text(id(lbl_lock_bal), lock_txt);
+              lv_label_set_text(id(lbl_lock_lim), lock_txt);
+              lv_obj_set_style_bg_color(id(btn_lock_bal), lock_bg, LV_PART_MAIN);
+              lv_obj_set_style_bg_color(id(btn_lock_lim), lock_bg, LV_PART_MAIN);
 
-               lv_spinbox_set_range(id(sb_reg_32), 0, 5000);
-               lv_spinbox_set_digit_format(id(sb_reg_32), 4, 3);
-               lv_spinbox_step_prev(id(sb_reg_32));
+              // Status line (unlock countdown / applied / locked messages).
+              if (id(settings_write_status).has_state()) {
+                lv_label_set_text(id(label_settings_status_bal), id(settings_write_status).state.c_str());
+                lv_label_set_text(id(label_settings_status_lim), id(settings_write_status).state.c_str());
+              }
 
-               lv_spinbox_set_range(id(sb_reg_35), 0, 1000);
-               lv_spinbox_set_digit_format(id(sb_reg_35), 4, 3);
-               lv_spinbox_step_prev(id(sb_reg_35));
-
-               lv_spinbox_set_range(id(sb_reg_36), 0, 5000);
-               lv_spinbox_set_digit_format(id(sb_reg_36), 4, 3);
-               lv_spinbox_step_prev(id(sb_reg_36));
-
-               // Auto Period (33): Range 0-3600000, Format 7.0
-               lv_spinbox_set_range(id(sb_reg_33), 0, 3600000);
-               lv_spinbox_set_digit_format(id(sb_reg_33), 7, 0);
-               lv_spinbox_step_prev(id(sb_reg_33));
-
-               // Period/mV (34): Range 0-1000, Format 4.0
-               lv_spinbox_set_range(id(sb_reg_34), 0, 1000);
-               lv_spinbox_set_digit_format(id(sb_reg_34), 4, 0);
-               lv_spinbox_step_prev(id(sb_reg_34));
-
-               // Max Charge/Discharge (39, 40): Range 0-500000 (500A), Format 6.3 (XXX.XXX)
-               lv_spinbox_set_range(id(sb_reg_39), 0, 500000);
-               lv_spinbox_set_digit_format(id(sb_reg_39), 6, 3);
-               lv_spinbox_step_prev(id(sb_reg_39));
-
-               lv_spinbox_set_range(id(sb_reg_40), 0, 500000);
-               lv_spinbox_set_digit_format(id(sb_reg_40), 6, 3);
-               lv_spinbox_step_prev(id(sb_reg_40));
-
-               initialized = true;
+              // Value buttons always show the BMS-confirmed state, in the same
+              // display units used by the entry pad.
+              auto set_val = [](lv_obj_t *lbl, float state, const char *fmt, float mult) {
+                if (std::isnan(state)) { lv_label_set_text(lbl, "--"); return; }
+                lv_label_set_text(lbl, str_sprintf(fmt, state * mult).c_str());
+              };
+              if (on_bal) {
+                set_val(id(val_reg_31), id(cv_soft_min).state,     "%.3f V",  0.001f);
+                set_val(id(val_reg_32), id(cv_soft_max).state,     "%.3f V",  0.001f);
+                set_val(id(val_reg_42), id(bal_start_v).state,     "%.3f V",  0.001f);
+                set_val(id(val_reg_36), id(min_bal_v).state,       "%.3f V",  0.001f);
+                set_val(id(val_reg_35), id(bal_min_offset).state,  "%.0f mV", 1.0f);
+                set_val(id(val_reg_33), id(auto_bal_period).state, "%.0f ms", 1.0f);
+                set_val(id(val_reg_34), id(bal_periods_mv).state,  "%.0f",    1.0f);
+                if (id(cells_balancing).has_state()) {
+                  lv_label_set_text(id(label_balancing_cells), id(cells_balancing).state.c_str());
+                }
+              }
+              if (on_lim) {
+                set_val(id(val_reg_43), id(max_charge).state,      "%.1f A",  1.0f);
+                set_val(id(val_reg_44), id(max_discharge).state,   "%.1f A",  1.0f);
+                set_val(id(val_reg_29), id(v_offset_lower).state,  "%.1f V",  0.1f);
+                set_val(id(val_reg_30), id(v_offset_upper).state,  "%.1f V",  0.1f);
+                set_val(id(val_reg_3),  id(soc_set_cmd).state,     "%.0f %%", 1.0f);
+                set_val(id(val_reg_25), id(cv_working_min).state,  "%.3f V",  0.001f);
+                set_val(id(val_reg_26), id(cv_working_max).state,  "%.3f V",  0.001f);
+                set_val(id(val_reg_27), id(soc_scale_min).state,   "%.0f %%", 1.0f);
+                set_val(id(val_reg_28), id(soc_scale_max).state,   "%.0f %%", 1.0f);
+              }
             }
-
-            // Update spinboxes if the value differs (checking as integer to avoid float precision jitter)
-            int32_t soft_min = (int32_t)(id(bms_cv_soft_min).state * 1000.0f);
-            if (lv_spinbox_get_value(id(sb_reg_31)) != soft_min) lv_spinbox_set_value(id(sb_reg_31), soft_min);
-
-            int32_t soft_max = (int32_t)(id(bms_cv_soft_max).state * 1000.0f);
-            if (lv_spinbox_get_value(id(sb_reg_32)) != soft_max) lv_spinbox_set_value(id(sb_reg_32), soft_max);
-
-            int32_t min_offset = (int32_t)(id(bms_bal_min_offset).state * 1000.0f);
-            if (lv_spinbox_get_value(id(sb_reg_35)) != min_offset) lv_spinbox_set_value(id(sb_reg_35), min_offset);
-
-            int32_t min_bal_v = (int32_t)(id(bms_min_bal_v).state * 1000.0f);
-            if (lv_spinbox_get_value(id(sb_reg_36)) != min_bal_v) lv_spinbox_set_value(id(sb_reg_36), min_bal_v);
-
-            int32_t auto_period = (int32_t)(id(bms_auto_bal_period).state);
-            if (lv_spinbox_get_value(id(sb_reg_33)) != auto_period) lv_spinbox_set_value(id(sb_reg_33), auto_period);
-
-            int32_t per_mv = (int32_t)(id(bms_bal_periods_mv).state);
-            if (lv_spinbox_get_value(id(sb_reg_34)) != per_mv) lv_spinbox_set_value(id(sb_reg_34), per_mv);
-
-            int32_t max_chg = (int32_t)(id(bms_max_charge).state * 1000.0f);
-            if (lv_spinbox_get_value(id(sb_reg_39)) != max_chg) lv_spinbox_set_value(id(sb_reg_39), max_chg);
-
-            int32_t max_dis = (int32_t)(id(bms_max_discharge).state * 1000.0f);
-            if (lv_spinbox_get_value(id(sb_reg_40)) != max_dis) lv_spinbox_set_value(id(sb_reg_40), max_dis);
-
-            lv_label_set_text(id(label_balancing_cells), id(bms_balancing_cells).state.c_str());
           }
 
           // --- BMS LOG PAGE UPDATES ---
-          if (lv_scr_act() == id(bms_log_page)->obj) {
-            bool log_on = id(bms_log_enable).state;
+          if (lv_scr_act() == id(log_page)->obj) {
+            bool log_on = id(log_enable).state;
             lv_label_set_text(id(label_log_enable_status), log_on ? "Log: ON" : "Log: OFF");
             lv_label_set_text(id(label_log_toggle_btn), log_on ? "ON" : "OFF");
-            float rate = id(bms_log_update_rate).state;
+            float rate = id(log_update_rate).state;
             if (!std::isnan(rate)) {
               lv_label_set_text(id(label_log_rate), str_sprintf("Rate: %.0fs", rate).c_str());
             }
             static text_sensor::TextSensor* log_sensors[] = {
-              id(bms_log_line_01), id(bms_log_line_02), id(bms_log_line_03), id(bms_log_line_04),
-              id(bms_log_line_05), id(bms_log_line_06), id(bms_log_line_07), id(bms_log_line_08),
-              id(bms_log_line_09), id(bms_log_line_10), id(bms_log_line_11), id(bms_log_line_12),
-              id(bms_log_line_13), id(bms_log_line_14), id(bms_log_line_15), id(bms_log_line_16),
-              id(bms_log_line_17), id(bms_log_line_18), id(bms_log_line_19), id(bms_log_line_20),
-              id(bms_log_line_21), id(bms_log_line_22), id(bms_log_line_23), id(bms_log_line_24),
-              id(bms_log_line_25), id(bms_log_line_26), id(bms_log_line_27), id(bms_log_line_28),
-              id(bms_log_line_29), id(bms_log_line_30), id(bms_log_line_31), id(bms_log_line_32),
-              id(bms_log_line_33), id(bms_log_line_34), id(bms_log_line_35), id(bms_log_line_36),
-              id(bms_log_line_37), id(bms_log_line_38), id(bms_log_line_39), id(bms_log_line_40),
-              id(bms_log_line_41), id(bms_log_line_42), id(bms_log_line_43), id(bms_log_line_44),
-              id(bms_log_line_45), id(bms_log_line_46), id(bms_log_line_47), id(bms_log_line_48),
-              id(bms_log_line_49), id(bms_log_line_50)
+              id(log_line_01), id(log_line_02), id(log_line_03), id(log_line_04),
+              id(log_line_05), id(log_line_06), id(log_line_07), id(log_line_08),
+              id(log_line_09), id(log_line_10), id(log_line_11), id(log_line_12),
+              id(log_line_13), id(log_line_14), id(log_line_15), id(log_line_16),
+              id(log_line_17), id(log_line_18), id(log_line_19), id(log_line_20),
+              id(log_line_21), id(log_line_22), id(log_line_23), id(log_line_24),
+              id(log_line_25), id(log_line_26), id(log_line_27), id(log_line_28),
+              id(log_line_29), id(log_line_30), id(log_line_31), id(log_line_32),
+              id(log_line_33), id(log_line_34), id(log_line_35), id(log_line_36),
+              id(log_line_37), id(log_line_38), id(log_line_39), id(log_line_40),
+              id(log_line_41), id(log_line_42), id(log_line_43), id(log_line_44),
+              id(log_line_45), id(log_line_46), id(log_line_47), id(log_line_48),
+              id(log_line_49), id(log_line_50)
             };
             static lv_obj_t* log_labels[] = {
               id(label_bms_log_01), id(label_bms_log_02), id(label_bms_log_03), id(label_bms_log_04),
@@ -198,14 +513,203 @@ interval:
 
           // --- CELL VOLTAGES PAGE ---
           if (lv_scr_act() == id(details_page)->obj) {
-            static lv_point_t points[108 * 2];
-            auto sensors = id(bms_hub).get_cell_voltage_sensors();
-            for(int i=0; i<108 && i<sensors.size(); i++) {
-              int x = i * 7;
-              float val = sensors[i]->state;
-              int16_t y = std::isnan(val) ? 350 : (int16_t)(350 - (val - 2.5f) / 1.7f * 350.0f);
-              points[i*2] = {(lv_coord_t)x, 350};
-              points[i*2+1] = {(lv_coord_t)x, (lv_coord_t)std::clamp((int)y, 0, 350)};
+            auto sensors = id(hub).get_cell_voltage_sensors();
+
+            const int max_cells = 120;
+            int cell_count = (int)sensors.size();
+            if (cell_count > max_cells) cell_count = max_cells;
+            if (cell_count <= 0) {
+              return;
             }
-            lv_line_set_points(id(cell_line_chart)->obj, points, 108 * 2);
+
+            // Only chart cells the BMS actually reports. Absent cells are
+            // published as NaN (or 0), so use the highest populated index.
+            int populated = 0;
+            for (int i = 0; i < cell_count; i++) {
+              float cv = sensors[i]->state;
+              if (!std::isnan(cv) && cv > 0.5f) populated = i + 1;
+            }
+            if (populated > 0) cell_count = populated;
+            lv_label_set_text(id(label_cell_count), str_sprintf("%d cells", cell_count).c_str());
+
+            lv_obj_t *chart = id(cell_line_chart)->obj;
+            int chart_w = lv_obj_get_content_width(chart);
+            int chart_h = lv_obj_get_content_height(chart);
+            if (chart_w <= 2 || chart_h <= 2) {
+              return;
+            }
+
+            float v_min = 1000.0f;
+            float v_max = -1000.0f;
+            bool has_data = false;
+            for (int i = 0; i < cell_count; i++) {
+              float v = sensors[i]->state;
+              if (!std::isnan(v)) {
+                has_data = true;
+                if (v < v_min) v_min = v;
+                if (v > v_max) v_max = v;
+              }
+            }
+
+            if (!has_data) {
+              lv_label_set_text(id(label_cell_scale_max), "--.-V");
+              lv_label_set_text(id(label_cell_scale_mid), "--.-V");
+              lv_label_set_text(id(label_cell_scale_min), "--.-V");
+              return;
+            }
+
+            float span = v_max - v_min;
+            if (span < 0.03f) span = 0.03f;
+            float margin = span * 0.12f;
+            float v_lo = v_min - margin;
+            float v_hi = v_max + margin;
+            float v_mid = (v_hi + v_lo) * 0.5f;
+            float v_range = v_hi - v_lo;
+
+            lv_label_set_text(id(label_cell_scale_max), str_sprintf("%.3fV", v_hi).c_str());
+            lv_label_set_text(id(label_cell_scale_mid), str_sprintf("%.3fV", v_mid).c_str());
+            lv_label_set_text(id(label_cell_scale_min), str_sprintf("%.3fV", v_lo).c_str());
+
+            // Cells actively bleeding right now get orange timer bars; cells
+            // that only have a balancing counter queued get yellow ones.
+            bool act_cells[121];
+            for (int i = 0; i <= 120; i++) act_cells[i] = false;
+            auto parse_cells = [](const std::string &raw, bool *out) {
+              if (raw.empty() || raw == "None" || raw == "unknown" || raw == "unavailable") return;
+              int value = 0, range_start = -1;
+              bool in_num = false;
+              auto commit = [&](int last) {
+                int from = (range_start >= 0) ? range_start : last;
+                for (int c = from; c <= last; c++) {
+                  if (c >= 1 && c <= 120) out[c] = true;
+                }
+                range_start = -1;
+              };
+              for (char ch : raw) {
+                if (ch >= '0' && ch <= '9') {
+                  value = (value * 10) + (ch - '0');
+                  in_num = true;
+                } else {
+                  if (in_num) {
+                    if (ch == '-') {
+                      range_start = value;
+                    } else {
+                      commit(value);
+                    }
+                  }
+                  value = 0;
+                  in_num = false;
+                }
+              }
+              if (in_num) commit(value);
+            };
+            if (id(cells_balancing_active).has_state()) parse_cells(id(cells_balancing_active).state, act_cells);
+
+            // Balance cycle time remaining readout (same source as HA).
+            {
+              float rem = id(max_balancing_timer).state;
+              if (std::isnan(rem)) {
+                lv_label_set_text(id(label_balance_remaining), "Balance cycle time remaining: --");
+              } else {
+                lv_label_set_text(id(label_balance_remaining),
+                    str_sprintf("Balance cycle time remaining: %.0f s", rem).c_str());
+              }
+            }
+
+            // Per-cell balancing timers, scaled like the HA dashboard: the
+            // scale is chosen so the largest timer bar starts just under its
+            // own blue voltage bar, and only ratchets up when counters
+            // increase (a new balancing session). While timers count down the
+            // scale holds, so the orange/yellow bars visibly shrink.
+            const auto &timers = id(hub).get_balancing_time_sensors();
+            static float axis_max_hold = 1.0f;
+            static float max_timer_prev = 0.0f;
+            float timer_s[120];
+            float max_timer = 0.0f;
+            int max_timer_idx = -1;
+            for (int i = 0; i < cell_count; i++) {
+              float t = 0.0f;
+              if (i < (int) timers.size() && timers[i] != nullptr &&
+                  !std::isnan(timers[i]->state) && timers[i]->state > 0.0f) {
+                t = timers[i]->state;
+              }
+              timer_s[i] = t;
+              if (t > max_timer) { max_timer = t; max_timer_idx = i; }
+            }
+            if (max_timer > 0.0f && max_timer_idx >= 0 && !std::isnan(sensors[max_timer_idx]->state)) {
+              float blue_norm = (sensors[max_timer_idx]->state - v_lo) / v_range;
+              if (blue_norm < 0.05f) blue_norm = 0.05f;
+              if (blue_norm > 1.0f) blue_norm = 1.0f;
+              float proposed = max_timer / (blue_norm * 0.98f);
+              if (max_timer > max_timer_prev && std::isfinite(proposed) && proposed > 0.0f) {
+                axis_max_hold = proposed;
+              }
+            }
+            max_timer_prev = max_timer;
+
+            // Filled bars: blue voltage bar per cell plus a timer overlay bar
+            // (both created lazily, reused).
+            static lv_obj_t *bar_objs[120] = {nullptr};
+            static lv_obj_t *mark_objs[120] = {nullptr};
+
+            for (int i = 0; i < cell_count; i++) {
+              if (bar_objs[i] == nullptr) {
+                lv_obj_t *bar = lv_obj_create(chart);
+                lv_obj_remove_style_all(bar);
+                lv_obj_set_style_bg_opa(bar, LV_OPA_COVER, LV_PART_MAIN);
+                lv_obj_set_style_bg_color(bar, lv_color_hex(0x00BFFF), LV_PART_MAIN);
+                lv_obj_clear_flag(bar, LV_OBJ_FLAG_CLICKABLE);
+                bar_objs[i] = bar;
+
+                lv_obj_t *mark = lv_obj_create(chart);
+                lv_obj_remove_style_all(mark);
+                lv_obj_set_style_bg_opa(mark, LV_OPA_COVER, LV_PART_MAIN);
+                lv_obj_clear_flag(mark, LV_OBJ_FLAG_CLICKABLE);
+                mark_objs[i] = mark;
+              }
+
+              int x0 = (i * chart_w) / cell_count;
+              int x1 = ((i + 1) * chart_w) / cell_count - 2;  // small gap between bars
+              if (x1 <= x0) x1 = x0 + 1;
+              if (x1 >= chart_w) x1 = chart_w - 1;
+              int w = x1 - x0 + 1;
+
+              float val = sensors[i]->state;
+              bool valid = !std::isnan(val);
+              int y = chart_h - 1;
+              if (valid) {
+                float norm = (val - v_lo) / v_range;
+                if (norm < 0.0f) norm = 0.0f;
+                if (norm > 1.0f) norm = 1.0f;
+                y = (int)((chart_h - 1) - norm * (chart_h - 1));
+              }
+              int y_c = std::clamp(y, 0, chart_h - 2);
+
+              lv_obj_set_pos(bar_objs[i], x0, y_c);
+              lv_obj_set_size(bar_objs[i], w, chart_h - y_c);
+              lv_obj_clear_flag(bar_objs[i], LV_OBJ_FLAG_HIDDEN);
+
+              // Timer overlay bar, bottom-aligned, shrinking with the counter.
+              int th = 0;
+              if (timer_s[i] > 0.0f && axis_max_hold > 0.0f) {
+                float tnorm = timer_s[i] / axis_max_hold;
+                if (tnorm > 1.0f) tnorm = 1.0f;
+                th = (int)(tnorm * (chart_h - 1));
+              }
+              if (th > 0) {
+                int ty = chart_h - th;
+                if (ty < 0) ty = 0;
+                lv_obj_set_pos(mark_objs[i], x0, ty);
+                lv_obj_set_size(mark_objs[i], w, th);
+                lv_obj_set_style_bg_color(mark_objs[i],
+                    act_cells[i + 1] ? lv_color_hex(0xFF9800) : lv_color_hex(0xFDD835), LV_PART_MAIN);
+                lv_obj_clear_flag(mark_objs[i], LV_OBJ_FLAG_HIDDEN);
+              } else {
+                lv_obj_add_flag(mark_objs[i], LV_OBJ_FLAG_HIDDEN);
+              }
+            }
+            for (int i = cell_count; i < max_cells; i++) {
+              if (bar_objs[i] != nullptr) lv_obj_add_flag(bar_objs[i], LV_OBJ_FLAG_HIDDEN);
+              if (mark_objs[i] != nullptr) lv_obj_add_flag(mark_objs[i], LV_OBJ_FLAG_HIDDEN);
+            }
           }

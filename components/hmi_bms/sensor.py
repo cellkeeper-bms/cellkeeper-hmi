@@ -33,7 +33,9 @@ CONF_TEMPERATURE_DELTA = "temperature_delta"
 CONF_CELL_VOLTAGE_MIN_MV = "cell_voltage_min_mV"
 CONF_CELL_VOLTAGE_MAX_MV = "cell_voltage_max_mV"
 CONF_CELL_VOLTAGE_DELTA = "cell_voltage_delta"
+CONF_CELL_COUNT = "cell_count"
 CONF_CELL_VOLTAGES = "cell_voltages"
+CONF_BALANCING_TIMES = "balancing_times"
 CONF_SYSTEM_SM = "system_sm"
 CONF_CONTACTOR_SM = "contactor_sm"
 CONF_SOC_VOLTAGE_BASED = "soc_voltage_based"
@@ -61,9 +63,21 @@ CONF_LAST_EVENT = "last_event"
 CONF_HIGHEST_EVENT_LEVEL = "highest_event_level"
 #CONF_EVENT_HISTORY = "event_history"
 #CONF_BALANCING_CELLS = "balancing_cells"
-CONF_ADC_SAMPLE_COUNT = "adc_sample_count"
-CONF_LOOP_FREQUENCY_HZ = "loop_frequency_hz"
+CONF_CHARGE_CURRENT_LIMIT = "charge_current_limit"
+CONF_DISCHARGE_CURRENT_LIMIT = "discharge_current_limit"
+CONF_TEMP_CHARGE_CURRENT_LIMIT = "temp_charge_current_limit"
+CONF_TEMP_DISCHARGE_CURRENT_LIMIT = "temp_discharge_current_limit"
+CONF_CELL_VOLTAGE_CHARGE_CURRENT_LIMIT = "cell_voltage_charge_current_limit"
+CONF_CELL_VOLTAGE_DISCHARGE_CURRENT_LIMIT = "cell_voltage_discharge_current_limit"
+CONF_WORKING_CHARGE_CURRENT_LIMIT = "working_charge_current_limit"
+CONF_WORKING_DISCHARGE_CURRENT_LIMIT = "working_discharge_current_limit"
+CONF_DELTA_CHARGE_CURRENT_LIMIT = "delta_charge_current_limit"
+CONF_HARD_CHARGE_CURRENT_LIMIT = "hard_charge_current_limit"
+CONF_HARD_DISCHARGE_CURRENT_LIMIT = "hard_discharge_current_limit"
 CONF_INVERTER_SOC = "inverter_soc"
+CONF_ISOLATION_POS_RAW = "isolation_pos_raw"
+CONF_ISOLATION_NEG_RAW = "isolation_neg_raw"
+CONF_ISOLATION_RESISTANCE = "isolation_resistance"
 CONF_INVERTER_FULL_CAPACITY = "inverter_full_capacity"
 CONF_INVERTER_REMAINING_CAPACITY = "inverter_remaining_capacity"
 CONF_INVERTER_MIN_VOLTAGE_LIMIT = "inverter_min_voltage_limit"
@@ -159,10 +173,18 @@ CONFIG_SCHEMA = cv.Schema({
         device_class=DEVICE_CLASS_VOLTAGE,
         state_class=STATE_CLASS_MEASUREMENT,
     ),
+    cv.Optional(CONF_CELL_COUNT): sensor.sensor_schema(
+        accuracy_decimals=0,
+        state_class=STATE_CLASS_MEASUREMENT,
+    ),
     cv.Optional(CONF_CELL_VOLTAGES): cv.ensure_list(sensor.sensor_schema(
         unit_of_measurement=UNIT_VOLT,
         accuracy_decimals=3,
         device_class=DEVICE_CLASS_VOLTAGE,
+        state_class=STATE_CLASS_MEASUREMENT,
+    )),
+    cv.Optional(CONF_BALANCING_TIMES): cv.ensure_list(sensor.sensor_schema(
+        accuracy_decimals=0,
         state_class=STATE_CLASS_MEASUREMENT,
     )),
     cv.Optional(CONF_SYSTEM_SM): sensor.sensor_schema(
@@ -210,6 +232,19 @@ CONFIG_SCHEMA = cv.Schema({
         unit_of_measurement=UNIT_VOLT,
         accuracy_decimals=3,
         device_class=DEVICE_CLASS_VOLTAGE,
+        state_class=STATE_CLASS_MEASUREMENT,
+    ),
+    cv.Optional(CONF_ISOLATION_POS_RAW): sensor.sensor_schema(
+        accuracy_decimals=0,
+        state_class=STATE_CLASS_MEASUREMENT,
+    ),
+    cv.Optional(CONF_ISOLATION_NEG_RAW): sensor.sensor_schema(
+        accuracy_decimals=0,
+        state_class=STATE_CLASS_MEASUREMENT,
+    ),
+    cv.Optional(CONF_ISOLATION_RESISTANCE): sensor.sensor_schema(
+        unit_of_measurement="Ω",
+        accuracy_decimals=0,
         state_class=STATE_CLASS_MEASUREMENT,
     ),
     cv.Optional(CONF_SOC_SCALING_MIN): sensor.sensor_schema(
@@ -275,13 +310,70 @@ CONFIG_SCHEMA = cv.Schema({
     ),
     #cv.Optional(CONF_EVENT_HISTORY): text_sensor.text_sensor_schema(),
     #cv.Optional(CONF_BALANCING_CELLS): text_sensor.text_sensor_schema(),
-    cv.Optional(CONF_ADC_SAMPLE_COUNT): sensor.sensor_schema(
-        accuracy_decimals=0,
+    cv.Optional(CONF_CHARGE_CURRENT_LIMIT): sensor.sensor_schema(
+        unit_of_measurement=UNIT_AMPERE,
+        accuracy_decimals=1,
+        device_class=DEVICE_CLASS_CURRENT,
         state_class=STATE_CLASS_MEASUREMENT,
     ),
-    cv.Optional(CONF_LOOP_FREQUENCY_HZ): sensor.sensor_schema(
-        unit_of_measurement="Hz",
-        accuracy_decimals=0,
+    cv.Optional(CONF_DISCHARGE_CURRENT_LIMIT): sensor.sensor_schema(
+        unit_of_measurement=UNIT_AMPERE,
+        accuracy_decimals=1,
+        device_class=DEVICE_CLASS_CURRENT,
+        state_class=STATE_CLASS_MEASUREMENT,
+    ),
+    cv.Optional(CONF_TEMP_CHARGE_CURRENT_LIMIT): sensor.sensor_schema(
+        unit_of_measurement=UNIT_AMPERE,
+        accuracy_decimals=1,
+        device_class=DEVICE_CLASS_CURRENT,
+        state_class=STATE_CLASS_MEASUREMENT,
+    ),
+    cv.Optional(CONF_TEMP_DISCHARGE_CURRENT_LIMIT): sensor.sensor_schema(
+        unit_of_measurement=UNIT_AMPERE,
+        accuracy_decimals=1,
+        device_class=DEVICE_CLASS_CURRENT,
+        state_class=STATE_CLASS_MEASUREMENT,
+    ),
+    cv.Optional(CONF_CELL_VOLTAGE_CHARGE_CURRENT_LIMIT): sensor.sensor_schema(
+        unit_of_measurement=UNIT_AMPERE,
+        accuracy_decimals=1,
+        device_class=DEVICE_CLASS_CURRENT,
+        state_class=STATE_CLASS_MEASUREMENT,
+    ),
+    cv.Optional(CONF_CELL_VOLTAGE_DISCHARGE_CURRENT_LIMIT): sensor.sensor_schema(
+        unit_of_measurement=UNIT_AMPERE,
+        accuracy_decimals=1,
+        device_class=DEVICE_CLASS_CURRENT,
+        state_class=STATE_CLASS_MEASUREMENT,
+    ),
+    cv.Optional(CONF_WORKING_CHARGE_CURRENT_LIMIT): sensor.sensor_schema(
+        unit_of_measurement=UNIT_AMPERE,
+        accuracy_decimals=1,
+        device_class=DEVICE_CLASS_CURRENT,
+        state_class=STATE_CLASS_MEASUREMENT,
+    ),
+    cv.Optional(CONF_WORKING_DISCHARGE_CURRENT_LIMIT): sensor.sensor_schema(
+        unit_of_measurement=UNIT_AMPERE,
+        accuracy_decimals=1,
+        device_class=DEVICE_CLASS_CURRENT,
+        state_class=STATE_CLASS_MEASUREMENT,
+    ),
+    cv.Optional(CONF_DELTA_CHARGE_CURRENT_LIMIT): sensor.sensor_schema(
+        unit_of_measurement=UNIT_AMPERE,
+        accuracy_decimals=1,
+        device_class=DEVICE_CLASS_CURRENT,
+        state_class=STATE_CLASS_MEASUREMENT,
+    ),
+    cv.Optional(CONF_HARD_CHARGE_CURRENT_LIMIT): sensor.sensor_schema(
+        unit_of_measurement=UNIT_AMPERE,
+        accuracy_decimals=1,
+        device_class=DEVICE_CLASS_CURRENT,
+        state_class=STATE_CLASS_MEASUREMENT,
+    ),
+    cv.Optional(CONF_HARD_DISCHARGE_CURRENT_LIMIT): sensor.sensor_schema(
+        unit_of_measurement=UNIT_AMPERE,
+        accuracy_decimals=1,
+        device_class=DEVICE_CLASS_CURRENT,
         state_class=STATE_CLASS_MEASUREMENT,
     ),
     cv.Optional(CONF_INVERTER_SOC): sensor.sensor_schema(
@@ -377,11 +469,18 @@ async def to_code(config):
     if CONF_CELL_VOLTAGE_DELTA in config:
         sens = await sensor.new_sensor(config[CONF_CELL_VOLTAGE_DELTA])
         cg.add(parent.set_cell_voltage_delta_sensor(sens))
+    if CONF_CELL_COUNT in config:
+        sens = await sensor.new_sensor(config[CONF_CELL_COUNT])
+        cg.add(parent.set_cell_count_sensor(sens))
     
     if CONF_CELL_VOLTAGES in config:
         for conf in config[CONF_CELL_VOLTAGES]:
             sens = await sensor.new_sensor(conf)
             cg.add(parent.add_cell_voltage_sensor(sens))
+    if CONF_BALANCING_TIMES in config:
+        for conf in config[CONF_BALANCING_TIMES]:
+            sens = await sensor.new_sensor(conf)
+            cg.add(parent.add_balancing_time_sensor(sens))
 
     if CONF_SYSTEM_SM in config:
         sens = await sensor.new_sensor(config[CONF_SYSTEM_SM])
@@ -410,6 +509,15 @@ async def to_code(config):
     if CONF_SUPPLY_VOLTAGE_CONTACTOR_MV in config:
         sens = await sensor.new_sensor(config[CONF_SUPPLY_VOLTAGE_CONTACTOR_MV])
         cg.add(parent.set_supply_voltage_contactor_mV_sensor(sens))
+    if CONF_ISOLATION_POS_RAW in config:
+        sens = await sensor.new_sensor(config[CONF_ISOLATION_POS_RAW])
+        cg.add(parent.set_isolation_pos_raw_sensor(sens))
+    if CONF_ISOLATION_NEG_RAW in config:
+        sens = await sensor.new_sensor(config[CONF_ISOLATION_NEG_RAW])
+        cg.add(parent.set_isolation_neg_raw_sensor(sens))
+    if CONF_ISOLATION_RESISTANCE in config:
+        sens = await sensor.new_sensor(config[CONF_ISOLATION_RESISTANCE])
+        cg.add(parent.set_isolation_resistance_sensor(sens))
     if CONF_SOC_SCALING_MIN in config:
         sens = await sensor.new_sensor(config[CONF_SOC_SCALING_MIN])
         cg.add(parent.set_soc_scaling_min_sensor(sens))
@@ -446,19 +554,39 @@ async def to_code(config):
     if CONF_HIGHEST_EVENT_LEVEL in config:
         sens = await sensor.new_sensor(config[CONF_HIGHEST_EVENT_LEVEL])
         cg.add(parent.set_highest_event_level_sensor(sens))
-    #if CONF_EVENT_HISTORY in config:
-    #    sens = await text_sensor.new_text_sensor(config[CONF_EVENT_HISTORY])
-    #    cg.add(parent.set_event_history_text_sensor(sens))
-    #if CONF_BALANCING_CELLS in config:
-    #    sens = await text_sensor.new_text_sensor(config[CONF_BALANCING_CELLS])
-    #    cg.add(parent.set_balancing_cells_text_sensor(sens))
-    
-    if CONF_ADC_SAMPLE_COUNT in config:
-        sens = await sensor.new_sensor(config[CONF_ADC_SAMPLE_COUNT])
-        cg.add(parent.set_adc_sample_count_sensor(sens))
-    if CONF_LOOP_FREQUENCY_HZ in config:
-        sens = await sensor.new_sensor(config[CONF_LOOP_FREQUENCY_HZ])
-        cg.add(parent.set_loop_frequency_hz_sensor(sens))
+    if CONF_CHARGE_CURRENT_LIMIT in config:
+        sens = await sensor.new_sensor(config[CONF_CHARGE_CURRENT_LIMIT])
+        cg.add(parent.set_charge_current_limit_sensor(sens))
+    if CONF_DISCHARGE_CURRENT_LIMIT in config:
+        sens = await sensor.new_sensor(config[CONF_DISCHARGE_CURRENT_LIMIT])
+        cg.add(parent.set_discharge_current_limit_sensor(sens))
+    if CONF_TEMP_CHARGE_CURRENT_LIMIT in config:
+        sens = await sensor.new_sensor(config[CONF_TEMP_CHARGE_CURRENT_LIMIT])
+        cg.add(parent.set_temp_charge_current_limit_sensor(sens))
+    if CONF_TEMP_DISCHARGE_CURRENT_LIMIT in config:
+        sens = await sensor.new_sensor(config[CONF_TEMP_DISCHARGE_CURRENT_LIMIT])
+        cg.add(parent.set_temp_discharge_current_limit_sensor(sens))
+    if CONF_CELL_VOLTAGE_CHARGE_CURRENT_LIMIT in config:
+        sens = await sensor.new_sensor(config[CONF_CELL_VOLTAGE_CHARGE_CURRENT_LIMIT])
+        cg.add(parent.set_cell_voltage_charge_current_limit_sensor(sens))
+    if CONF_CELL_VOLTAGE_DISCHARGE_CURRENT_LIMIT in config:
+        sens = await sensor.new_sensor(config[CONF_CELL_VOLTAGE_DISCHARGE_CURRENT_LIMIT])
+        cg.add(parent.set_cell_voltage_discharge_current_limit_sensor(sens))
+    if CONF_WORKING_CHARGE_CURRENT_LIMIT in config:
+        sens = await sensor.new_sensor(config[CONF_WORKING_CHARGE_CURRENT_LIMIT])
+        cg.add(parent.set_working_charge_current_limit_sensor(sens))
+    if CONF_WORKING_DISCHARGE_CURRENT_LIMIT in config:
+        sens = await sensor.new_sensor(config[CONF_WORKING_DISCHARGE_CURRENT_LIMIT])
+        cg.add(parent.set_working_discharge_current_limit_sensor(sens))
+    if CONF_DELTA_CHARGE_CURRENT_LIMIT in config:
+        sens = await sensor.new_sensor(config[CONF_DELTA_CHARGE_CURRENT_LIMIT])
+        cg.add(parent.set_delta_charge_current_limit_sensor(sens))
+    if CONF_HARD_CHARGE_CURRENT_LIMIT in config:
+        sens = await sensor.new_sensor(config[CONF_HARD_CHARGE_CURRENT_LIMIT])
+        cg.add(parent.set_hard_charge_current_limit_sensor(sens))
+    if CONF_HARD_DISCHARGE_CURRENT_LIMIT in config:
+        sens = await sensor.new_sensor(config[CONF_HARD_DISCHARGE_CURRENT_LIMIT])
+        cg.add(parent.set_hard_discharge_current_limit_sensor(sens))
     if CONF_INVERTER_SOC in config:
         sens = await sensor.new_sensor(config[CONF_INVERTER_SOC])
         cg.add(parent.set_inverter_soc_sensor(sens))

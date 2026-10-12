@@ -9,7 +9,7 @@ esp32:
 
 # Modular Packages
 packages:
-  bms_logic: !include bms_core.yaml
+  logic: !include bms_core.yaml
   # Headless device - no ui_layout or bms_ui_scripts
 
 psram:
@@ -73,5 +73,5 @@ i2c:
 
 sensor:
   - platform: uptime
-    id: uptime_sec
+    id: node_uptime_sec
     update_interval: 5s

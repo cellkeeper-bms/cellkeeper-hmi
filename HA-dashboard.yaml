@@ -1,4 +1,94 @@
 title: BMS Dashboard
+decluttering_templates:
+  detail2_voltage_capacity:
+    card:
+      type: entities
+      title: Voltage & Capacity
+      entities:
+        - entity: 'sensor.[[node]]_pack_internal_voltage'
+          name: Pack Internal Voltage
+        - entity: 'sensor.[[node]]_pack_output_voltage'
+          name: Pack Output Voltage
+        - entity: 'sensor.[[node]]_pack_internal_voltage_bmb'
+          name: Pack Internal Voltage BMB
+        - entity: 'sensor.[[node]]_contactor_voltage_positive'
+          name: Contactor Voltage Positive
+        - entity: 'sensor.[[node]]_contactor_voltage_negative'
+          name: Contactor Voltage Negative
+        - entity: 'sensor.[[node]]_capacity'
+          name: Capacity
+        - entity: 'sensor.[[node]]_charge_raw'
+          name: Charge Raw
+        - entity: 'sensor.[[node]]_soc'
+          name: SOC
+        - entity: 'sensor.[[node]]_soc_voltage_based'
+          name: SOC Voltage Based
+        - entity: 'sensor.[[node]]_soc_basic_count'
+          name: SOC Basic Count
+  detail2_inverter_can_values:
+    card:
+      type: entities
+      title: Inverter CAN Values
+      entities:
+        - entity: 'sensor.[[node]]_inverter_can_soc'
+          name: Inverter CAN SOC
+        - entity: 'sensor.[[node]]_inverter_can_capacity_full'
+          name: Inverter CAN Capacity Full
+        - entity: 'sensor.[[node]]_inverter_can_capacity_remaining'
+          name: Inverter CAN Capacity Remaining
+        - entity: 'sensor.[[node]]_inverter_can_voltage_limit_min'
+          name: Inverter CAN Voltage Limit Min
+        - entity: 'sensor.[[node]]_inverter_can_voltage_limit_max'
+          name: Inverter CAN Voltage Limit Max
+        - entity: 'sensor.[[node]]_current_limit_effective_charge'
+          name: Inverter CAN Charge Limit
+        - entity: 'sensor.[[node]]_current_limit_effective_discharge'
+          name: Inverter CAN Discharge Limit
+  detail2_energy_stats:
+    card:
+      type: entities
+      title: Energy Stats
+      entities:
+        - entity: 'sensor.[[node]]_power_charge'
+          name: Power Charge
+        - entity: 'sensor.[[node]]_power_discharge'
+          name: Power Discharge
+        - entity: 'sensor.[[node]]_energy_daily_charge'
+          name: Energy Daily Charge
+        - entity: 'sensor.[[node]]_energy_daily_discharge'
+          name: Energy Daily Discharge
+        - entity: 'sensor.[[node]]_energy_daily_net'
+          name: Energy Daily Net
+  detail2_temperature:
+    card:
+      type: entities
+      title: Temperature
+      entities:
+        - entity: 'sensor.[[node]]_module_temperature_min'
+          name: Module Temperature Min
+        - entity: 'sensor.[[node]]_module_temperature_max'
+          name: Module Temperature Max
+  detail2_module_temperatures:
+    card:
+      type: entities
+      title: Module Temperatures
+      entities:
+        - entity: 'sensor.[[node]]_module_temperature_1'
+          name: Module Temperature 1
+        - entity: 'sensor.[[node]]_module_temperature_2'
+          name: Module Temperature 2
+        - entity: 'sensor.[[node]]_module_temperature_3'
+          name: Module Temperature 3
+        - entity: 'sensor.[[node]]_module_temperature_4'
+          name: Module Temperature 4
+        - entity: 'sensor.[[node]]_module_temperature_5'
+          name: Module Temperature 5
+        - entity: 'sensor.[[node]]_module_temperature_6'
+          name: Module Temperature 6
+        - entity: 'sensor.[[node]]_module_temperature_7'
+          name: Module Temperature 7
+        - entity: 'sensor.[[node]]_module_temperature_8'
+          name: Module Temperature 8
 views:
   - title: Overview
     type: sections
@@ -17,7 +107,7 @@ views:
             filter:
               template: >
                 {% for state in states.sensor | selectattr('entity_id',
-                'search', 'ck0_(fatal|critical|warning|info)_') |
+                'search', 'ck0_event_(fatal|critical|warning|info)_') |
                 sort(attribute='attributes.friendly_name') -%}
                   {% if state.state not in ['INACTIVE', 'unknown', 'unavailable'] and not state.state.startswith('INACTIVE') -%}
                     {% set color = '#2196F3' -%}
@@ -35,7 +125,7 @@ views:
                       {
                         "type": "tile",
                         "entity": state.entity_id,
-                        "name": (state.attributes.friendly_name | replace("CellKeeper0", "") | replace("ck0", "") | replace("Fatal:", "") | replace("Critical:", "") | replace("Warning:", "") | replace("Info:", "") | trim),
+                        "name": (state.attributes.friendly_name | replace("CellKeeper0", "") | replace("ck0", "") | replace("Event Fatal ", "") | replace("Event Critical ", "") | replace("Event Warning ", "") | replace("Event Info ", "") | trim),
                         "color": color,
                         "card_mod": {
                           "style": "ha-card { --tile-color: " + color + " !important; }"
@@ -54,7 +144,7 @@ views:
             square: false
             cards:
               - type: gauge
-                entity: sensor.ck0_bms_soc
+                entity: sensor.ck0_soc
                 name: SOC
                 unit: '%'
                 min: 0
@@ -65,8 +155,8 @@ views:
                   yellow: 10
                   red: 0
               - type: gauge
-                entity: sensor.ck0_pack_voltage
-                name: Pack Voltage
+                entity: sensor.ck0_pack_internal_voltage
+                name: Pack Internal Voltage
                 min: 288
                 max: 410
                 needle: true
@@ -80,8 +170,8 @@ views:
                   - from: 400
                     color: '#db4437'
               - type: gauge
-                entity: sensor.ck0_bms_cell_min
-                name: Cell Min
+                entity: sensor.ck0_cell_voltage_min
+                name: Cell Voltage Min
                 min: 2.95
                 max: 4.25
                 needle: true
@@ -97,8 +187,8 @@ views:
                   - from: 4.2
                     color: '#db4437'
               - type: gauge
-                entity: sensor.ck0_bms_cell_max
-                name: Cell Max
+                entity: sensor.ck0_cell_voltage_max
+                name: Cell Voltage Max
                 min: 2.95
                 max: 4.25
                 needle: true
@@ -114,7 +204,7 @@ views:
                   - from: 4.2
                     color: '#db4437'
               - type: gauge
-                entity: sensor.ck0_bms_current
+                entity: sensor.ck0_current
                 name: Current
                 min: -200
                 max: 200
@@ -123,7 +213,7 @@ views:
                   green: 0
                   red: -200
               - type: gauge
-                entity: sensor.ck0_bms_power_w
+                entity: sensor.ck0_power_w
                 name: Power
                 unit: W
                 min: -10000
@@ -135,17 +225,17 @@ views:
           - type: entities
             title: System Status
             entities:
-              - entity: sensor.ck0_bms_system_state_text
+              - entity: sensor.ck0_system_state_text
                 name: System State
-              - entity: sensor.ck0_bms_contactor_state_text
+              - entity: sensor.ck0_contactor_state_text
                 name: Contactor State
-              - entity: button.ck0_bms_run
+              - entity: button.ck0_run
                 name: Run BMS
                 icon: mdi:play
-              - entity: button.ck0_bms_stop
+              - entity: button.ck0_stop
                 name: Stop BMS
                 icon: mdi:stop
-              - entity: button.ck0_bms_calibrate
+              - entity: button.ck0_calibrate
                 name: Offline Calibration (Inverter Disconnected, Contactors Open)
                 icon: mdi:wrench
   - title: Detail
@@ -158,75 +248,222 @@ views:
           - type: entities
             title: Voltage & Capacity
             entities:
-              - entity: sensor.ck0_pack_voltage
-                name: Pack Voltage
-              - entity: sensor.ck0_bms_output_voltage
-                name: Output Voltage
-              - entity: sensor.ck0_pack_voltage_bmb
-                name: Pack Voltage BMB
-              - entity: sensor.ck0_bms_contactor_voltage_positive
-                name: Positive Contactor
-              - entity: sensor.ck0_bms_contactor_voltage_negative
-                name: Negative Contactor
-              - entity: sensor.ck0_bms_capacity
-                name: Capacity
-              - entity: sensor.ck0_bms_charge_raw
-                name: Charge Raw
-              - entity: sensor.ck0_bms_soc
-                name: SOC (EKF Based)
-              - entity: sensor.ck0_bms_soc_voltage_based
-                name: SOC (Voltage Based)
-              - entity: sensor.ck0_bms_soc_basic_count
-                name: SOC (Basic Count)
+              - entity: sensor.ck0_pack_internal_voltage
+              - entity: sensor.ck0_pack_output_voltage
+              - entity: sensor.ck0_pack_internal_voltage_bmb
+              - entity: sensor.ck0_contactor_voltage_positive
+              - entity: sensor.ck0_contactor_voltage_negative
+              - entity: sensor.ck0_capacity
+              - entity: sensor.ck0_charge_raw
+              - entity: sensor.ck0_soc
+              - entity: sensor.ck0_soc_voltage_based
+              - entity: sensor.ck0_soc_basic_count
           - type: entities
             title: Inverter CAN Values
             entities:
               - entity: sensor.ck0_inverter_can_soc
-                name: Inverter CAN SOC
-              - entity: sensor.ck0_inverter_can_full_capacity
-                name: Inverter CAN Full Capacity
-              - entity: sensor.ck0_inverter_can_remaining_capacity
-                name: Inverter CAN Remaining Capacity
-              - entity: sensor.ck0_inverter_can_min_voltage_limit
-                name: Inverter CAN Min Voltage
-              - entity: sensor.ck0_inverter_can_max_voltage_limit
-                name: Inverter CAN Max Voltage
+              - entity: sensor.ck0_inverter_can_capacity_full
+              - entity: sensor.ck0_inverter_can_capacity_remaining
+              - entity: sensor.ck0_inverter_can_voltage_limit_min
+              - entity: sensor.ck0_inverter_can_voltage_limit_max
+              - entity: sensor.ck0_current_limit_effective_charge
+              - entity: sensor.ck0_current_limit_effective_discharge
           - type: entities
             title: Energy Stats
             entities:
-              - entity: sensor.ck0_bms_power_charging
-                name: Power Charging
-              - entity: sensor.ck0_bms_power_discharging
-                name: Power Discharging
-              - entity: sensor.ck0_bms_energy_charged_daily
-                name: Energy Charged (Daily)
-              - entity: sensor.ck0_bms_energy_discharged_daily
-                name: Energy Discharged (Daily)
-              - entity: sensor.ck0_bms_net_energy_daily
-                name: Net Energy (Daily)
+              - entity: sensor.ck0_power_charge
+              - entity: sensor.ck0_power_discharge
+              - entity: sensor.ck0_energy_daily_charge
+              - entity: sensor.ck0_energy_daily_discharge
+              - entity: sensor.ck0_energy_daily_net
       - cards:
           - type: heading
             heading: Temperature
-          - type: grid
-            columns: 2
-            cards:
-              - type: entity
-                entity: sensor.ck0_bms_temp_min
-                name: Min Temp
-              - type: entity
-                entity: sensor.ck0_bms_temp_max
-                name: Max Temp
+          - type: entities
+            title: Temperature
+            entities:
+              - entity: sensor.ck0_module_temperature_min
+              - entity: sensor.ck0_module_temperature_max
           - type: entities
             title: Module Temperatures
             entities:
-              - entity: sensor.ck0_bms_module_temp_1
-              - entity: sensor.ck0_bms_module_temp_2
-              - entity: sensor.ck0_bms_module_temp_3
-              - entity: sensor.ck0_bms_module_temp_4
-              - entity: sensor.ck0_bms_module_temp_5
-              - entity: sensor.ck0_bms_module_temp_6
-              - entity: sensor.ck0_bms_module_temp_7
-              - entity: sensor.ck0_bms_module_temp_8
+              - entity: sensor.ck0_module_temperature_1
+              - entity: sensor.ck0_module_temperature_2
+              - entity: sensor.ck0_module_temperature_3
+              - entity: sensor.ck0_module_temperature_4
+              - entity: sensor.ck0_module_temperature_5
+              - entity: sensor.ck0_module_temperature_6
+              - entity: sensor.ck0_module_temperature_7
+              - entity: sensor.ck0_module_temperature_8
+  - title: Detail 1
+    path: detail-1
+    type: sections
+    max_columns: 3
+    sections:
+      - cards:
+          - type: heading
+            heading: Battery Details
+          - type: custom:auto-entities
+            card:
+              type: entities
+              title: Voltage & Capacity
+            card_param: entities
+            filter:
+              template: >
+                {% set ids = [
+                  'sensor.ck0_pack_internal_voltage',
+                  'sensor.ck0_pack_output_voltage',
+                  'sensor.ck0_pack_internal_voltage_bmb',
+                  'sensor.ck0_contactor_voltage_positive',
+                  'sensor.ck0_contactor_voltage_negative',
+                  'sensor.ck0_capacity',
+                  'sensor.ck0_charge_raw',
+                  'sensor.ck0_soc',
+                  'sensor.ck0_soc_voltage_based',
+                  'sensor.ck0_soc_basic_count'
+                ] %}
+                {% for entity_id in ids -%}
+                  {{
+                    {
+                      "entity": entity_id,
+                      "name": ((state_attr(entity_id, "friendly_name") if state_attr(entity_id, "friendly_name") else entity_id) | replace("CellKeeper0 ", "") | replace("CK0 ", "") | trim)
+                    }
+                  }},
+                {%- endfor %}
+            show_empty: false
+            unique: true
+          - type: custom:auto-entities
+            card:
+              type: entities
+              title: Inverter CAN Values
+            card_param: entities
+            filter:
+              template: >
+                {% set ids = [
+                  'sensor.ck0_inverter_can_soc',
+                  'sensor.ck0_inverter_can_capacity_full',
+                  'sensor.ck0_inverter_can_capacity_remaining',
+                  'sensor.ck0_inverter_can_voltage_limit_min',
+                  'sensor.ck0_inverter_can_voltage_limit_max',
+                  'sensor.ck0_current_limit_effective_charge',
+                  'sensor.ck0_current_limit_effective_discharge'
+                ] %}
+                {% for entity_id in ids -%}
+                  {{
+                    {
+                      "entity": entity_id,
+                      "name": ((state_attr(entity_id, "friendly_name") if state_attr(entity_id, "friendly_name") else entity_id) | replace("CellKeeper0 ", "") | replace("CK0 ", "") | trim)
+                    }
+                  }},
+                {%- endfor %}
+            show_empty: false
+            unique: true
+          - type: custom:auto-entities
+            card:
+              type: entities
+              title: Energy Stats
+            card_param: entities
+            filter:
+              template: >
+                {% set ids = [
+                  'sensor.ck0_power_charge',
+                  'sensor.ck0_power_discharge',
+                  'sensor.ck0_energy_daily_charge',
+                  'sensor.ck0_energy_daily_discharge',
+                  'sensor.ck0_energy_daily_net'
+                ] %}
+                {% for entity_id in ids -%}
+                  {{
+                    {
+                      "entity": entity_id,
+                      "name": ((state_attr(entity_id, "friendly_name") if state_attr(entity_id, "friendly_name") else entity_id) | replace("CellKeeper0 ", "") | replace("CK0 ", "") | trim)
+                    }
+                  }},
+                {%- endfor %}
+            show_empty: false
+            unique: true
+      - cards:
+          - type: heading
+            heading: Temperature
+          - type: custom:auto-entities
+            card:
+              type: entities
+              title: Temperature
+            card_param: entities
+            filter:
+              template: >
+                {% set ids = [
+                  'sensor.ck0_module_temperature_min',
+                  'sensor.ck0_module_temperature_max'
+                ] %}
+                {% for entity_id in ids -%}
+                  {{
+                    {
+                      "entity": entity_id,
+                      "name": ((state_attr(entity_id, "friendly_name") if state_attr(entity_id, "friendly_name") else entity_id) | replace("CellKeeper0 ", "") | replace("CK0 ", "") | trim)
+                    }
+                  }},
+                {%- endfor %}
+            show_empty: false
+            unique: true
+          - type: custom:auto-entities
+            card:
+              type: entities
+              title: Module Temperatures
+            card_param: entities
+            filter:
+              template: >
+                {% set ids = [
+                  'sensor.ck0_module_temperature_1',
+                  'sensor.ck0_module_temperature_2',
+                  'sensor.ck0_module_temperature_3',
+                  'sensor.ck0_module_temperature_4',
+                  'sensor.ck0_module_temperature_5',
+                  'sensor.ck0_module_temperature_6',
+                  'sensor.ck0_module_temperature_7',
+                  'sensor.ck0_module_temperature_8'
+                ] %}
+                {% for entity_id in ids -%}
+                  {{
+                    {
+                      "entity": entity_id,
+                      "name": ((state_attr(entity_id, "friendly_name") if state_attr(entity_id, "friendly_name") else entity_id) | replace("CellKeeper0 ", "") | replace("CK0 ", "") | trim)
+                    }
+                  }},
+                {%- endfor %}
+            show_empty: false
+            unique: true
+  - title: Detail 2
+    path: detail-2
+    type: sections
+    max_columns: 3
+    sections:
+      - cards:
+          - type: heading
+            heading: Battery Details
+          - type: custom:decluttering-card
+            template: detail2_voltage_capacity
+            variables:
+              - node: ck0
+          - type: custom:decluttering-card
+            template: detail2_inverter_can_values
+            variables:
+              - node: ck0
+          - type: custom:decluttering-card
+            template: detail2_energy_stats
+            variables:
+              - node: ck0
+      - cards:
+          - type: heading
+            heading: Temperature
+          - type: custom:decluttering-card
+            template: detail2_temperature
+            variables:
+              - node: ck0
+          - type: custom:decluttering-card
+            template: detail2_module_temperatures
+            variables:
+              - node: ck0
   - title: Cells
     type: sections
     max_columns: 4
@@ -240,14 +477,12 @@ views:
               rows: auto
             title: Cell Summary
             entities:
-              - entity: sensor.ck0_bms_cell_min
-                name: Min Cell Voltage
-              - entity: sensor.ck0_bms_cell_max
-                name: Max Cell Voltage
-              - entity: sensor.ck0_bms_cell_delta
-                name: Cell Delta
-              - entity: sensor.ck0_bms_balancing_cells
-                name: Balancing Cells
+              - entity: sensor.ck0_cell_voltage_min
+              - entity: sensor.ck0_cell_voltage_max
+              - entity: sensor.ck0_cell_voltage_delta
+              - entity: sensor.ck0_cells_balancing_count
+              - entity: sensor.ck0_cells_balancing_active_count
+              - entity: sensor.ck0_balance_cycle_time_remaining
           - type: custom:plotly-graph
             grid_options:
               columns: full
@@ -259,18 +494,69 @@ views:
               $ex {
                 vars.x = [];
                 vars.y = [];
-                vars.colors = [];
-                
-                let balancing_str = hass.states['sensor.ck0_bms_balancing_cells'] ? hass.states['sensor.ck0_bms_balancing_cells'].state : "";
-                let balancing_cells = [];
-                if (balancing_str && balancing_str !== "None" && balancing_str !== "unknown" && balancing_str !== "unavailable") {
-                   balancing_cells = balancing_str.split(',').map(s => parseInt(s.trim()));
-                }
-                
-                for (let j = 0; j < 108; j++) {
+                vars.balance = [];
+                vars.balance_colors = [];
+                vars.balance_timer_max = 0;
+                vars.balance_timer_total_s = 0;
+                vars.balance_timer_label = "Balance Cycle Time Remaining: 0 s";
+                let max_single_timer_s = 0;
+                let max_adjacent_pair_s = 0;
+                let prev_timer_s = 0;
+                const parse_cell_ranges = (raw, out_set) => {
+                  if (!raw || raw === "None" || raw === "unknown" || raw === "unavailable") {
+                    return;
+                  }
+                  const tokens = raw.split(",");
+                  for (const token of tokens) {
+                    const t = token.trim();
+                    if (!t) continue;
+                    const range = t.match(/^(\d+)\s*-\s*(\d+)$/);
+                    if (range) {
+                      const a = parseInt(range[1], 10);
+                      const b = parseInt(range[2], 10);
+                      if (isNaN(a) || isNaN(b)) continue;
+                      const lo = Math.min(a, b);
+                      const hi = Math.max(a, b);
+                      for (let cell = lo; cell <= hi; cell++) out_set.add(cell);
+                    } else {
+                      const cell = parseInt(t, 10);
+                      if (!isNaN(cell)) out_set.add(cell);
+                    }
+                  }
+                };
+                const balancing_cells_set = new Set();
+                const active_cells_set = new Set();
+                const balancing_cells_raw = (hass.states['sensor.ck0_cells_balancing']?.state ?? "").toString().trim();
+                const active_cells_raw = (hass.states['sensor.ck0_cells_balancing_active']?.state ?? "").toString().trim();
+                parse_cell_ranges(balancing_cells_raw, balancing_cells_set);
+                parse_cell_ranges(active_cells_raw, active_cells_set);
+
+                const detected_cell_count = parseInt(hass.states['sensor.ck0_cell_count']?.state);
+                const cell_count = (!isNaN(detected_cell_count) && detected_cell_count > 0)
+                  ? Math.min(detected_cell_count, 108)
+                  : 108;
+
+                for (let j = 0; j < cell_count; j++) {
                   let index = j + 1;
                   let suffix = index.toString().padStart(3, '0');
                   let entity_id = "sensor.ck0_cell_voltage_" + suffix;
+                  let timer_entity_id = "sensor.ck0_cell_balancing_time_" + suffix;
+                  let timer_val = 0;
+                  if (hass.states[timer_entity_id]) {
+                    let parsed_timer = parseFloat(hass.states[timer_entity_id].state);
+                    if (!isNaN(parsed_timer) && parsed_timer > 0) {
+                      timer_val = parsed_timer;
+                    }
+                  }
+
+                  if (timer_val > max_single_timer_s) {
+                    max_single_timer_s = timer_val;
+                  }
+                  const adjacent_sum = prev_timer_s + timer_val;
+                  if (adjacent_sum > max_adjacent_pair_s) {
+                    max_adjacent_pair_s = adjacent_sum;
+                  }
+                  prev_timer_s = timer_val;
                   
                   if (hass.states[entity_id]) {
                     let val = parseFloat(hass.states[entity_id].state);
@@ -278,11 +564,13 @@ views:
                     if (!isNaN(val) && val > 0.01) {
                       vars.x.push(index);
                       vars.y.push(val);
-                      
-                      if (balancing_cells.includes(index)) {
-                        vars.colors.push("#FF9800"); // Balancing color (Orange)
+                      vars.balance.push(timer_val);
+                      if (active_cells_set.has(index)) {
+                        vars.balance_colors.push('#FF9800'); // Actively balancing now
+                      } else if (balancing_cells_set.has(index) || timer_val > 0) {
+                        vars.balance_colors.push('#FDD835'); // Has balancing counter
                       } else {
-                        vars.colors.push("#3498db"); // Normal color (Blue)
+                        vars.balance_colors.push('rgba(0,0,0,0)');
                       }
                     }
                   }
@@ -295,6 +583,52 @@ views:
                   vars.ymin = 0;
                   vars.ymax = 5;
                 }
+
+                const axis_state_key = "ck0_cells_balance_axis_state";
+                if (!globalThis[axis_state_key] || typeof globalThis[axis_state_key] !== "object") {
+                  globalThis[axis_state_key] = {axis_max_hold: 1, max_timer_prev: 0};
+                }
+                const axis_state = globalThis[axis_state_key];
+                if (!isFinite(axis_state.axis_max_hold) || axis_state.axis_max_hold <= 0) {
+                  axis_state.axis_max_hold = 1;
+                }
+                if (!isFinite(axis_state.max_timer_prev) || axis_state.max_timer_prev < 0) {
+                  axis_state.max_timer_prev = 0;
+                }
+                vars.balance_axis_max = axis_state.axis_max_hold;
+                if (vars.balance.length > 0 && vars.y.length > 0) {
+                  let max_timer = 0;
+                  let max_timer_idx = -1;
+                  for (let i = 0; i < vars.balance.length; i++) {
+                    if (vars.balance[i] > max_timer) {
+                      max_timer = vars.balance[i];
+                      max_timer_idx = i;
+                    }
+                  }
+
+                  if (max_timer > 0 && max_timer_idx >= 0) {
+                    const y_span = Math.max(vars.ymax - vars.ymin, 1e-6);
+                    let blue_norm = (vars.y[max_timer_idx] - vars.ymin) / y_span;
+                    // Keep the tallest yellow bar just under its blue bar.
+                    blue_norm = Math.max(blue_norm, 0.05);
+                    const proposed_axis_max = max_timer / (blue_norm * 0.98);
+                    // Only rescale when counters increase (new/reset session).
+                    if (max_timer > axis_state.max_timer_prev && isFinite(proposed_axis_max) && proposed_axis_max > 0) {
+                      axis_state.axis_max_hold = proposed_axis_max;
+                    }
+                  }
+                  vars.balance_timer_max = max_timer;
+                }
+                vars.balance_axis_max = axis_state.axis_max_hold;
+                if (!isFinite(vars.balance_timer_max) || vars.balance_timer_max < 0) {
+                  vars.balance_timer_max = 0;
+                }
+                axis_state.max_timer_prev = vars.balance_timer_max;
+                globalThis[axis_state_key] = axis_state;
+
+                vars.balance_timer_total_s = Math.max(max_single_timer_s, max_adjacent_pair_s);
+                vars.balance_timer_label =
+                  "Balance Cycle Time Remaining: " + Math.round(vars.balance_timer_total_s) + " s";
               }
             entities:
               - entity: ''
@@ -303,22 +637,505 @@ views:
                 'y': $ex vars.y
                 texttemplate: '%{y:.3f}'
                 marker:
-                  color: $ex vars.colors
+                  color: '#3498db'
+              - entity: ''
+                type: bar
+                x: $ex vars.x
+                'y': $ex vars.balance
+                yaxis: y2
+                name: Balancing Time
+                marker:
+                  color: $ex vars.balance_colors
+                opacity: 0.65
             layout:
               autosize: true
               height: 600
+              barmode: overlay
+              showlegend: false
+              dragmode: false
               xaxis:
                 title: Cell Number
                 type: category
+                fixedrange: true
               yaxis:
                 title: Voltage (V)
+                fixedrange: true
                 range:
                   - $ex vars.ymin
                   - $ex vars.ymax
+              yaxis2:
+                title: Balancing Time
+                overlaying: 'y'
+                side: right
+                showgrid: false
+                visible: false
+                fixedrange: true
+                range:
+                  - 0
+                  - $ex vars.balance_axis_max
+              annotations:
+                - xref: paper
+                  yref: paper
+                  x: 0.99
+                  y: 0.99
+                  xanchor: right
+                  yanchor: top
+                  showarrow: false
+                  text: $ex vars.balance_timer_label
+                  font:
+                    size: 12
+                    color: '#FDD835'
             config:
               responsive: true
               displayModeBar: false
               scrollZoom: false
+  - title: Cells 3D
+    path: cells-3d
+    type: panel
+    cards:
+      - type: vertical-stack
+        cards:
+          - type: markdown
+            content: >
+              **Warning:** This 3D view can take 30+ seconds to load while Home
+              Assistant gathers and renders all cell history points.
+          - type: custom:plotly-graph
+            title: Cells 3D Surface
+            raw_plotly_config: true
+            hours_to_show: 1d
+            defaults:
+              entity:
+                internal: true
+                filters:
+                  - resample: 1m
+                fn: |
+                  $ex {
+                      vars.data.push(ys);
+                      vars.xs = xs;
+                   }
+            fn: |-
+              $ex {
+                vars.data = [];
+                vars.balance_x = [];
+                vars.balance_y = [];
+                let detected_cell_count = parseInt(hass.states['sensor.ck0_cell_count']?.state);
+                vars.cell_count = (!isNaN(detected_cell_count) && detected_cell_count > 0)
+                  ? Math.min(detected_cell_count, 108)
+                  : 108;
+              }
+            layout:
+              height: 1600
+              margin:
+                t: 0
+                l: 0
+                r: 90
+                b: 0
+              scene:
+                camera:
+                  eye:
+                    x: 2
+                    'y': 2
+                    z: 2
+                xaxis:
+                  title: Hour of Day
+                  tickformat: '%H:%M:%S'
+                yaxis:
+                  title: Cell
+                  tickmode: linear
+                  dtick: 1
+                zaxis:
+                  title: V
+            entities:
+              - entity: sensor.ck0_cell_voltage_001
+              - entity: sensor.ck0_cell_voltage_002
+              - entity: sensor.ck0_cell_voltage_003
+              - entity: sensor.ck0_cell_voltage_004
+              - entity: sensor.ck0_cell_voltage_005
+              - entity: sensor.ck0_cell_voltage_006
+              - entity: sensor.ck0_cell_voltage_007
+              - entity: sensor.ck0_cell_voltage_008
+              - entity: sensor.ck0_cell_voltage_009
+              - entity: sensor.ck0_cell_voltage_010
+              - entity: sensor.ck0_cell_voltage_011
+              - entity: sensor.ck0_cell_voltage_012
+              - entity: sensor.ck0_cell_voltage_013
+              - entity: sensor.ck0_cell_voltage_014
+              - entity: sensor.ck0_cell_voltage_015
+              - entity: sensor.ck0_cell_voltage_016
+              - entity: sensor.ck0_cell_voltage_017
+              - entity: sensor.ck0_cell_voltage_018
+              - entity: sensor.ck0_cell_voltage_019
+              - entity: sensor.ck0_cell_voltage_020
+              - entity: sensor.ck0_cell_voltage_021
+              - entity: sensor.ck0_cell_voltage_022
+              - entity: sensor.ck0_cell_voltage_023
+              - entity: sensor.ck0_cell_voltage_024
+              - entity: sensor.ck0_cell_voltage_025
+              - entity: sensor.ck0_cell_voltage_026
+              - entity: sensor.ck0_cell_voltage_027
+              - entity: sensor.ck0_cell_voltage_028
+              - entity: sensor.ck0_cell_voltage_029
+              - entity: sensor.ck0_cell_voltage_030
+              - entity: sensor.ck0_cell_voltage_031
+              - entity: sensor.ck0_cell_voltage_032
+              - entity: sensor.ck0_cell_voltage_033
+              - entity: sensor.ck0_cell_voltage_034
+              - entity: sensor.ck0_cell_voltage_035
+              - entity: sensor.ck0_cell_voltage_036
+              - entity: sensor.ck0_cell_voltage_037
+              - entity: sensor.ck0_cell_voltage_038
+              - entity: sensor.ck0_cell_voltage_039
+              - entity: sensor.ck0_cell_voltage_040
+              - entity: sensor.ck0_cell_voltage_041
+              - entity: sensor.ck0_cell_voltage_042
+              - entity: sensor.ck0_cell_voltage_043
+              - entity: sensor.ck0_cell_voltage_044
+              - entity: sensor.ck0_cell_voltage_045
+              - entity: sensor.ck0_cell_voltage_046
+              - entity: sensor.ck0_cell_voltage_047
+              - entity: sensor.ck0_cell_voltage_048
+              - entity: sensor.ck0_cell_voltage_049
+              - entity: sensor.ck0_cell_voltage_050
+              - entity: sensor.ck0_cell_voltage_051
+              - entity: sensor.ck0_cell_voltage_052
+              - entity: sensor.ck0_cell_voltage_053
+              - entity: sensor.ck0_cell_voltage_054
+              - entity: sensor.ck0_cell_voltage_055
+              - entity: sensor.ck0_cell_voltage_056
+              - entity: sensor.ck0_cell_voltage_057
+              - entity: sensor.ck0_cell_voltage_058
+              - entity: sensor.ck0_cell_voltage_059
+              - entity: sensor.ck0_cell_voltage_060
+              - entity: sensor.ck0_cell_voltage_061
+              - entity: sensor.ck0_cell_voltage_062
+              - entity: sensor.ck0_cell_voltage_063
+              - entity: sensor.ck0_cell_voltage_064
+              - entity: sensor.ck0_cell_voltage_065
+              - entity: sensor.ck0_cell_voltage_066
+              - entity: sensor.ck0_cell_voltage_067
+              - entity: sensor.ck0_cell_voltage_068
+              - entity: sensor.ck0_cell_voltage_069
+              - entity: sensor.ck0_cell_voltage_070
+              - entity: sensor.ck0_cell_voltage_071
+              - entity: sensor.ck0_cell_voltage_072
+              - entity: sensor.ck0_cell_voltage_073
+              - entity: sensor.ck0_cell_voltage_074
+              - entity: sensor.ck0_cell_voltage_075
+              - entity: sensor.ck0_cell_voltage_076
+              - entity: sensor.ck0_cell_voltage_077
+              - entity: sensor.ck0_cell_voltage_078
+              - entity: sensor.ck0_cell_voltage_079
+              - entity: sensor.ck0_cell_voltage_080
+              - entity: sensor.ck0_cell_voltage_081
+              - entity: sensor.ck0_cell_voltage_082
+              - entity: sensor.ck0_cell_voltage_083
+              - entity: sensor.ck0_cell_voltage_084
+              - entity: sensor.ck0_cell_voltage_085
+              - entity: sensor.ck0_cell_voltage_086
+              - entity: sensor.ck0_cell_voltage_087
+              - entity: sensor.ck0_cell_voltage_088
+              - entity: sensor.ck0_cell_voltage_089
+              - entity: sensor.ck0_cell_voltage_090
+              - entity: sensor.ck0_cell_voltage_091
+              - entity: sensor.ck0_cell_voltage_092
+              - entity: sensor.ck0_cell_voltage_093
+              - entity: sensor.ck0_cell_voltage_094
+              - entity: sensor.ck0_cell_voltage_095
+              - entity: sensor.ck0_cell_voltage_096
+              - entity: sensor.ck0_cell_voltage_097
+              - entity: sensor.ck0_cell_voltage_098
+              - entity: sensor.ck0_cell_voltage_099
+              - entity: sensor.ck0_cell_voltage_100
+              - entity: sensor.ck0_cell_voltage_101
+              - entity: sensor.ck0_cell_voltage_102
+              - entity: sensor.ck0_cell_voltage_103
+              - entity: sensor.ck0_cell_voltage_104
+              - entity: sensor.ck0_cell_voltage_105
+              - entity: sensor.ck0_cell_voltage_106
+              - entity: sensor.ck0_cell_voltage_107
+              - entity: sensor.ck0_cell_voltage_108
+              - entity: ''
+                internal: false
+                type: surface
+                x: $ex vars.xs
+                'y': $ex vars.data.slice(0, vars.cell_count).map((_,i)=>i+1)
+                z: $ex vars.data.slice(0, vars.cell_count)
+  - title: Cells 2D
+    path: cells-2d
+    type: panel
+    cards:
+      - type: vertical-stack
+        cards:
+          - type: markdown
+            content: >
+              **Warning:** This 2D view can take 30+ seconds to load while Home
+              Assistant gathers and renders all cell history points.
+          - type: custom:plotly-graph
+            title: Cells 2D Heatmap
+            raw_plotly_config: true
+            hours_to_show: 1d
+            defaults:
+              entity:
+                internal: true
+                filters:
+                  - resample: 1m
+                fn: |
+                  $ex {
+                      vars.data.push(ys);
+                      vars.xs = xs;
+                   }
+            fn: |-
+              $ex {
+                vars.data = [];
+                let detected_cell_count = parseInt(hass.states['sensor.ck0_cell_count']?.state);
+                vars.cell_count = (!isNaN(detected_cell_count) && detected_cell_count > 0)
+                  ? Math.min(detected_cell_count, 108)
+                  : 108;
+              }
+            layout:
+              height: 1200
+              margin:
+                t: 0
+                l: 0
+                r: 90
+                b: 0
+              xaxis:
+                title: Hour of Day
+                tickformat: '%H:%M:%S'
+              yaxis:
+                title: Cell
+                tickmode: linear
+                dtick: 1
+              coloraxis:
+                colorbar:
+                  title: V
+            config:
+              displayModeBar: false
+              scrollZoom: false
+            entities:
+              - entity: sensor.ck0_cell_voltage_001
+              - entity: sensor.ck0_cell_voltage_002
+              - entity: sensor.ck0_cell_voltage_003
+              - entity: sensor.ck0_cell_voltage_004
+              - entity: sensor.ck0_cell_voltage_005
+              - entity: sensor.ck0_cell_voltage_006
+              - entity: sensor.ck0_cell_voltage_007
+              - entity: sensor.ck0_cell_voltage_008
+              - entity: sensor.ck0_cell_voltage_009
+              - entity: sensor.ck0_cell_voltage_010
+              - entity: sensor.ck0_cell_voltage_011
+              - entity: sensor.ck0_cell_voltage_012
+              - entity: sensor.ck0_cell_voltage_013
+              - entity: sensor.ck0_cell_voltage_014
+              - entity: sensor.ck0_cell_voltage_015
+              - entity: sensor.ck0_cell_voltage_016
+              - entity: sensor.ck0_cell_voltage_017
+              - entity: sensor.ck0_cell_voltage_018
+              - entity: sensor.ck0_cell_voltage_019
+              - entity: sensor.ck0_cell_voltage_020
+              - entity: sensor.ck0_cell_voltage_021
+              - entity: sensor.ck0_cell_voltage_022
+              - entity: sensor.ck0_cell_voltage_023
+              - entity: sensor.ck0_cell_voltage_024
+              - entity: sensor.ck0_cell_voltage_025
+              - entity: sensor.ck0_cell_voltage_026
+              - entity: sensor.ck0_cell_voltage_027
+              - entity: sensor.ck0_cell_voltage_028
+              - entity: sensor.ck0_cell_voltage_029
+              - entity: sensor.ck0_cell_voltage_030
+              - entity: sensor.ck0_cell_voltage_031
+              - entity: sensor.ck0_cell_voltage_032
+              - entity: sensor.ck0_cell_voltage_033
+              - entity: sensor.ck0_cell_voltage_034
+              - entity: sensor.ck0_cell_voltage_035
+              - entity: sensor.ck0_cell_voltage_036
+              - entity: sensor.ck0_cell_voltage_037
+              - entity: sensor.ck0_cell_voltage_038
+              - entity: sensor.ck0_cell_voltage_039
+              - entity: sensor.ck0_cell_voltage_040
+              - entity: sensor.ck0_cell_voltage_041
+              - entity: sensor.ck0_cell_voltage_042
+              - entity: sensor.ck0_cell_voltage_043
+              - entity: sensor.ck0_cell_voltage_044
+              - entity: sensor.ck0_cell_voltage_045
+              - entity: sensor.ck0_cell_voltage_046
+              - entity: sensor.ck0_cell_voltage_047
+              - entity: sensor.ck0_cell_voltage_048
+              - entity: sensor.ck0_cell_voltage_049
+              - entity: sensor.ck0_cell_voltage_050
+              - entity: sensor.ck0_cell_voltage_051
+              - entity: sensor.ck0_cell_voltage_052
+              - entity: sensor.ck0_cell_voltage_053
+              - entity: sensor.ck0_cell_voltage_054
+              - entity: sensor.ck0_cell_voltage_055
+              - entity: sensor.ck0_cell_voltage_056
+              - entity: sensor.ck0_cell_voltage_057
+              - entity: sensor.ck0_cell_voltage_058
+              - entity: sensor.ck0_cell_voltage_059
+              - entity: sensor.ck0_cell_voltage_060
+              - entity: sensor.ck0_cell_voltage_061
+              - entity: sensor.ck0_cell_voltage_062
+              - entity: sensor.ck0_cell_voltage_063
+              - entity: sensor.ck0_cell_voltage_064
+              - entity: sensor.ck0_cell_voltage_065
+              - entity: sensor.ck0_cell_voltage_066
+              - entity: sensor.ck0_cell_voltage_067
+              - entity: sensor.ck0_cell_voltage_068
+              - entity: sensor.ck0_cell_voltage_069
+              - entity: sensor.ck0_cell_voltage_070
+              - entity: sensor.ck0_cell_voltage_071
+              - entity: sensor.ck0_cell_voltage_072
+              - entity: sensor.ck0_cell_voltage_073
+              - entity: sensor.ck0_cell_voltage_074
+              - entity: sensor.ck0_cell_voltage_075
+              - entity: sensor.ck0_cell_voltage_076
+              - entity: sensor.ck0_cell_voltage_077
+              - entity: sensor.ck0_cell_voltage_078
+              - entity: sensor.ck0_cell_voltage_079
+              - entity: sensor.ck0_cell_voltage_080
+              - entity: sensor.ck0_cell_voltage_081
+              - entity: sensor.ck0_cell_voltage_082
+              - entity: sensor.ck0_cell_voltage_083
+              - entity: sensor.ck0_cell_voltage_084
+              - entity: sensor.ck0_cell_voltage_085
+              - entity: sensor.ck0_cell_voltage_086
+              - entity: sensor.ck0_cell_voltage_087
+              - entity: sensor.ck0_cell_voltage_088
+              - entity: sensor.ck0_cell_voltage_089
+              - entity: sensor.ck0_cell_voltage_090
+              - entity: sensor.ck0_cell_voltage_091
+              - entity: sensor.ck0_cell_voltage_092
+              - entity: sensor.ck0_cell_voltage_093
+              - entity: sensor.ck0_cell_voltage_094
+              - entity: sensor.ck0_cell_voltage_095
+              - entity: sensor.ck0_cell_voltage_096
+              - entity: sensor.ck0_cell_voltage_097
+              - entity: sensor.ck0_cell_voltage_098
+              - entity: sensor.ck0_cell_voltage_099
+              - entity: sensor.ck0_cell_voltage_100
+              - entity: sensor.ck0_cell_voltage_101
+              - entity: sensor.ck0_cell_voltage_102
+              - entity: sensor.ck0_cell_voltage_103
+              - entity: sensor.ck0_cell_voltage_104
+              - entity: sensor.ck0_cell_voltage_105
+              - entity: sensor.ck0_cell_voltage_106
+              - entity: sensor.ck0_cell_voltage_107
+              - entity: sensor.ck0_cell_voltage_108
+              - entity: sensor.ck0_cells_balancing
+                internal: true
+                filters:
+                  - resample: 1m
+                fn: |
+                  $ex {
+                    vars.balance_x = [];
+                    vars.balance_y = [];
+                    const n = Math.min(xs.length, ys.length);
+                    for (let i = 0; i < n; i++) {
+                      const raw = (ys[i] ?? "").toString().trim();
+                      if (!raw || raw === "None" || raw === "unknown" || raw === "unavailable") {
+                        continue;
+                      }
+                      const tokens = raw.split(",");
+                      for (const token of tokens) {
+                        const t = token.trim();
+                        if (!t) continue;
+                        const range = t.match(/^(\d+)\s*-\s*(\d+)$/);
+                        if (range) {
+                          const a = parseInt(range[1], 10);
+                          const b = parseInt(range[2], 10);
+                          if (isNaN(a) || isNaN(b)) continue;
+                          const lo = Math.min(a, b);
+                          const hi = Math.max(a, b);
+                          for (let cell = lo; cell <= hi; cell++) {
+                            if (cell > 0 && cell <= vars.cell_count) {
+                              vars.balance_x.push(xs[i]);
+                              vars.balance_y.push(cell);
+                            }
+                          }
+                        } else {
+                          const cell = parseInt(t, 10);
+                          if (!isNaN(cell) && cell > 0 && cell <= vars.cell_count) {
+                            vars.balance_x.push(xs[i]);
+                            vars.balance_y.push(cell);
+                          }
+                        }
+                      }
+                    }
+                  }
+              - entity: sensor.ck0_cells_balancing_active
+                internal: true
+                filters:
+                  - resample: 1m
+                fn: |
+                  $ex {
+                    vars.active_x = [];
+                    vars.active_y = [];
+                    const n = Math.min(xs.length, ys.length);
+                    for (let i = 0; i < n; i++) {
+                      const raw = (ys[i] ?? "").toString().trim();
+                      if (!raw || raw === "None" || raw === "unknown" || raw === "unavailable") {
+                        continue;
+                      }
+                      const tokens = raw.split(",");
+                      for (const token of tokens) {
+                        const t = token.trim();
+                        if (!t) continue;
+                        const range = t.match(/^(\d+)\s*-\s*(\d+)$/);
+                        if (range) {
+                          const a = parseInt(range[1], 10);
+                          const b = parseInt(range[2], 10);
+                          if (isNaN(a) || isNaN(b)) continue;
+                          const lo = Math.min(a, b);
+                          const hi = Math.max(a, b);
+                          for (let cell = lo; cell <= hi; cell++) {
+                            if (cell > 0 && cell <= vars.cell_count) {
+                              vars.active_x.push(xs[i]);
+                              vars.active_y.push(cell);
+                            }
+                          }
+                        } else {
+                          const cell = parseInt(t, 10);
+                          if (!isNaN(cell) && cell > 0 && cell <= vars.cell_count) {
+                            vars.active_x.push(xs[i]);
+                            vars.active_y.push(cell);
+                          }
+                        }
+                      }
+                    }
+                  }
+              - entity: ''
+                internal: false
+                type: heatmap
+                x: $ex vars.xs
+                'y': $ex vars.data.slice(0, vars.cell_count).map((_,i)=>i+1)
+                z: $ex vars.data.slice(0, vars.cell_count)
+                coloraxis: coloraxis
+              - entity: ''
+                internal: false
+                type: scattergl
+                mode: markers
+                name: Balancing
+                x: $ex vars.balance_x
+                'y': $ex vars.balance_y
+                marker:
+                  color: '#39FF14'
+                  size: 4
+                  line:
+                    color: '#000000'
+                    width: 1
+              - entity: ''
+                internal: false
+                type: scattergl
+                mode: markers
+                name: Balancing Active
+                x: $ex vars.active_x
+                'y': $ex vars.active_y
+                marker:
+                  color: '#AA00FF'
+                  size: 4
+                  line:
+                    color: '#000000'
+                    width: 1
   - title: Configuration
     type: sections
     max_columns: 4
@@ -358,10 +1175,10 @@ views:
                 title: Settings Unlock
                 show_header_toggle: false
                 entities:
-                  - entity: switch.ck0_bms_settings_unlock
+                  - entity: switch.ck0_settings_unlock
                     name: Settings Unlock
               - type: tile
-                entity: sensor.ck0_bms_settings_status
+                entity: sensor.ck0_settings_status
                 name: Settings Status
                 card_mod:
                   style: |
@@ -398,40 +1215,65 @@ views:
             square: false
             cards:
               - type: tile
-                entity: number.ck0_bms_soc_set_cmd
+                entity: number.ck0_soc_set_cmd
                 name: SOC Set Cmd
                 features_position: bottom
                 features:
                   - type: numeric-input
                     style: buttons
               - type: tile
-                entity: number.ck0_bms_soc_scaling_min
+                entity: number.ck0_soc_scaling_min
                 name: SOC Scale Min
                 features_position: bottom
                 features:
                   - type: numeric-input
                     style: buttons
               - type: tile
-                entity: number.ck0_bms_soc_scaling_max
+                entity: number.ck0_soc_scaling_max
                 name: SOC Scale Max
                 features_position: bottom
                 features:
                   - type: numeric-input
                     style: buttons
               - type: tile
-                entity: number.ck0_bms_max_charge_current
+                entity: number.ck0_max_charge_current
                 name: Max Chg Curr
                 features_position: bottom
                 features:
                   - type: numeric-input
                     style: buttons
               - type: tile
-                entity: number.ck0_bms_max_discharge_current
+                entity: number.ck0_max_discharge_current
                 name: Max Dchg Curr
                 features_position: bottom
                 features:
                   - type: numeric-input
                     style: buttons
+          - type: entities
+            title: Current Limit Readback
+            entities:
+              - entity: sensor.ck0_current_limit_effective_charge
+                name: Current Limit Effective Charge
+              - entity: sensor.ck0_current_limit_effective_discharge
+                name: Current Limit Effective Discharge
+              - entity: sensor.ck0_current_limit_temperature_charge
+                name: Current Limit Temperature Charge
+              - entity: sensor.ck0_current_limit_temperature_discharge
+                name: Current Limit Temperature Discharge
+              - entity: sensor.ck0_current_limit_cell_voltage_charge
+                name: Current Limit Cell Voltage Charge
+              - entity: sensor.ck0_current_limit_cell_voltage_discharge
+                name: Current Limit Cell Voltage Discharge
+              - entity: sensor.ck0_current_limit_working_charge
+                name: Current Limit Working Charge
+              - entity: sensor.ck0_current_limit_working_discharge
+                name: Current Limit Working Discharge
+              - entity: sensor.ck0_current_limit_delta_charge
+                name: Current Limit Delta Charge
+              - entity: sensor.ck0_current_limit_hard_charge
+                name: Current Limit Hard Charge
+              - entity: sensor.ck0_current_limit_hard_discharge
+                name: Current Limit Hard Discharge
       - cards:
           - type: heading
             heading: Voltage Limits
@@ -440,42 +1282,42 @@ views:
             square: false
             cards:
               - type: tile
-                entity: number.ck0_bms_voltage_limit_offset_lower
+                entity: number.ck0_voltage_limit_offset_lower
                 name: VLimit Offs Low
                 features_position: bottom
                 features:
                   - type: numeric-input
                     style: buttons
               - type: tile
-                entity: number.ck0_bms_voltage_limit_offset_upper
+                entity: number.ck0_voltage_limit_offset_upper
                 name: VLimit Offs High
                 features_position: bottom
                 features:
                   - type: numeric-input
                     style: buttons
               - type: tile
-                entity: number.ck0_bms_cell_voltage_working_min
+                entity: number.ck0_cell_voltage_working_min
                 name: CellV Work Min
                 features_position: bottom
                 features:
                   - type: numeric-input
                     style: buttons
               - type: tile
-                entity: number.ck0_bms_cell_voltage_working_max
+                entity: number.ck0_cell_voltage_working_max
                 name: CellV Work Max
                 features_position: bottom
                 features:
                   - type: numeric-input
                     style: buttons
               - type: tile
-                entity: number.ck0_bms_cell_voltage_soft_min
+                entity: number.ck0_cell_voltage_soft_min
                 name: CellV Soft Min
                 features_position: bottom
                 features:
                   - type: numeric-input
                     style: buttons
               - type: tile
-                entity: number.ck0_bms_cell_voltage_soft_max
+                entity: number.ck0_cell_voltage_soft_max
                 name: CellV Soft Max
                 features_position: bottom
                 features:
@@ -494,29 +1336,36 @@ views:
             square: false
             cards:
               - type: tile
-                entity: number.ck0_bms_auto_balancing_period
+                entity: number.ck0_auto_balancing_period
                 name: Auto Bal Period
                 features_position: bottom
                 features:
                   - type: numeric-input
                     style: buttons
               - type: tile
-                entity: number.ck0_bms_balancing_periods_per_mv
+                entity: number.ck0_balancing_periods_per_mv
                 name: Bal Periods/mV
                 features_position: bottom
                 features:
                   - type: numeric-input
                     style: buttons
               - type: tile
-                entity: number.ck0_bms_balance_min_offset
+                entity: number.ck0_balance_min_offset
                 name: Bal Min Offset
                 features_position: bottom
                 features:
                   - type: numeric-input
                     style: buttons
               - type: tile
-                entity: number.ck0_bms_minimum_balancing_voltage
+                entity: number.ck0_minimum_balancing_voltage
                 name: Min Bal V
+                features_position: bottom
+                features:
+                  - type: numeric-input
+                    style: buttons
+              - type: tile
+                entity: number.ck0_balancing_start_voltage
+                name: Bal Start V
                 features_position: bottom
                 features:
                   - type: numeric-input
@@ -531,22 +1380,14 @@ views:
           - type: entities
             title: BMS Device Info
             entities:
-              - entity: sensor.ck0_bms_serial
-                name: BMS Serial
-              - entity: sensor.ck0_bms_uptime
-                name: BMS Uptime
-              - entity: sensor.ck0_bms_loop_frequency
-                name: Loop Frequency
-              - entity: sensor.ck0_bms_adc_sample_count
-                name: ADC Samples
-              - entity: sensor.ck0_bms_supply_3v3
-                name: Supply 3.3V
-              - entity: sensor.ck0_bms_supply_5v
-                name: Supply 5V
-              - entity: sensor.ck0_bms_supply_12v
-                name: Supply 12V
-              - entity: sensor.ck0_bms_supply_contactor
-                name: Supply Contactor
+              - entity: sensor.ck0_serial
+                name: Serial
+              - entity: sensor.ck0_uptime_pico
+                name: Uptime Pico
+              - entity: sensor.ck0_supply_voltage_3v3
+              - entity: sensor.ck0_supply_voltage_5v
+              - entity: sensor.ck0_supply_voltage_12v
+              - entity: sensor.ck0_supply_voltage_contactor
       - cards:
           - type: heading
             heading: HMI
@@ -558,6 +1399,11 @@ views:
             features_position: bottom
             features:
               - type: light-brightness
+          - type: tile
+            entity: button.ck0_hmi_restart
+            name: Reboot HMI
+            grid_options:
+              columns: 12
           - type: entities
             title: HMI Connectivity
             entities:
@@ -570,8 +1416,8 @@ views:
           - type: entities
             title: HMI Device Info
             entities:
-              - entity: sensor.ck0_hmi_uptime
-                name: HMI Uptime
+              - entity: sensor.ck0_uptime_hmi
+                name: Uptime HMI
               - entity: sensor.ck0_internal_temperature
                 name: Internal Temp
               - entity: sensor.ck0_heap_free
@@ -592,9 +1438,9 @@ views:
                   max-width: 400px;
                 }
             entities:
-              - entity: switch.ck0_bms_log_enable
-                name: BMS Log Enable
-              - entity: number.ck0_bms_log_update_rate
+              - entity: switch.ck0_log_enable
+                name: Log Enable
+              - entity: number.ck0_log_update_rate
                 name: Update Rate (s)
           - type: markdown
             card_mod:
@@ -612,7 +1458,7 @@ views:
               ```
 
               {% for i in range(1, 51) %}{% set s =
-              states('sensor.ck0_bms_log_%02d' | format(i)) %}{% if s not in
+              states('sensor.ck0_log_%02d' | format(i)) %}{% if s not in
               ['unknown', 'unavailable'] %}{{ s }}
 
               {% endif %}{% endfor %}```
@@ -634,7 +1480,7 @@ views:
             filter:
               template: >
                 {% for state in states.sensor | selectattr('entity_id',
-                'search', 'ck0_(fatal|critical|warning|info)_') |
+                'search', 'ck0_event_(fatal|critical|warning|info)_') |
                 sort(attribute='attributes.friendly_name') -%}
                   {% if state.state not in ['INACTIVE', 'unknown', 'unavailable'] and not state.state.startswith('INACTIVE') -%}
                     {% set color = '#2196F3' -%}{% set level = 'Info' -%}
@@ -651,7 +1497,7 @@ views:
                       {
                         "type": "tile",
                         "entity": state.entity_id,
-                        "name": (state.attributes.friendly_name | replace("CellKeeper0", "") | replace("ck0", "") | replace("Fatal:", "") | replace("Critical:", "") | replace("Warning:", "") | replace("Info:", "") | trim),
+                        "name": (state.attributes.friendly_name | replace("CellKeeper0", "") | replace("ck0", "") | replace("Event Fatal ", "") | replace("Event Critical ", "") | replace("Event Warning ", "") | replace("Event Info ", "") | trim),
                         "color": color,
                         "card_mod": {
                           "style": "ha-card { --tile-color: " + color + " !important; }"
@@ -672,7 +1518,7 @@ views:
             filter:
               template: >
                 {% for state in states.sensor | selectattr('entity_id',
-                'search', 'ck0_(fatal|critical|warning|info)_') |
+                'search', 'ck0_event_(fatal|critical|warning|info)_') |
                 sort(attribute='attributes.friendly_name') -%}
                   {% if state.state.startswith('INACTIVE (') -%}
                     {% set level = 'Info' -%}
@@ -685,7 +1531,7 @@ views:
                       {
                         "type": "tile",
                         "entity": state.entity_id,
-                        "name": (state.attributes.friendly_name | replace("CellKeeper0", "") | replace("ck0", "") | replace("Fatal:", "") | replace("Critical:", "") | replace("Warning:", "") | replace("Info:", "") | trim),
+                        "name": (state.attributes.friendly_name | replace("CellKeeper0", "") | replace("ck0", "") | replace("Event Fatal ", "") | replace("Event Critical ", "") | replace("Event Warning ", "") | replace("Event Info ", "") | trim),
                         "color": "#9C27B0",
                         "card_mod": {
                           "style": "ha-card { --tile-color: #9C27B0 !important; }"
@@ -705,9 +1551,15 @@ views:
           - square: false
             type: grid
             columns: 2
+            card_mod:
+              style: |
+                #root {
+                  align-content: start !important;
+                  grid-auto-rows: minmax(56px, auto) !important;
+                }
             cards:
               - type: tile
-                entity: sensor.ck0_info_boot_normal
+                entity: sensor.ck0_event_info_boot_normal
                 name: Boot Normal
                 vertical: false
                 features_position: bottom
@@ -744,7 +1596,7 @@ views:
                         --tile-color: #9C27B0 !important;
                       {% endif %}
                     }
-                entity: sensor.ck0_info_boot_watchdog
+                entity: sensor.ck0_event_info_boot_watchdog
                 name: Boot Watchdog
               - type: tile
                 card_mod:
@@ -763,7 +1615,7 @@ views:
                         --tile-color: #9C27B0 !important;
                       {% endif %}
                     }
-                entity: sensor.ck0_info_restarting
+                entity: sensor.ck0_event_info_restarting
                 name: Restarting
               - type: tile
                 card_mod:
@@ -782,15 +1634,21 @@ views:
                         --tile-color: #9C27B0 !important;
                       {% endif %}
                     }
-                entity: sensor.ck0_info_inverter_detected
+                entity: sensor.ck0_event_info_inverter_detected
                 name: Inverter Detected
             title: Info Events
           - square: false
             type: grid
             columns: 2
+            card_mod:
+              style: |
+                #root {
+                  align-content: start !important;
+                  grid-auto-rows: minmax(56px, auto) !important;
+                }
             cards:
               - type: tile
-                entity: sensor.ck0_warning_batt_voltage_high
+                entity: sensor.ck0_event_warning_battery_voltage_high
                 name: Batt Voltage High
                 vertical: false
                 features_position: bottom
@@ -827,7 +1685,7 @@ views:
                         --tile-color: #9C27B0 !important;
                       {% endif %}
                     }
-                entity: sensor.ck0_warning_batt_voltage_low
+                entity: sensor.ck0_event_warning_battery_voltage_low
                 name: Batt Voltage Low
               - type: tile
                 card_mod:
@@ -846,7 +1704,7 @@ views:
                         --tile-color: #9C27B0 !important;
                       {% endif %}
                     }
-                entity: sensor.ck0_warning_cell_voltage_high
+                entity: sensor.ck0_event_warning_cell_voltage_high
                 name: Cell Voltage High
               - type: tile
                 card_mod:
@@ -865,7 +1723,7 @@ views:
                         --tile-color: #9C27B0 !important;
                       {% endif %}
                     }
-                entity: sensor.ck0_warning_cell_voltage_low
+                entity: sensor.ck0_event_warning_cell_voltage_low
                 name: Cell Voltage Low
               - type: tile
                 card_mod:
@@ -884,7 +1742,45 @@ views:
                         --tile-color: #9C27B0 !important;
                       {% endif %}
                     }
-                entity: sensor.ck0_warning_soft_charge_exceeded
+                entity: sensor.ck0_event_warning_cell_voltage_glitch
+                name: Cell Voltage Glitch
+              - type: tile
+                card_mod:
+                  style: |
+                    ha-card {
+                      {% set state = states(config.entity) %}
+                      {% if 'FATAL' in state %}
+                        --tile-color: #D50000 !important;
+                      {% elif 'CRITICAL' in state %}
+                        --tile-color: #F44336 !important;
+                      {% elif 'WARNING' in state %}
+                        --tile-color: #FFC107 !important;
+                      {% elif 'INFO' in state %}
+                        --tile-color: #2196F3 !important;
+                      {% elif state != 'INACTIVE (0)' and state != 'INACTIVE' %}
+                        --tile-color: #9C27B0 !important;
+                      {% endif %}
+                    }
+                entity: sensor.ck0_event_warning_module_temperature_glitch
+                name: Module Temp Glitch
+              - type: tile
+                card_mod:
+                  style: |
+                    ha-card {
+                      {% set state = states(config.entity) %}
+                      {% if 'FATAL' in state %}
+                        --tile-color: #D50000 !important;
+                      {% elif 'CRITICAL' in state %}
+                        --tile-color: #F44336 !important;
+                      {% elif 'WARNING' in state %}
+                        --tile-color: #FFC107 !important;
+                      {% elif 'INFO' in state %}
+                        --tile-color: #2196F3 !important;
+                      {% elif state != 'INACTIVE (0)' and state != 'INACTIVE' %}
+                        --tile-color: #9C27B0 !important;
+                      {% endif %}
+                    }
+                entity: sensor.ck0_event_warning_soft_charge_exceeded
                 name: Soft Charge Exceeded
               - type: tile
                 card_mod:
@@ -903,7 +1799,7 @@ views:
                         --tile-color: #9C27B0 !important;
                       {% endif %}
                     }
-                entity: sensor.ck0_warning_5v_low
+                entity: sensor.ck0_event_warning_5v_low
                 name: 5V Low
               - type: tile
                 card_mod:
@@ -922,7 +1818,7 @@ views:
                         --tile-color: #9C27B0 !important;
                       {% endif %}
                     }
-                entity: sensor.ck0_warning_5v_high
+                entity: sensor.ck0_event_warning_5v_high
                 name: 5V High
               - type: tile
                 card_mod:
@@ -941,7 +1837,7 @@ views:
                         --tile-color: #9C27B0 !important;
                       {% endif %}
                     }
-                entity: sensor.ck0_warning_12v_low
+                entity: sensor.ck0_event_warning_12v_low
                 name: 12V Low
               - type: tile
                 card_mod:
@@ -960,7 +1856,7 @@ views:
                         --tile-color: #9C27B0 !important;
                       {% endif %}
                     }
-                entity: sensor.ck0_warning_12v_high
+                entity: sensor.ck0_event_warning_12v_high
                 name: 12V High
               - type: tile
                 card_mod:
@@ -979,7 +1875,7 @@ views:
                         --tile-color: #9C27B0 !important;
                       {% endif %}
                     }
-                entity: sensor.ck0_warning_ctr_supply_high
+                entity: sensor.ck0_event_warning_ctr_supply_high
                 name: Ctr Supply High
               - type: tile
                 card_mod:
@@ -998,7 +1894,7 @@ views:
                         --tile-color: #9C27B0 !important;
                       {% endif %}
                     }
-                entity: sensor.ck0_warning_supply_voltage_stale
+                entity: sensor.ck0_event_warning_supply_voltage_stale
                 name: Supply Voltage Stale
               - type: tile
                 card_mod:
@@ -1017,7 +1913,7 @@ views:
                         --tile-color: #9C27B0 !important;
                       {% endif %}
                     }
-                entity: sensor.ck0_warning_batt_voltage_stale
+                entity: sensor.ck0_event_warning_battery_voltage_stale
                 name: Batt Voltage Stale
               - type: tile
                 card_mod:
@@ -1036,7 +1932,7 @@ views:
                         --tile-color: #9C27B0 !important;
                       {% endif %}
                     }
-                entity: sensor.ck0_warning_batt_temp_stale
+                entity: sensor.ck0_event_warning_battery_temperature_stale
                 name: Batt Temp Stale
               - type: tile
                 card_mod:
@@ -1055,7 +1951,7 @@ views:
                         --tile-color: #9C27B0 !important;
                       {% endif %}
                     }
-                entity: sensor.ck0_warning_current_stale
+                entity: sensor.ck0_event_warning_current_stale
                 name: Current Stale
               - type: tile
                 card_mod:
@@ -1074,7 +1970,7 @@ views:
                         --tile-color: #9C27B0 !important;
                       {% endif %}
                     }
-                entity: sensor.ck0_warning_cell_voltages_stale
+                entity: sensor.ck0_event_warning_cell_voltages_stale
                 name: Cell Voltages Stale
               - type: tile
                 card_mod:
@@ -1093,7 +1989,7 @@ views:
                         --tile-color: #9C27B0 !important;
                       {% endif %}
                     }
-                entity: sensor.ck0_warning_batt_temp_high
+                entity: sensor.ck0_event_warning_battery_temperature_high
                 name: Batt Temp High
               - type: tile
                 card_mod:
@@ -1112,7 +2008,7 @@ views:
                         --tile-color: #9C27B0 !important;
                       {% endif %}
                     }
-                entity: sensor.ck0_warning_batt_temp_low
+                entity: sensor.ck0_event_warning_battery_temperature_low
                 name: Batt Temp Low
               - type: tile
                 card_mod:
@@ -1131,15 +2027,59 @@ views:
                         --tile-color: #9C27B0 !important;
                       {% endif %}
                     }
-                entity: sensor.ck0_warning_loop_overrun
+                entity: sensor.ck0_event_warning_loop_overrun
                 name: Loop Overrun
+              - type: tile
+                card_mod:
+                  style: |
+                    ha-card {
+                      {% set state = states(config.entity) %}
+                      {% if 'FATAL' in state %}
+                        --tile-color: #D50000 !important;
+                      {% elif 'CRITICAL' in state %}
+                        --tile-color: #F44336 !important;
+                      {% elif 'WARNING' in state %}
+                        --tile-color: #FFC107 !important;
+                      {% elif 'INFO' in state %}
+                        --tile-color: #2196F3 !important;
+                      {% elif state != 'INACTIVE (0)' and state != 'INACTIVE' %}
+                        --tile-color: #9C27B0 !important;
+                      {% endif %}
+                    }
+                entity: sensor.ck0_event_warning_link_voltage_mismatch
+                name: Link Voltage Mismatch
+              - type: tile
+                card_mod:
+                  style: |
+                    ha-card {
+                      {% set state = states(config.entity) %}
+                      {% if 'FATAL' in state %}
+                        --tile-color: #D50000 !important;
+                      {% elif 'CRITICAL' in state %}
+                        --tile-color: #F44336 !important;
+                      {% elif 'WARNING' in state %}
+                        --tile-color: #FFC107 !important;
+                      {% elif 'INFO' in state %}
+                        --tile-color: #2196F3 !important;
+                      {% elif state != 'INACTIVE (0)' and state != 'INACTIVE' %}
+                        --tile-color: #9C27B0 !important;
+                      {% endif %}
+                    }
+                entity: sensor.ck0_event_warning_fuse_voltage_drop_high
+                name: Fuse Voltage Drop High
             title: Warning Events
           - square: false
             type: grid
             columns: 2
+            card_mod:
+              style: |
+                #root {
+                  align-content: start !important;
+                  grid-auto-rows: minmax(56px, auto) !important;
+                }
             cards:
               - type: tile
-                entity: sensor.ck0_critical_batt_voltage_very_high
+                entity: sensor.ck0_event_critical_battery_voltage_very_high
                 name: Batt Voltage Very High
                 vertical: false
                 features_position: bottom
@@ -1176,7 +2116,7 @@ views:
                         --tile-color: #9C27B0 !important;
                       {% endif %}
                     }
-                entity: sensor.ck0_critical_batt_voltage_very_low
+                entity: sensor.ck0_event_critical_battery_voltage_very_low
                 name: Batt Voltage Very Low
               - type: tile
                 card_mod:
@@ -1195,7 +2135,7 @@ views:
                         --tile-color: #9C27B0 !important;
                       {% endif %}
                     }
-                entity: sensor.ck0_critical_cell_voltage_very_high
+                entity: sensor.ck0_event_critical_cell_voltage_very_high
                 name: Cell Voltage Very High
               - type: tile
                 card_mod:
@@ -1214,7 +2154,7 @@ views:
                         --tile-color: #9C27B0 !important;
                       {% endif %}
                     }
-                entity: sensor.ck0_critical_cell_voltage_very_low
+                entity: sensor.ck0_event_critical_cell_voltage_very_low
                 name: Cell Voltage Very Low
               - type: tile
                 card_mod:
@@ -1233,7 +2173,7 @@ views:
                         --tile-color: #9C27B0 !important;
                       {% endif %}
                     }
-                entity: sensor.ck0_critical_voltage_mismatch
+                entity: sensor.ck0_event_critical_voltage_mismatch
                 name: Voltage Mismatch
               - type: tile
                 card_mod:
@@ -1252,7 +2192,7 @@ views:
                         --tile-color: #9C27B0 !important;
                       {% endif %}
                     }
-                entity: sensor.ck0_critical_overcurrent_charging
+                entity: sensor.ck0_event_critical_overcurrent_charging
                 name: Overcurrent Charging
               - type: tile
                 card_mod:
@@ -1271,7 +2211,7 @@ views:
                         --tile-color: #9C27B0 !important;
                       {% endif %}
                     }
-                entity: sensor.ck0_critical_overcurrent_discharging
+                entity: sensor.ck0_event_critical_overcurrent_discharging
                 name: Overcurrent Discharging
               - type: tile
                 card_mod:
@@ -1290,7 +2230,7 @@ views:
                         --tile-color: #9C27B0 !important;
                       {% endif %}
                     }
-                entity: sensor.ck0_critical_3v3_low
+                entity: sensor.ck0_event_critical_3v3_low
                 name: 3V3 Low
               - type: tile
                 card_mod:
@@ -1309,7 +2249,7 @@ views:
                         --tile-color: #9C27B0 !important;
                       {% endif %}
                     }
-                entity: sensor.ck0_critical_3v3_high
+                entity: sensor.ck0_event_critical_3v3_high
                 name: 3V3 High
               - type: tile
                 card_mod:
@@ -1328,7 +2268,7 @@ views:
                         --tile-color: #9C27B0 !important;
                       {% endif %}
                     }
-                entity: sensor.ck0_critical_ctr_supply_low
+                entity: sensor.ck0_event_critical_ctr_supply_low
                 name: Ctr Supply Low
               - type: tile
                 card_mod:
@@ -1347,7 +2287,7 @@ views:
                         --tile-color: #9C27B0 !important;
                       {% endif %}
                     }
-                entity: sensor.ck0_critical_pre_voltage_high
+                entity: sensor.ck0_event_critical_pre_voltage_high
                 name: PRE Voltage High
               - type: tile
                 card_mod:
@@ -1366,7 +2306,7 @@ views:
                         --tile-color: #9C27B0 !important;
                       {% endif %}
                     }
-                entity: sensor.ck0_critical_pre_current_high
+                entity: sensor.ck0_event_critical_pre_current_high
                 name: PRE Current High
               - type: tile
                 card_mod:
@@ -1385,7 +2325,7 @@ views:
                         --tile-color: #9C27B0 !important;
                       {% endif %}
                     }
-                entity: sensor.ck0_critical_pos_unexpected_open
+                entity: sensor.ck0_event_critical_pos_unexpected_open
                 name: POS Unexpected Open
               - type: tile
                 card_mod:
@@ -1404,7 +2344,7 @@ views:
                         --tile-color: #9C27B0 !important;
                       {% endif %}
                     }
-                entity: sensor.ck0_critical_neg_unexpected_open
+                entity: sensor.ck0_event_critical_neg_unexpected_open
                 name: NEG Unexpected Open
               - type: tile
                 card_mod:
@@ -1423,7 +2363,7 @@ views:
                         --tile-color: #9C27B0 !important;
                       {% endif %}
                     }
-                entity: sensor.ck0_critical_closing_failed
+                entity: sensor.ck0_event_critical_closing_failed
                 name: Closing Failed
               - type: tile
                 card_mod:
@@ -1442,7 +2382,7 @@ views:
                         --tile-color: #9C27B0 !important;
                       {% endif %}
                     }
-                entity: sensor.ck0_critical_batt_temp_very_high
+                entity: sensor.ck0_event_critical_battery_temperature_very_high
                 name: Batt Temp Very High
               - type: tile
                 card_mod:
@@ -1461,7 +2401,7 @@ views:
                         --tile-color: #9C27B0 !important;
                       {% endif %}
                     }
-                entity: sensor.ck0_critical_batt_temp_very_low
+                entity: sensor.ck0_event_critical_battery_temperature_very_low
                 name: Batt Temp Very Low
               - type: tile
                 card_mod:
@@ -1480,7 +2420,7 @@ views:
                         --tile-color: #9C27B0 !important;
                       {% endif %}
                     }
-                entity: sensor.ck0_critical_bmb_read_error
+                entity: sensor.ck0_event_critical_bmb_read_error
                 name: BMB Read Error
               - type: tile
                 card_mod:
@@ -1499,15 +2439,21 @@ views:
                         --tile-color: #9C27B0 !important;
                       {% endif %}
                     }
-                entity: sensor.ck0_critical_bmb_crc_mismatch
+                entity: sensor.ck0_event_critical_bmb_crc_mismatch
                 name: BMB CRC Mismatch
             title: Critical Events
           - square: false
             type: grid
             columns: 2
+            card_mod:
+              style: |
+                #root {
+                  align-content: start !important;
+                  grid-auto-rows: minmax(56px, auto) !important;
+                }
             cards:
               - type: tile
-                entity: sensor.ck0_fatal_ctr_supply_very_low
+                entity: sensor.ck0_event_fatal_ctr_supply_very_low
                 name: Ctr Supply Very Low
                 vertical: false
                 features_position: bottom
@@ -1544,7 +2490,7 @@ views:
                         --tile-color: #9C27B0 !important;
                       {% endif %}
                     }
-                entity: sensor.ck0_fatal_pos_stuck_open
+                entity: sensor.ck0_event_fatal_pos_stuck_open
                 name: POS Stuck Open
               - type: tile
                 card_mod:
@@ -1563,7 +2509,7 @@ views:
                         --tile-color: #9C27B0 !important;
                       {% endif %}
                     }
-                entity: sensor.ck0_fatal_pos_stuck_closed
+                entity: sensor.ck0_event_fatal_pos_stuck_closed
                 name: POS Stuck Closed
               - type: tile
                 card_mod:
@@ -1582,7 +2528,7 @@ views:
                         --tile-color: #9C27B0 !important;
                       {% endif %}
                     }
-                entity: sensor.ck0_fatal_neg_stuck_open
+                entity: sensor.ck0_event_fatal_neg_stuck_open
                 name: NEG Stuck Open
               - type: tile
                 card_mod:
@@ -1601,7 +2547,7 @@ views:
                         --tile-color: #9C27B0 !important;
                       {% endif %}
                     }
-                entity: sensor.ck0_fatal_neg_stuck_closed
+                entity: sensor.ck0_event_fatal_neg_stuck_closed
                 name: NEG Stuck Closed
               - type: tile
                 card_mod:
@@ -1620,7 +2566,7 @@ views:
                         --tile-color: #9C27B0 !important;
                       {% endif %}
                     }
-                entity: sensor.ck0_fatal_pre_stuck_open
+                entity: sensor.ck0_event_fatal_pre_stuck_open
                 name: PRE Stuck Open
               - type: tile
                 card_mod:
@@ -1639,7 +2585,7 @@ views:
                         --tile-color: #9C27B0 !important;
                       {% endif %}
                     }
-                entity: sensor.ck0_fatal_pre_stuck_closed
+                entity: sensor.ck0_event_fatal_pre_stuck_closed
                 name: PRE Stuck Closed
               - type: tile
                 card_mod:
@@ -1658,7 +2604,7 @@ views:
                         --tile-color: #9C27B0 !important;
                       {% endif %}
                     }
-                entity: sensor.ck0_fatal_e_stop_pressed
+                entity: sensor.ck0_event_fatal_e_stop_pressed
                 name: E-Stop Pressed
             title: Fatal Events
         column_span: 5
@@ -1711,6 +2657,23 @@ views:
               set to `0A`, it gently discharges.
 
               - Charging current-limit following is not yet confirmed.
+      - type: grid
+        cards:
+          - type: heading
+            heading: Balancing
+            heading_style: title
+          - type: markdown
+            content: >
+              ### Cell Balancing Behavior
+
+              - Balancing runs in two phases: odd-numbered cells first, then
+              even-numbered cells.
+
+              - Adjacent cells cannot balance at the same time.
+
+              - That means two cells next to each other (for example, `1` and
+              `2`) are effectively sequential, while spaced cells (for example,
+              `1` and `4`) can overlap in time.
       - type: grid
         cards:
           - type: heading

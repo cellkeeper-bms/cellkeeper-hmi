@@ -45,8 +45,8 @@ esp32:
 
 # Modular Packages
 packages:
-  bms_core: !include bms_core.yaml
-  bms_ui: !include bms_ui_scripts.yaml
+  core: !include bms_core.yaml
+  ui: !include bms_ui_scripts.yaml
   ui_layout: !include ui_800x480.yaml
 
 psram:

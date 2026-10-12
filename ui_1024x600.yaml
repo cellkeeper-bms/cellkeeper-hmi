@@ -9,6 +9,9 @@ font:
   - file: "gfonts://Roboto"
     id: font_roboto_40
     size: 40
+  - file: "gfonts://Roboto"
+    id: font_roboto_60
+    size: 60
   - file: "gfonts://Roboto Mono"
     id: font_roboto_mono_14
     size: 14
@@ -24,35 +27,219 @@ lvgl:
   disp_bg_color: 0x000000
   buffer_size: 20%
   byte_order: little_endian
+  top_layer:
+    widgets:
+      # Modal numeric entry pad for the settings pages.
+      - obj:
+          id: pad_overlay
+          x: 0
+          y: 0
+          width: 100%
+          height: 100%
+          hidden: true
+          scrollable: false
+          border_width: 0
+          radius: 0
+          pad_all: 0
+          bg_color: 0x000000
+          bg_opa: 60%
+          widgets:
+            - obj:
+                align: CENTER
+                width: 480
+                height: 410
+                scrollable: false
+                bg_color: 0x1A1A1A
+                bg_opa: 100%
+                border_width: 2
+                border_color: 0x555555
+                radius: 8
+                pad_all: 0
+                widgets:
+                  - label:
+                      id: pad_title
+                      text: "Setting"
+                      align: TOP_MID
+                      y: 12
+                      text_font: font_roboto_20
+                      text_color: 0xAAAAAA
+                  - label:
+                      id: pad_value_lbl
+                      text: " "
+                      align: TOP_MID
+                      y: 44
+                      text_font: font_roboto_40
+                      text_color: 0xFFD54A
+                  - button:
+                      x: 24
+                      y: 110
+                      width: 100
+                      height: 62
+                      widgets:
+                        - label: {text: "7", align: CENTER, text_font: font_roboto_40}
+                      on_click:
+                        - script.execute: {id: pad_key, key: "7"}
+                  - button:
+                      x: 138
+                      y: 110
+                      width: 100
+                      height: 62
+                      widgets:
+                        - label: {text: "8", align: CENTER, text_font: font_roboto_40}
+                      on_click:
+                        - script.execute: {id: pad_key, key: "8"}
+                  - button:
+                      x: 252
+                      y: 110
+                      width: 100
+                      height: 62
+                      widgets:
+                        - label: {text: "9", align: CENTER, text_font: font_roboto_40}
+                      on_click:
+                        - script.execute: {id: pad_key, key: "9"}
+                  - button:
+                      x: 366
+                      y: 110
+                      width: 100
+                      height: 62
+                      widgets:
+                        - label: {text: "DEL", align: CENTER, text_font: font_roboto_20}
+                      on_click:
+                        - script.execute: {id: pad_key, key: "D"}
+                  - button:
+                      x: 24
+                      y: 180
+                      width: 100
+                      height: 62
+                      widgets:
+                        - label: {text: "4", align: CENTER, text_font: font_roboto_40}
+                      on_click:
+                        - script.execute: {id: pad_key, key: "4"}
+                  - button:
+                      x: 138
+                      y: 180
+                      width: 100
+                      height: 62
+                      widgets:
+                        - label: {text: "5", align: CENTER, text_font: font_roboto_40}
+                      on_click:
+                        - script.execute: {id: pad_key, key: "5"}
+                  - button:
+                      x: 252
+                      y: 180
+                      width: 100
+                      height: 62
+                      widgets:
+                        - label: {text: "6", align: CENTER, text_font: font_roboto_40}
+                      on_click:
+                        - script.execute: {id: pad_key, key: "6"}
+                  - button:
+                      x: 366
+                      y: 180
+                      width: 100
+                      height: 62
+                      widgets:
+                        - label: {text: "+/-", align: CENTER, text_font: font_roboto_40}
+                      on_click:
+                        - script.execute: {id: pad_key, key: "S"}
+                  - button:
+                      x: 24
+                      y: 250
+                      width: 100
+                      height: 62
+                      widgets:
+                        - label: {text: "1", align: CENTER, text_font: font_roboto_40}
+                      on_click:
+                        - script.execute: {id: pad_key, key: "1"}
+                  - button:
+                      x: 138
+                      y: 250
+                      width: 100
+                      height: 62
+                      widgets:
+                        - label: {text: "2", align: CENTER, text_font: font_roboto_40}
+                      on_click:
+                        - script.execute: {id: pad_key, key: "2"}
+                  - button:
+                      x: 252
+                      y: 250
+                      width: 100
+                      height: 62
+                      widgets:
+                        - label: {text: "3", align: CENTER, text_font: font_roboto_40}
+                      on_click:
+                        - script.execute: {id: pad_key, key: "3"}
+                  - button:
+                      x: 366
+                      y: 250
+                      width: 100
+                      height: 62
+                      bg_color: 0x8B1A1A
+                      widgets:
+                        - label: {text: "CANCEL", align: CENTER, text_font: font_roboto_20}
+                      on_click:
+                        - script.execute: {id: pad_cancel}
+                  - button:
+                      x: 24
+                      y: 320
+                      width: 100
+                      height: 62
+                      widgets:
+                        - label: {text: ".", align: CENTER, text_font: font_roboto_40}
+                      on_click:
+                        - script.execute: {id: pad_key, key: "."}
+                  - button:
+                      x: 138
+                      y: 320
+                      width: 100
+                      height: 62
+                      widgets:
+                        - label: {text: "0", align: CENTER, text_font: font_roboto_40}
+                      on_click:
+                        - script.execute: {id: pad_key, key: "0"}
+                  - button:
+                      x: 252
+                      y: 320
+                      width: 214
+                      height: 62
+                      bg_color: 0x2E7D32
+                      widgets:
+                        - label: {text: "OK", align: CENTER, text_font: font_roboto_40}
+                      on_click:
+                        - script.execute: {id: pad_ok}
   pages:
-    - id: main_page
+    - id: energy_page
       on_swipe_left:
         - lvgl.page.show: details_page
       on_swipe_right:
-        - lvgl.page.show: debug_page
+        - lvgl.page.show: debug_commands_page
       widgets:
         - label:
-            id: label_events
+            id: label_events_energy
             text: ""
             align: TOP_MID
             y: 0
             width: 100%
+            text_align: CENTER
             text_font: font_roboto_20
             text_color: 0xFFFFFF
             bg_opa: 100%
             bg_color: 0x000000
 
         - label:
-            id: label_contactor
+            id: label_contactor_energy
             text: "Contactor: 0 OPEN / OFF"
-            align: TOP_MID
+            align: TOP_LEFT
+            x: 40
             y: 400
+            width: 440
+            long_mode: CLIP
+            text_align: LEFT
             text_font: font_roboto_40
             text_color: 0xFFFFFF
 
-        # SOC Arc Indicator
         - arc:
-            id: soc_arc
+            id: energy_soc_arc
             width: 340
             height: 340
             align: TOP_LEFT
@@ -63,7 +250,7 @@ lvgl:
             bg_color: 0x1A1A1A
             widgets:
               - label:
-                  id: label_soc
+                  id: label_soc_energy
                   text: " "
                   align: CENTER
                   text_font: font_roboto_80
@@ -75,35 +262,350 @@ lvgl:
                   text_font: font_roboto_20
                   text_color: 0xAAAAAA
 
-        # Main Data (Right Side)
-        - label:
-            id: label_voltage
-            text: "--V"
-            align: TOP_RIGHT
-            x: -120
+        - arc:
+            id: energy_soc_delta_arc
+            width: 300
+            height: 300
+            align: TOP_LEFT
+            x: 60
             y: 60
-            text_font: font_roboto_80
-            text_color: 0x00BFFF # DeepSkyBlue
+            min_value: 0
+            max_value: 100
+            value: 0
+            bg_opa: 0%
+            arc_width: 8
+            arc_color: 0xFFD54A
 
         - label:
-            id: label_current
-            text: "--A"
-            align: TOP_RIGHT
-            x: -120
-            y: 160
-            text_font: font_roboto_80
-            text_color: 0xFFA500 # Orange
+            id: label_soc_delta_1h_energy
+            text: "1h change: ---%"
+            align: TOP_LEFT
+            x: 40
+            y: 290
+            width: 340
+            text_align: CENTER
+            text_font: font_roboto_20
+            text_color: 0xFFD54A
 
         - label:
-            id: label_power
-            text: "--kW"
+            id: label_power_title_energy
+            text: "POWER"
             align: TOP_RIGHT
-            x: -60
-            y: 260
-            text_font: font_roboto_80
-            text_color: 0xADFF2F # GreenYellow
+            x: -110
+            y: 38
+            width: 320
+            text_align: CENTER
+            text_font: font_roboto_20
+            text_color: 0xAAAAAA
 
-        # Divider
+        - line:
+            id: power_scale_energy
+            width: 320
+            height: 1
+            align: TOP_RIGHT
+            x: -110
+            y: 76
+            line_width: 2
+            line_color: 0xDDDDDD
+            points:
+              - 0, 0
+              - 320, 0
+
+        - line:
+            width: 1
+            height: 14
+            align: TOP_RIGHT
+            x: -430
+            y: 62
+            line_width: 2
+            line_color: 0xDDDDDD
+            points:
+              - 0, 0
+              - 0, 14
+
+        - line:
+            width: 1
+            height: 14
+            align: TOP_RIGHT
+            x: -110
+            y: 62
+            line_width: 2
+            line_color: 0xDDDDDD
+            points:
+              - 0, 0
+              - 0, 14
+
+        - obj:
+            id: power_marker_energy
+            width: 2
+            height: 22
+            align: TOP_LEFT
+            x: -270
+            y: 65
+            bg_color: 0xFFD54A
+            border_width: 0
+            radius: 0
+
+        - obj:
+            id: power_indicator_energy
+            width: 5
+            height: 22
+            align: TOP_LEFT
+            x: -270
+            y: 65
+            bg_color: 0xFFFFFF
+            border_width: 0
+            radius: 0
+
+        - label:
+            id: label_power_scale_min_energy
+            text: "-18.0kW"
+            align: TOP_RIGHT
+            x: -390
+            y: 38
+            width: 80
+            text_align: CENTER
+            text_font: font_roboto_20
+            text_color: 0xAAAAAA
+
+        - label:
+            id: label_power_scale_max_energy
+            text: "18.0kW"
+            align: TOP_RIGHT
+            x: -70
+            y: 38
+            width: 80
+            text_align: CENTER
+            text_font: font_roboto_20
+            text_color: 0xAAAAAA
+
+        - label:
+            id: label_power_energy
+            text: "--"
+            align: TOP_LEFT
+            x: 0
+            y: 86
+            text_font: font_roboto_60
+            text_color: 0xFFFFFF
+
+        - label:
+            id: label_power_energy_unit
+            text: "W"
+            align: TOP_LEFT
+            x: 0
+            y: 100
+            text_font: font_roboto_40
+            text_color: 0xFFFFFF
+
+        - label:
+            id: label_current_title_energy
+            text: "CURRENT"
+            align: TOP_RIGHT
+            x: -110
+            y: 180
+            width: 320
+            text_align: CENTER
+            text_font: font_roboto_20
+            text_color: 0xAAAAAA
+
+        - line:
+            id: current_scale_energy
+            width: 320
+            height: 1
+            align: TOP_RIGHT
+            x: -110
+            y: 216
+            line_width: 2
+            line_color: 0xDDDDDD
+            points:
+              - 0, 0
+              - 320, 0
+
+        - line:
+            width: 1
+            height: 12
+            align: TOP_RIGHT
+            x: -430
+            y: 204
+            line_width: 2
+            line_color: 0xDDDDDD
+            points:
+              - 0, 0
+              - 0, 12
+
+        - line:
+            width: 1
+            height: 12
+            align: TOP_RIGHT
+            x: -110
+            y: 204
+            line_width: 2
+            line_color: 0xDDDDDD
+            points:
+              - 0, 0
+              - 0, 12
+
+        - obj:
+            id: current_marker_energy
+            width: 2
+            height: 20
+            align: TOP_LEFT
+            x: -270
+            y: 207
+            bg_color: 0xFFD54A
+            border_width: 0
+            radius: 0
+
+        - obj:
+            id: current_indicator_energy
+            width: 5
+            height: 20
+            align: TOP_LEFT
+            x: -270
+            y: 207
+            bg_color: 0xFFD54A
+            border_width: 0
+            radius: 0
+
+        - label:
+            id: label_current_scale_min_energy
+            text: "-50A"
+            align: TOP_RIGHT
+            x: -390
+            y: 180
+            width: 80
+            text_align: CENTER
+            text_font: font_roboto_20
+            text_color: 0xCCAA77
+
+        - label:
+            id: label_current_scale_max_energy
+            text: "50A"
+            align: TOP_RIGHT
+            x: -70
+            y: 180
+            width: 80
+            text_align: CENTER
+            text_font: font_roboto_20
+            text_color: 0xCCAA77
+
+        - label:
+            id: label_current_energy_value
+            text: "--.--"
+            align: TOP_LEFT
+            x: 0
+            y: 226
+            text_font: font_roboto_60
+            text_color: 0xFFA500
+
+        - label:
+            id: label_current_energy_unit
+            text: "A"
+            align: TOP_LEFT
+            x: 0
+            y: 240
+            text_font: font_roboto_40
+            text_color: 0xFFA500
+
+        - label:
+            id: label_voltage_title_energy
+            text: "VOLTAGE"
+            align: TOP_RIGHT
+            x: -110
+            y: 320
+            width: 320
+            text_align: CENTER
+            text_font: font_roboto_20
+            text_color: 0xAAAAAA
+
+        - line:
+            id: voltage_scale_energy
+            width: 320
+            height: 1
+            align: TOP_RIGHT
+            x: -110
+            y: 356
+            line_width: 2
+            line_color: 0xDDDDDD
+            points:
+              - 0, 0
+              - 320, 0
+
+        - line:
+            width: 1
+            height: 12
+            align: TOP_RIGHT
+            x: -430
+            y: 344
+            line_width: 2
+            line_color: 0xDDDDDD
+            points:
+              - 0, 0
+              - 0, 12
+
+        - line:
+            width: 1
+            height: 12
+            align: TOP_RIGHT
+            x: -110
+            y: 344
+            line_width: 2
+            line_color: 0xDDDDDD
+            points:
+              - 0, 0
+              - 0, 12
+
+        - obj:
+            id: voltage_marker_energy
+            width: 5
+            height: 20
+            align: TOP_LEFT
+            x: -270
+            y: 347
+            bg_color: 0x00BFFF
+            border_width: 0
+            radius: 0
+
+        - label:
+            id: label_voltage_scale_min_energy
+            text: "--.-V"
+            align: TOP_RIGHT
+            x: -390
+            y: 320
+            width: 80
+            text_align: CENTER
+            text_font: font_roboto_20
+            text_color: 0x77AACC
+
+        - label:
+            id: label_voltage_scale_max_energy
+            text: "--.-V"
+            align: TOP_RIGHT
+            x: -70
+            y: 320
+            width: 80
+            text_align: CENTER
+            text_font: font_roboto_20
+            text_color: 0x77AACC
+
+        - label:
+            id: label_voltage_energy_value
+            text: "--.-"
+            align: TOP_LEFT
+            x: 0
+            y: 366
+            text_font: font_roboto_60
+            text_color: 0x00BFFF
+
+        - label:
+            id: label_voltage_energy_unit
+            text: "V"
+            align: TOP_LEFT
+            x: 0
+            y: 380
+            text_font: font_roboto_40
+            text_color: 0x00BFFF
+
         - obj:
             width: 90%
             height: 2
@@ -111,7 +613,6 @@ lvgl:
             y: -140
             bg_color: 0x333333
 
-        # Statistics Grid (Bottom)
         - label:
             text: "TEMP MIN/MAX (DELTA)"
             align: BOTTOM_LEFT
@@ -120,7 +621,7 @@ lvgl:
             text_font: font_roboto_20
             text_color: 0x888888
         - label:
-            id: label_temp
+            id: label_temp_energy
             text: " "
             align: BOTTOM_LEFT
             x: 40
@@ -136,7 +637,7 @@ lvgl:
             text_font: font_roboto_20
             text_color: 0x888888
         - label:
-            id: label_cells
+            id: label_cells_energy
             text: " "
             align: BOTTOM_RIGHT
             x: -40
@@ -144,9 +645,8 @@ lvgl:
             text_font: font_roboto_40
             text_color: 0xFFFFFF
 
-        # Uptime (Verify UI is alive)
         - label:
-            id: label_uptime
+            id: label_uptime_energy
             text: "HMI/BMS: -- / --"
             align: BOTTOM_MID
             y: -10
@@ -155,7 +655,7 @@ lvgl:
 
     - id: details_page
       on_swipe_right:
-        - lvgl.page.show: main_page
+        - lvgl.page.show: energy_page
       widgets:
         - label:
             text: "INDIVIDUAL CELL VOLTAGES"
@@ -164,28 +664,129 @@ lvgl:
             text_font: font_roboto_40
             text_color: 0xAAAAAA
 
-        - line:
-            id: cell_line_chart
-            width: 972 # 108 * 9
-            height: 400
-            align: CENTER
-            y: 20
-            line_width: 2
-            line_color: 0x00FF00
-            points:
-              - 0, 400
-              - 972, 400
+        - label:
+            id: label_cell_count
+            text: "-- cells"
+            align: TOP_RIGHT
+            x: -40
+            y: 32
+            text_font: font_roboto_20
+            text_color: 0x888888
 
         - label:
-            text: "← Swipe right to return"
-            align: BOTTOM_MID
+            text: "ACTIVE"
+            align: TOP_LEFT
+            x: 40
+            y: 32
+            text_font: font_roboto_20
+            text_color: 0xFF9800
+
+        - label:
+            text: "BALANCING"
+            align: TOP_LEFT
+            x: 130
+            y: 32
+            text_font: font_roboto_20
+            text_color: 0xFDD835
+
+        # Bar container + baseline; the filled bars are drawn as child
+        # rectangles from bms_ui_scripts.yaml.
+        - line:
+            id: cell_line_chart
+            width: 900
+            height: 400
+            align: CENTER
+            x: 36
+            y: 20
+            line_width: 2
+            line_color: 0x444444
+            points:
+              - 0, 400
+              - 900, 400
+
+        - line:
+            width: 900
+            height: 1
+            align: CENTER
+            x: 36
+            y: -180
+            line_width: 1
+            line_color: 0x224444
+            points:
+              - 0, 0
+              - 900, 0
+
+        - line:
+            width: 900
+            height: 1
+            align: CENTER
+            x: 36
+            y: 20
+            line_width: 1
+            line_color: 0x224444
+            points:
+              - 0, 0
+              - 900, 0
+
+        - line:
+            width: 900
+            height: 1
+            align: CENTER
+            x: 36
+            y: 220
+            line_width: 1
+            line_color: 0x224444
+            points:
+              - 0, 0
+              - 900, 0
+
+        - label:
+            id: label_cell_scale_max
+            text: "--.-V"
+            align: LEFT_MID
+            x: 8
+            y: -160
+            text_font: font_roboto_20
+            text_color: 0x66CCFF
+
+        - label:
+            id: label_cell_scale_mid
+            text: "--.-V"
+            align: LEFT_MID
+            x: 8
+            y: 20
+            text_font: font_roboto_20
+            text_color: 0x66CCFF
+
+        - label:
+            id: label_cell_scale_min
+            text: "--.-V"
+            align: LEFT_MID
+            x: 8
+            y: 180
+            text_font: font_roboto_20
+            text_color: 0x66CCFF
+
+        - label:
+            id: label_balance_remaining
+            text: "Balance cycle time remaining: --"
+            align: BOTTOM_LEFT
+            x: 40
+            y: -20
+            text_font: font_roboto_20
+            text_color: 0xFDD835
+
+        - label:
+            text: "<- Main"
+            align: BOTTOM_RIGHT
+            x: -40
             y: -20
             text_font: font_roboto_20
             text_color: 0x666666
 
     - id: debug_page
       on_swipe_left:
-        - lvgl.page.show: main_page
+        - lvgl.page.show: debug_commands_page
       on_swipe_right:
         - lvgl.page.show: balancing_page
       widgets:
@@ -359,20 +960,11 @@ lvgl:
             text_color: 0xFFFFFF
 
         - label:
-            id: debug_reg_19
-            text: "Reg 19 (SOC EKF): -- %"
-            align: TOP_LEFT
-            x: 450
-            y: 230
-            text_font: font_roboto_20
-            text_color: 0xFFFFFF
-
-        - label:
             id: debug_reg_20
             text: "Reg 20 (Capacity): -- Ah"
             align: TOP_LEFT
             x: 450
-            y: 260
+            y: 230
             text_font: font_roboto_20
             text_color: 0xFFFFFF
 
@@ -381,7 +973,7 @@ lvgl:
             text: "Reg 21 (3V3): -- V"
             align: TOP_LEFT
             x: 450
-            y: 290
+            y: 260
             text_font: font_roboto_20
             text_color: 0xFFFFFF
 
@@ -390,7 +982,7 @@ lvgl:
             text: "Reg 22 (5V): -- V"
             align: TOP_LEFT
             x: 450
-            y: 320
+            y: 290
             text_font: font_roboto_20
             text_color: 0xFFFFFF
 
@@ -399,7 +991,7 @@ lvgl:
             text: "Reg 23 (12V): -- V"
             align: TOP_LEFT
             x: 450
-            y: 350
+            y: 320
             text_font: font_roboto_20
             text_color: 0xFFFFFF
 
@@ -408,13 +1000,22 @@ lvgl:
             text: "Reg 24 (CTR): -- V"
             align: TOP_LEFT
             x: 450
-            y: 380
+            y: 350
             text_font: font_roboto_20
             text_color: 0xFFFFFF
 
         - label:
             id: debug_reg_37
-            text: "Reg 37 (ADC): --"
+            text: "Reg 37 (Inv SOC): -- %"
+            align: TOP_LEFT
+            x: 450
+            y: 380
+            text_font: font_roboto_20
+            text_color: 0xFFFFFF
+
+        - label:
+            id: debug_reg_45
+            text: "Reg 45 (Chg Lim): -- A"
             align: TOP_LEFT
             x: 450
             y: 410
@@ -422,8 +1023,8 @@ lvgl:
             text_color: 0xFFFFFF
 
         - label:
-            id: debug_reg_38
-            text: "Reg 38 (Freq): -- Hz"
+            id: debug_reg_46
+            text: "Reg 46 (Dis Lim): -- A"
             align: TOP_LEFT
             x: 450
             y: 440
@@ -431,7 +1032,7 @@ lvgl:
             text_color: 0xFFFFFF
 
         - label:
-            text: "← Swipe right for Commands | Swipe left for Main →"
+            text: "<- Balancing  |  Commands ->"
             align: BOTTOM_MID
             y: -20
             text_font: font_roboto_20
@@ -441,404 +1042,195 @@ lvgl:
       on_swipe_left:
         - lvgl.page.show: debug_page
       on_swipe_right:
-        - lvgl.page.show: debug_commands_page
+        - lvgl.page.show: limits_page
       widgets:
         - label:
-            text: "BALANCING & LIMITS"
+            text: "BALANCING"
             align: TOP_MID
             y: 20
             text_font: font_roboto_40
             text_color: 0xAAAAAA
 
         - label:
+            id: label_settings_status_bal
+            text: "Settings locked"
+            align: TOP_MID
+            y: 72
+            text_font: font_roboto_20
+            text_color: 0xFFD54A
+
+        - button:
+            id: btn_lock_bal
+            align: TOP_RIGHT
+            x: -20
+            y: 20
+            width: 170
+            height: 56
+            bg_color: 0x8B1A1A
+            widgets:
+              - label:
+                  id: lbl_lock_bal
+                  text: "UNLOCK"
+                  align: CENTER
+                  text_font: font_roboto_20
+            on_click:
+              - script.execute:
+                  id: settings_lock_toggle
+
+        # --- Column A ---
+        - label:
             text: "Soft Min:"
             align: TOP_LEFT
             x: 40
-            y: 105
+            y: 126
             text_font: font_roboto_20
             text_color: 0xAAAAAA
-
         - button:
-            x: 180
-            y: 95
-            width: 50
-            height: 50
+            x: 210
+            y: 112
+            width: 270
+            height: 52
             widgets:
               - label:
-                  text: "-"
+                  id: val_reg_31
+                  text: "--"
                   align: CENTER
                   text_font: font_roboto_40
             on_click:
-              - lambda: |-
-                  int32_t v = lv_spinbox_get_value(id(sb_reg_31));
-                  lv_spinbox_set_value(id(sb_reg_31), v - 1);
-                  id(bms_cv_soft_min).make_call().set_value((v - 1) / 1000.0f).perform();
-
-        - spinbox:
-            id: sb_reg_31
-            x: 240
-            y: 95
-            width: 130
-            height: 50
-            text_font: font_roboto_40
-
-        - button:
-            x: 380
-            y: 95
-            width: 50
-            height: 50
-            widgets:
-              - label:
-                  text: "+"
-                  align: CENTER
-                  text_font: font_roboto_40
-            on_click:
-              - lambda: |-
-                  int32_t v = lv_spinbox_get_value(id(sb_reg_31));
-                  lv_spinbox_set_value(id(sb_reg_31), v + 1);
-                  id(bms_cv_soft_min).make_call().set_value((v + 1) / 1000.0f).perform();
+              - script.execute: {id: open_setting_pad, reg: 31}
 
         - label:
             text: "Soft Max:"
             align: TOP_LEFT
             x: 40
-            y: 165
+            y: 188
             text_font: font_roboto_20
             text_color: 0xAAAAAA
-
         - button:
-            x: 180
-            y: 155
-            width: 50
-            height: 50
+            x: 210
+            y: 174
+            width: 270
+            height: 52
             widgets:
               - label:
-                  text: "-"
+                  id: val_reg_32
+                  text: "--"
                   align: CENTER
                   text_font: font_roboto_40
             on_click:
-              - lambda: |-
-                  int32_t v = lv_spinbox_get_value(id(sb_reg_32));
-                  lv_spinbox_set_value(id(sb_reg_32), v - 1);
-                  id(bms_cv_soft_max).make_call().set_value((v - 1) / 1000.0f).perform();
-
-        - spinbox:
-            id: sb_reg_32
-            x: 240
-            y: 155
-            width: 130
-            height: 50
-            text_font: font_roboto_40
-
-        - button:
-            x: 380
-            y: 155
-            width: 50
-            height: 50
-            widgets:
-              - label:
-                  text: "+"
-                  align: CENTER
-                  text_font: font_roboto_40
-            on_click:
-              - lambda: |-
-                  int32_t v = lv_spinbox_get_value(id(sb_reg_32));
-                  lv_spinbox_set_value(id(sb_reg_32), v + 1);
-                  id(bms_cv_soft_max).make_call().set_value((v + 1) / 1000.0f).perform();
+              - script.execute: {id: open_setting_pad, reg: 32}
 
         - label:
-            text: "Min Offset:"
+            text: "Start Volt:"
             align: TOP_LEFT
             x: 40
-            y: 225
+            y: 250
             text_font: font_roboto_20
             text_color: 0xAAAAAA
-
         - button:
-            x: 180
-            y: 215
-            width: 50
-            height: 50
+            x: 210
+            y: 236
+            width: 270
+            height: 52
             widgets:
               - label:
-                  text: "-"
+                  id: val_reg_42
+                  text: "--"
                   align: CENTER
                   text_font: font_roboto_40
             on_click:
-              - lambda: |-
-                  int32_t v = lv_spinbox_get_value(id(sb_reg_35));
-                  lv_spinbox_set_value(id(sb_reg_35), v - 1);
-                  id(bms_bal_min_offset).make_call().set_value((v - 1) / 1000.0f).perform();
-
-        - spinbox:
-            id: sb_reg_35
-            x: 240
-            y: 215
-            width: 130
-            height: 50
-            text_font: font_roboto_40
-
-        - button:
-            x: 380
-            y: 215
-            width: 50
-            height: 50
-            widgets:
-              - label:
-                  text: "+"
-                  align: CENTER
-                  text_font: font_roboto_40
-            on_click:
-              - lambda: |-
-                  int32_t v = lv_spinbox_get_value(id(sb_reg_35));
-                  lv_spinbox_set_value(id(sb_reg_35), v + 1);
-                  id(bms_bal_min_offset).make_call().set_value((v + 1) / 1000.0f).perform();
+              - script.execute: {id: open_setting_pad, reg: 42}
 
         - label:
             text: "Min Bal Volt:"
             align: TOP_LEFT
             x: 40
-            y: 285
+            y: 312
             text_font: font_roboto_20
             text_color: 0xAAAAAA
-
         - button:
-            x: 180
-            y: 275
-            width: 50
-            height: 50
+            x: 210
+            y: 298
+            width: 270
+            height: 52
             widgets:
               - label:
-                  text: "-"
+                  id: val_reg_36
+                  text: "--"
                   align: CENTER
                   text_font: font_roboto_40
             on_click:
-              - lambda: |-
-                  int32_t v = lv_spinbox_get_value(id(sb_reg_36));
-                  lv_spinbox_set_value(id(sb_reg_36), v - 1);
-                  id(bms_min_bal_v).make_call().set_value((v - 1) / 1000.0f).perform();
+              - script.execute: {id: open_setting_pad, reg: 36}
 
-        - spinbox:
-            id: sb_reg_36
-            x: 240
-            y: 275
-            width: 130
-            height: 50
-            text_font: font_roboto_40
-
+        # --- Column B ---
+        - label:
+            text: "Min Offset mV:"
+            align: TOP_LEFT
+            x: 540
+            y: 126
+            text_font: font_roboto_20
+            text_color: 0xAAAAAA
         - button:
-            x: 380
-            y: 275
-            width: 50
-            height: 50
+            x: 710
+            y: 112
+            width: 270
+            height: 52
             widgets:
               - label:
-                  text: "+"
+                  id: val_reg_35
+                  text: "--"
                   align: CENTER
                   text_font: font_roboto_40
             on_click:
-              - lambda: |-
-                  int32_t v = lv_spinbox_get_value(id(sb_reg_36));
-                  lv_spinbox_set_value(id(sb_reg_36), v + 1);
-                  id(bms_min_bal_v).make_call().set_value((v + 1) / 1000.0f).perform();
+              - script.execute: {id: open_setting_pad, reg: 35}
 
         - label:
-            text: "Auto Period:"
+            text: "Period (ms):"
             align: TOP_LEFT
-            x: 450
-            y: 105
+            x: 540
+            y: 188
             text_font: font_roboto_20
             text_color: 0xAAAAAA
-
         - button:
-            x: 590
-            y: 95
-            width: 50
-            height: 50
+            x: 710
+            y: 174
+            width: 270
+            height: 52
             widgets:
               - label:
-                  text: "-"
+                  id: val_reg_33
+                  text: "--"
                   align: CENTER
                   text_font: font_roboto_40
             on_click:
-              - lambda: |-
-                  int32_t v = lv_spinbox_get_value(id(sb_reg_33));
-                  lv_spinbox_set_value(id(sb_reg_33), v - 1000);
-                  id(bms_auto_bal_period).make_call().set_value(v - 1000).perform();
-
-        - spinbox:
-            id: sb_reg_33
-            x: 650
-            y: 95
-            width: 130
-            height: 50
-            text_font: font_roboto_40
-
-        - button:
-            x: 790
-            y: 95
-            width: 50
-            height: 50
-            widgets:
-              - label:
-                  text: "+"
-                  align: CENTER
-                  text_font: font_roboto_40
-            on_click:
-              - lambda: |-
-                  int32_t v = lv_spinbox_get_value(id(sb_reg_33));
-                  lv_spinbox_set_value(id(sb_reg_33), v + 1000);
-                  id(bms_auto_bal_period).make_call().set_value(v + 1000).perform();
+              - script.execute: {id: open_setting_pad, reg: 33}
 
         - label:
-            text: "Period/mV:"
+            text: "Periods/mV:"
             align: TOP_LEFT
-            x: 450
-            y: 165
+            x: 540
+            y: 250
             text_font: font_roboto_20
             text_color: 0xAAAAAA
-
         - button:
-            x: 590
-            y: 155
-            width: 50
-            height: 50
+            x: 710
+            y: 236
+            width: 270
+            height: 52
             widgets:
               - label:
-                  text: "-"
+                  id: val_reg_34
+                  text: "--"
                   align: CENTER
                   text_font: font_roboto_40
             on_click:
-              - lambda: |-
-                  int32_t v = lv_spinbox_get_value(id(sb_reg_34));
-                  lv_spinbox_set_value(id(sb_reg_34), v - 1);
-                  id(bms_bal_periods_mv).make_call().set_value(v - 1).perform();
-
-        - spinbox:
-            id: sb_reg_34
-            x: 650
-            y: 155
-            width: 130
-            height: 50
-            text_font: font_roboto_40
-
-        - button:
-            x: 790
-            y: 155
-            width: 50
-            height: 50
-            widgets:
-              - label:
-                  text: "+"
-                  align: CENTER
-                  text_font: font_roboto_40
-            on_click:
-              - lambda: |-
-                  int32_t v = lv_spinbox_get_value(id(sb_reg_34));
-                  lv_spinbox_set_value(id(sb_reg_34), v + 1);
-                  id(bms_bal_periods_mv).make_call().set_value(v + 1).perform();
-
-        - label:
-            text: "Max Charge:"
-            align: TOP_LEFT
-            x: 450
-            y: 225
-            text_font: font_roboto_20
-            text_color: 0xAAAAAA
-
-        - button:
-            x: 590
-            y: 215
-            width: 50
-            height: 50
-            widgets:
-              - label:
-                  text: "-"
-                  align: CENTER
-                  text_font: font_roboto_40
-            on_click:
-              - lambda: |-
-                  int32_t v = lv_spinbox_get_value(id(sb_reg_39));
-                  lv_spinbox_set_value(id(sb_reg_39), v - 1000);
-                  id(bms_max_charge).make_call().set_value((v - 1000) / 1000.0f).perform();
-
-        - spinbox:
-            id: sb_reg_39
-            x: 650
-            y: 215
-            width: 130
-            height: 50
-            text_font: font_roboto_40
-
-        - button:
-            x: 790
-            y: 215
-            width: 50
-            height: 50
-            widgets:
-              - label:
-                  text: "+"
-                  align: CENTER
-                  text_font: font_roboto_40
-            on_click:
-              - lambda: |-
-                  int32_t v = lv_spinbox_get_value(id(sb_reg_39));
-                  lv_spinbox_set_value(id(sb_reg_39), v + 1000);
-                  id(bms_max_charge).make_call().set_value((v + 1000) / 1000.0f).perform();
-
-        - label:
-            text: "Max Dischg:"
-            align: TOP_LEFT
-            x: 450
-            y: 285
-            text_font: font_roboto_20
-            text_color: 0xAAAAAA
-
-        - button:
-            x: 590
-            y: 275
-            width: 50
-            height: 50
-            widgets:
-              - label:
-                  text: "-"
-                  align: CENTER
-                  text_font: font_roboto_40
-            on_click:
-              - lambda: |-
-                  int32_t v = lv_spinbox_get_value(id(sb_reg_40));
-                  lv_spinbox_set_value(id(sb_reg_40), v - 1000);
-                  id(bms_max_discharge).make_call().set_value((v - 1000) / 1000.0f).perform();
-
-        - spinbox:
-            id: sb_reg_40
-            x: 650
-            y: 275
-            width: 130
-            height: 50
-            text_font: font_roboto_40
-
-        - button:
-            x: 790
-            y: 275
-            width: 50
-            height: 50
-            widgets:
-              - label:
-                  text: "+"
-                  align: CENTER
-                  text_font: font_roboto_40
-            on_click:
-              - lambda: |-
-                  int32_t v = lv_spinbox_get_value(id(sb_reg_40));
-                  lv_spinbox_set_value(id(sb_reg_40), v + 1000);
-                  id(bms_max_discharge).make_call().set_value((v + 1000) / 1000.0f).perform();
+              - script.execute: {id: open_setting_pad, reg: 34}
 
         - label:
             text: "ACTIVE BALANCING CELLS:"
             align: TOP_LEFT
             x: 40
-            y: 335 # Moved down
+            y: 372
             text_font: font_roboto_20
             text_color: 0x888888
 
@@ -847,15 +1239,251 @@ lvgl:
             text: "None"
             align: TOP_LEFT
             x: 40
-            y: 365 # Moved down
-
+            y: 402
             width: 90%
             text_font: font_roboto_20
             text_color: 0x00FF00
             long_mode: WRAP
 
         - label:
-            text: "← Swipe left for Registers | Swipe right for Commands →"
+            text: "<- Limits  |  Registers ->"
+            align: BOTTOM_MID
+            y: -20
+            text_font: font_roboto_20
+            text_color: 0x666666
+
+    - id: limits_page
+      on_swipe_left:
+        - lvgl.page.show: balancing_page
+      on_swipe_right:
+        - lvgl.page.show: debug_page_3
+      widgets:
+        - label:
+            text: "LIMITS & SOC"
+            align: TOP_MID
+            y: 20
+            text_font: font_roboto_40
+            text_color: 0xAAAAAA
+
+        - label:
+            id: label_settings_status_lim
+            text: "Settings locked"
+            align: TOP_MID
+            y: 72
+            text_font: font_roboto_20
+            text_color: 0xFFD54A
+
+        - button:
+            id: btn_lock_lim
+            align: TOP_RIGHT
+            x: -20
+            y: 20
+            width: 170
+            height: 56
+            bg_color: 0x8B1A1A
+            widgets:
+              - label:
+                  id: lbl_lock_lim
+                  text: "UNLOCK"
+                  align: CENTER
+                  text_font: font_roboto_20
+            on_click:
+              - script.execute:
+                  id: settings_lock_toggle
+
+        # --- Column A ---
+        - label:
+            text: "Max Chg (A):"
+            align: TOP_LEFT
+            x: 40
+            y: 126
+            text_font: font_roboto_20
+            text_color: 0xAAAAAA
+        - button:
+            x: 210
+            y: 112
+            width: 270
+            height: 52
+            widgets:
+              - label:
+                  id: val_reg_43
+                  text: "--"
+                  align: CENTER
+                  text_font: font_roboto_40
+            on_click:
+              - script.execute: {id: open_setting_pad, reg: 43}
+
+        - label:
+            text: "Max Dis (A):"
+            align: TOP_LEFT
+            x: 40
+            y: 188
+            text_font: font_roboto_20
+            text_color: 0xAAAAAA
+        - button:
+            x: 210
+            y: 174
+            width: 270
+            height: 52
+            widgets:
+              - label:
+                  id: val_reg_44
+                  text: "--"
+                  align: CENTER
+                  text_font: font_roboto_40
+            on_click:
+              - script.execute: {id: open_setting_pad, reg: 44}
+
+        - label:
+            text: "V Off Low:"
+            align: TOP_LEFT
+            x: 40
+            y: 250
+            text_font: font_roboto_20
+            text_color: 0xAAAAAA
+        - button:
+            x: 210
+            y: 236
+            width: 270
+            height: 52
+            widgets:
+              - label:
+                  id: val_reg_29
+                  text: "--"
+                  align: CENTER
+                  text_font: font_roboto_40
+            on_click:
+              - script.execute: {id: open_setting_pad, reg: 29}
+
+        - label:
+            text: "V Off High:"
+            align: TOP_LEFT
+            x: 40
+            y: 312
+            text_font: font_roboto_20
+            text_color: 0xAAAAAA
+        - button:
+            x: 210
+            y: 298
+            width: 270
+            height: 52
+            widgets:
+              - label:
+                  id: val_reg_30
+                  text: "--"
+                  align: CENTER
+                  text_font: font_roboto_40
+            on_click:
+              - script.execute: {id: open_setting_pad, reg: 30}
+
+        - label:
+            text: "SOC Set %:"
+            align: TOP_LEFT
+            x: 40
+            y: 374
+            text_font: font_roboto_20
+            text_color: 0xAAAAAA
+        - button:
+            x: 210
+            y: 360
+            width: 270
+            height: 52
+            widgets:
+              - label:
+                  id: val_reg_3
+                  text: "--"
+                  align: CENTER
+                  text_font: font_roboto_40
+            on_click:
+              - script.execute: {id: open_setting_pad, reg: 3}
+
+        # --- Column B ---
+        - label:
+            text: "Work Min:"
+            align: TOP_LEFT
+            x: 540
+            y: 126
+            text_font: font_roboto_20
+            text_color: 0xAAAAAA
+        - button:
+            x: 710
+            y: 112
+            width: 270
+            height: 52
+            widgets:
+              - label:
+                  id: val_reg_25
+                  text: "--"
+                  align: CENTER
+                  text_font: font_roboto_40
+            on_click:
+              - script.execute: {id: open_setting_pad, reg: 25}
+
+        - label:
+            text: "Work Max:"
+            align: TOP_LEFT
+            x: 540
+            y: 188
+            text_font: font_roboto_20
+            text_color: 0xAAAAAA
+        - button:
+            x: 710
+            y: 174
+            width: 270
+            height: 52
+            widgets:
+              - label:
+                  id: val_reg_26
+                  text: "--"
+                  align: CENTER
+                  text_font: font_roboto_40
+            on_click:
+              - script.execute: {id: open_setting_pad, reg: 26}
+
+        - label:
+            text: "SOC Min %:"
+            align: TOP_LEFT
+            x: 540
+            y: 250
+            text_font: font_roboto_20
+            text_color: 0xAAAAAA
+        - button:
+            x: 710
+            y: 236
+            width: 270
+            height: 52
+            widgets:
+              - label:
+                  id: val_reg_27
+                  text: "--"
+                  align: CENTER
+                  text_font: font_roboto_40
+            on_click:
+              - script.execute: {id: open_setting_pad, reg: 27}
+
+        - label:
+            text: "SOC Max %:"
+            align: TOP_LEFT
+            x: 540
+            y: 312
+            text_font: font_roboto_20
+            text_color: 0xAAAAAA
+        - button:
+            x: 710
+            y: 298
+            width: 270
+            height: 52
+            widgets:
+              - label:
+                  id: val_reg_28
+                  text: "--"
+                  align: CENTER
+                  text_font: font_roboto_40
+            on_click:
+              - script.execute: {id: open_setting_pad, reg: 28}
+
+        - label:
+            text: "<- Event Log  |  Balancing ->"
             align: BOTTOM_MID
             y: -20
             text_font: font_roboto_20
@@ -863,9 +1491,9 @@ lvgl:
 
     - id: debug_commands_page
       on_swipe_left:
-        - lvgl.page.show: balancing_page
+        - lvgl.page.show: energy_page
       on_swipe_right:
-        - lvgl.page.show: debug_page_3
+        - lvgl.page.show: debug_page
       widgets:
         - label:
             text: "BMS SYSTEM COMMANDS"
@@ -879,7 +1507,7 @@ lvgl:
             x: 0
             y: 100
             width: 300
-            height: 80
+            height: 70
             align: TOP_MID
             widgets:
               - label:
@@ -888,14 +1516,14 @@ lvgl:
             on_click:
               then:
                 - lambda: |-
-                    id(bms_hub).send_system_request(2);
+                    id(hub).send_system_request(2);
 
         - button:
             id: btn_run
             x: 0
-            y: 200
+            y: 180
             width: 300
-            height: 80
+            height: 70
             align: TOP_MID
             widgets:
               - label:
@@ -904,26 +1532,58 @@ lvgl:
             on_click:
               then:
                 - lambda: |-
-                    id(bms_hub).send_system_request(1);
+                    id(hub).send_system_request(1);
 
         - button:
             id: btn_calibrate
             x: 0
-            y: 300
+            y: 260
             width: 300
-            height: 80
+            height: 70
             align: TOP_MID
             widgets:
               - label:
-                  text: "CALIBRATE"
+                  text: "CALIBRATE OFFLINE LONG"
                   align: CENTER
             on_click:
               then:
                 - lambda: |-
-                    id(bms_hub).send_system_request(3);
+                    id(hub).send_system_request(3);
+
+        - button:
+            id: btn_calibrate_short
+            x: 0
+            y: 340
+            width: 300
+            height: 70
+            align: TOP_MID
+            widgets:
+              - label:
+                  text: "CALIBRATE OFFLINE SHORT"
+                  align: CENTER
+            on_click:
+              then:
+                - lambda: |-
+                    id(hub).send_system_request(4);
+
+        - button:
+            id: btn_calibrate_online
+            x: 0
+            y: 420
+            width: 300
+            height: 70
+            align: TOP_MID
+            widgets:
+              - label:
+                  text: "CALIBRATE ONLINE"
+                  align: CENTER
+            on_click:
+              then:
+                - lambda: |-
+                    id(hub).send_system_request(5);
 
         - label:
-            text: "← Swipe left for Data | Swipe right for Log →"
+            text: "<- Registers  |  Main ->"
             align: BOTTOM_MID
             y: -20
             text_font: font_roboto_20
@@ -931,9 +1591,9 @@ lvgl:
 
     - id: debug_page_3
       on_swipe_left:
-        - lvgl.page.show: debug_commands_page
+        - lvgl.page.show: limits_page
       on_swipe_right:
-        - lvgl.page.show: bms_log_page
+        - lvgl.page.show: log_page
       widgets:
         - label:
             text: "DETAILED EVENT LOG"
@@ -952,13 +1612,13 @@ lvgl:
             text_color: 0xFFFFFF
             long_mode: WRAP
         - label:
-            text: "← Commands | BMS Log →"
+            text: "← Limits | BMS Log →"
             align: BOTTOM_MID
             y: -20
             text_font: font_roboto_20
             text_color: 0x666666
 
-    - id: bms_log_page
+    - id: log_page
       on_swipe_left:
         - lvgl.page.show: debug_page_3
       on_swipe_right:
@@ -995,7 +1655,7 @@ lvgl:
                   text_color: 0xFFFFFF
             on_click:
               then:
-                - switch.toggle: bms_log_enable
+                - switch.toggle: log_enable
         - label:
             id: label_bms_log_01
             text: "--"
@@ -1499,7 +2159,7 @@ lvgl:
 
     - id: wifi_page
       on_swipe_left:
-        - lvgl.page.show: bms_log_page
+        - lvgl.page.show: log_page
       widgets:
         - label:
             text: "WIFI SETTINGS"
@@ -1569,7 +2229,7 @@ lvgl:
                     App.reboot();
 
         - label:
-            text: "<- Swipe left for BMS Log"
+            text: "BMS Log ->"
             align: BOTTOM_MID
             y: -10
             text_font: font_roboto_20

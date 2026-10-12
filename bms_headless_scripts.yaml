@@ -18,27 +18,40 @@ script:
   - id: update_contactor_ui
     then:
       - lambda: |-
-          int val = (int)id(bms_contactor_state).state;
+          int val = (int)id(contactor_state).state;
           static int last_val = -1;
           const char* state_str = "UNKNOWN";
           switch(val) {
             case 0: state_str = "OPEN / OFF"; break;
-            case 1: state_str = "PRECHARGE"; break;
-            case 2: state_str = "CLOSED / ON"; break;
-            case 3: state_str = "WELDED"; break;
-            case 4: state_str = "FAULT"; break;
+            case 1: state_str = "TST_PRE_CL"; break;
+            case 2: state_str = "TST_NEG_OP"; break;
+            case 3: state_str = "TST_NEG_CL"; break;
+            case 4: state_str = "TST_POS_OP"; break;
+            case 5: state_str = "TST_POS_CL"; break;
+            case 6: state_str = "PRECHG_INIT"; break;
+            case 7: state_str = "PRECHARGING"; break;
+            case 8: state_str = "CLOSED / ON"; break;
+            case 9: state_str = "AWAIT_OPEN"; break;
+            case 10: state_str = "CALIB"; break;
+            case 11: state_str = "CAL_PRE_INIT"; break;
+            case 12: state_str = "CAL_PRE"; break;
+            case 13: state_str = "CAL_CLOSED"; break;
+            case 14: state_str = "CAL_NEG_INIT"; break;
+            case 15: state_str = "CAL_NEG"; break;
+            case 16: state_str = "PRE_FAIL"; break;
+            case 17: state_str = "TST_FAIL"; break;
           }
           char buf[32];
           sprintf(buf, "%d %s", val, state_str);
           if (val != last_val) {
-            id(bms_contactor_state_text).publish_state(buf);
+            id(contactor_state_text).publish_state(buf);
             last_val = val;
           }
 
   - id: update_system_ui
     then:
       - lambda: |-
-          int val = (int)id(bms_system_state).state;
+          int val = (int)id(system_state).state;
           static int last_val = -1;
           const char* state_str = "UNKNOWN";
           switch(val) {
@@ -52,14 +65,14 @@ script:
           char buf[32];
           sprintf(buf, "%d %s", val, state_str);
           if (val != last_val) {
-            id(bms_system_state_text).publish_state(buf);
+            id(system_state_text).publish_state(buf);
             last_val = val;
           }
 
   - id: update_system_req_ui
     then:
       - lambda: |-
-          int val = (int)id(bms_system_req).state;
+          int val = (int)id(system_req).state;
           static int last_val = -1;
           const char* state_str = "NONE";
           switch(val) {
@@ -70,14 +83,14 @@ script:
           char buf[32];
           sprintf(buf, "%d %s", val, state_str);
           if (val != last_val) {
-            id(bms_system_req_text).publish_state(buf);
+            id(system_req_text).publish_state(buf);
             last_val = val;
           }
 
   - id: update_events_ui
     then:
       - lambda: |-
-          auto* bms = (esphome::hmi_bms::HMIBMS*) id(bms_hub);
+          auto* bms = (esphome::hmi_bms::HMIBMS*) id(hub);
           int code = bms->get_last_event_code();
           int level = bms->get_last_event_level();
           const char* type_str = bms->get_last_event_type_str();
@@ -94,7 +107,7 @@ script:
           
           char buf[64];
           sprintf(buf, "%s%d %s", level_pfx, code, type_str);
-          id(bms_last_event_text).publish_state(buf);
+          id(last_event_text).publish_state(buf);
 
   - id: update_debug_page
     then:

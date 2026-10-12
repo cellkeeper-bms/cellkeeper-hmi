@@ -117,10 +117,23 @@ enum HMIRegister {
   HMI_REG_INVERTER_REMAINING_CAPACITY_DAH = 39, // int16 (0.1Ah)
   HMI_REG_INVERTER_MIN_VOLTAGE_LIMIT_DV = 40,   // int16 (0.1V)
   HMI_REG_INVERTER_MAX_VOLTAGE_LIMIT_DV = 41,   // int16 (0.1V)
-  HMI_REG_ADC_SAMPLE_COUNT = 42,
-  HMI_REG_LOOP_FREQUENCY_HZ = 43,
-  HMI_REG_MAX_CHARGE_CURRENT = 44,
-  HMI_REG_MAX_DISCHARGE_CURRENT = 45,
+  HMI_REG_BALANCING_START_VOLTAGE_MV = 42,      // uint16 (mV)
+  HMI_REG_USER_CHARGE_CURRENT_LIMIT_DA = 43,    // uint16 (0.1A)
+  HMI_REG_USER_DISCHARGE_CURRENT_LIMIT_DA = 44, // uint16 (0.1A)
+  HMI_REG_CHARGE_CURRENT_LIMIT_DA = 45,         // uint16 (0.1A)
+  HMI_REG_DISCHARGE_CURRENT_LIMIT_DA = 46,      // uint16 (0.1A)
+  HMI_REG_TEMP_CHARGE_CURRENT_LIMIT_DA = 47,    // uint16 (0.1A)
+  HMI_REG_TEMP_DISCHARGE_CURRENT_LIMIT_DA = 48, // uint16 (0.1A)
+  HMI_REG_CELL_VOLTAGE_CHARGE_CURRENT_LIMIT_DA = 49,    // uint16 (0.1A)
+  HMI_REG_CELL_VOLTAGE_DISCHARGE_CURRENT_LIMIT_DA = 50, // uint16 (0.1A)
+  HMI_REG_WORKING_CHARGE_CURRENT_LIMIT_DA = 51,         // uint16 (0.1A)
+  HMI_REG_WORKING_DISCHARGE_CURRENT_LIMIT_DA = 52,      // uint16 (0.1A)
+  HMI_REG_DELTA_CHARGE_CURRENT_LIMIT_DA = 53,           // uint16 (0.1A)
+  HMI_REG_HARD_CHARGE_CURRENT_LIMIT_DA = 54,            // uint16 (0.1A)
+  HMI_REG_HARD_DISCHARGE_CURRENT_LIMIT_DA = 55,         // uint16 (0.1A)
+  HMI_REG_ISOLATION_POS_RAW = 60,                       // float (ADC counts), battery+ isolation channel
+  HMI_REG_ISOLATION_NEG_RAW = 61,                       // float (ADC counts), battery- isolation channel
+  HMI_REG_ISOLATION_RESISTANCE = 62,                    // float (ohms)
   HMI_REG_CELL_VOLTAGES_START = 0x100,
   HMI_REG_CELL_VOLTAGES_END = 0x1FF,
   HMI_REG_MODULE_TEMPS_START = 0x200,
@@ -152,6 +165,7 @@ class HMIBMS : public PollingComponent, public uart::UARTDevice {
   void set_cell_voltage_min_mV_sensor(sensor::Sensor *s) { cell_voltage_min_mV_sensor_ = s; }
   void set_cell_voltage_max_mV_sensor(sensor::Sensor *s) { cell_voltage_max_mV_sensor_ = s; }
   void set_cell_voltage_delta_sensor(sensor::Sensor *s) { cell_voltage_delta_sensor_ = s; }
+  void set_cell_count_sensor(sensor::Sensor *s) { cell_count_sensor_ = s; }
   void set_system_sm_sensor(sensor::Sensor *s) { system_sm_sensor_ = s; }
   void set_contactor_sm_sensor(sensor::Sensor *s) { contactor_sm_sensor_ = s; }
   void set_soc_voltage_based_sensor(sensor::Sensor *s) { soc_voltage_based_sensor_ = s; }
@@ -161,6 +175,9 @@ class HMIBMS : public PollingComponent, public uart::UARTDevice {
   void set_supply_voltage_5V_mV_sensor(sensor::Sensor *s) { supply_voltage_5V_mV_sensor_ = s; }
   void set_supply_voltage_12V_mV_sensor(sensor::Sensor *s) { supply_voltage_12V_mV_sensor_ = s; }
   void set_supply_voltage_contactor_mV_sensor(sensor::Sensor *s) { supply_voltage_contactor_mV_sensor_ = s; }
+  void set_isolation_pos_raw_sensor(sensor::Sensor *s) { isolation_pos_raw_sensor_ = s; }
+  void set_isolation_neg_raw_sensor(sensor::Sensor *s) { isolation_neg_raw_sensor_ = s; }
+  void set_isolation_resistance_sensor(sensor::Sensor *s) { isolation_resistance_sensor_ = s; }
   void set_inverter_soc_sensor(sensor::Sensor *s) { inverter_soc_sensor_ = s; }
   void set_inverter_full_capacity_sensor(sensor::Sensor *s) { inverter_full_capacity_sensor_ = s; }
   void set_inverter_remaining_capacity_sensor(sensor::Sensor *s) { inverter_remaining_capacity_sensor_ = s; }
@@ -179,22 +196,35 @@ class HMIBMS : public PollingComponent, public uart::UARTDevice {
   void set_balancing_periods_per_mV_number(HMIBMSNumber *n) { balancing_periods_per_mV_number_ = n; }
   void set_balance_min_offset_mV_number(HMIBMSNumber *n) { balance_min_offset_mV_number_ = n; }
   void set_minimum_balancing_voltage_mV_number(HMIBMSNumber *n) { minimum_balancing_voltage_mV_number_ = n; }
+  void set_balancing_start_voltage_mV_number(HMIBMSNumber *n) { balancing_start_voltage_mV_number_ = n; }
   void set_max_charge_current_number(HMIBMSNumber *n) { max_charge_current_number_ = n; }
   void set_max_discharge_current_number(HMIBMSNumber *n) { max_discharge_current_number_ = n; }
-  void set_adc_sample_count_sensor(sensor::Sensor *s) { adc_sample_count_sensor_ = s; }
-  void set_loop_frequency_hz_sensor(sensor::Sensor *s) { loop_frequency_hz_sensor_ = s; }
+  void set_charge_current_limit_sensor(sensor::Sensor *s) { charge_current_limit_sensor_ = s; }
+  void set_discharge_current_limit_sensor(sensor::Sensor *s) { discharge_current_limit_sensor_ = s; }
+  void set_temp_charge_current_limit_sensor(sensor::Sensor *s) { temp_charge_current_limit_sensor_ = s; }
+  void set_temp_discharge_current_limit_sensor(sensor::Sensor *s) { temp_discharge_current_limit_sensor_ = s; }
+  void set_cell_voltage_charge_current_limit_sensor(sensor::Sensor *s) { cell_voltage_charge_current_limit_sensor_ = s; }
+  void set_cell_voltage_discharge_current_limit_sensor(sensor::Sensor *s) { cell_voltage_discharge_current_limit_sensor_ = s; }
+  void set_working_charge_current_limit_sensor(sensor::Sensor *s) { working_charge_current_limit_sensor_ = s; }
+  void set_working_discharge_current_limit_sensor(sensor::Sensor *s) { working_discharge_current_limit_sensor_ = s; }
+  void set_delta_charge_current_limit_sensor(sensor::Sensor *s) { delta_charge_current_limit_sensor_ = s; }
+  void set_hard_charge_current_limit_sensor(sensor::Sensor *s) { hard_charge_current_limit_sensor_ = s; }
+  void set_hard_discharge_current_limit_sensor(sensor::Sensor *s) { hard_discharge_current_limit_sensor_ = s; }
 
   void set_last_event_sensor(sensor::Sensor *s) { last_event_sensor_ = s; }
   void set_highest_event_level_sensor(sensor::Sensor *s) { highest_event_level_sensor_ = s; }
   void set_event_history_text_sensor(text_sensor::TextSensor *s) { event_history_text_sensor_ = s; }
-  void set_balancing_cells_text_sensor(text_sensor::TextSensor *s) { balancing_cells_text_sensor_ = s; }
+  void set_cells_balancing_text_sensor(text_sensor::TextSensor *s) { cells_balancing_text_sensor_ = s; }
+  void set_cells_balancing_active_text_sensor(text_sensor::TextSensor *s) { cells_balancing_active_text_sensor_ = s; }
   void set_log_text_sensor(text_sensor::TextSensor *s) { log_text_sensor_ = s; }
   void add_log_line_sensor(text_sensor::TextSensor *s) { log_line_sensors_.push_back(s); }
   text_sensor::TextSensor *get_event_history_text_sensor() const { return event_history_text_sensor_; }
   void add_cell_voltage_sensor(sensor::Sensor *s) { cell_voltage_sensors_.push_back(s); }
+  void add_balancing_time_sensor(sensor::Sensor *s) { balancing_time_sensors_.push_back(s); }
   void add_module_temperature_sensor(sensor::Sensor *s) { module_temperature_sensors_.push_back(s); }
   void add_raw_temperature_sensor(sensor::Sensor *s) { raw_temperature_sensors_.push_back(s); }
   const std::vector<sensor::Sensor *> &get_cell_voltage_sensors() const { return cell_voltage_sensors_; }
+  const std::vector<sensor::Sensor *> &get_balancing_time_sensors() const { return balancing_time_sensors_; }
   void set_bypass_crc(bool bypass) { bypass_crc_ = bypass; }
   void set_baud_rate(uint32_t baud) { baud_rate_ = baud; }
   void set_dump_raw(bool dump) { dump_raw_ = dump; }
@@ -223,7 +253,12 @@ class HMIBMS : public PollingComponent, public uart::UARTDevice {
 
   int get_last_event_code() const { return last_event_code_; }
   int get_last_event_level() const { return last_event_level_; }
+  int get_last_event_count() const { return last_event_count_; }
   const char* get_last_event_type_str() const { return last_event_type_str_.c_str(); }
+  bool has_hard_charge_current_limit() const { return has_last_hard_charge_current_limit_; }
+  bool has_hard_discharge_current_limit() const { return has_last_hard_discharge_current_limit_; }
+  float get_hard_charge_current_limit_a() const { return last_hard_charge_current_limit_a_; }
+  float get_hard_discharge_current_limit_a() const { return last_hard_discharge_current_limit_a_; }
 
  protected:
   void handle_packet_(const uint8_t *payload, size_t length);
@@ -260,6 +295,7 @@ class HMIBMS : public PollingComponent, public uart::UARTDevice {
   sensor::Sensor *cell_voltage_min_mV_sensor_{nullptr};
   sensor::Sensor *cell_voltage_max_mV_sensor_{nullptr};
   sensor::Sensor *cell_voltage_delta_sensor_{nullptr};
+  sensor::Sensor *cell_count_sensor_{nullptr};
   sensor::Sensor *system_sm_sensor_{nullptr};
   sensor::Sensor *contactor_sm_sensor_{nullptr};
   sensor::Sensor *soc_voltage_based_sensor_{nullptr};
@@ -269,6 +305,9 @@ class HMIBMS : public PollingComponent, public uart::UARTDevice {
   sensor::Sensor *supply_voltage_5V_mV_sensor_{nullptr};
   sensor::Sensor *supply_voltage_12V_mV_sensor_{nullptr};
   sensor::Sensor *supply_voltage_contactor_mV_sensor_{nullptr};
+  sensor::Sensor *isolation_pos_raw_sensor_{nullptr};
+  sensor::Sensor *isolation_neg_raw_sensor_{nullptr};
+  sensor::Sensor *isolation_resistance_sensor_{nullptr};
   sensor::Sensor *inverter_soc_sensor_{nullptr};
   sensor::Sensor *inverter_full_capacity_sensor_{nullptr};
   sensor::Sensor *inverter_remaining_capacity_sensor_{nullptr};
@@ -287,14 +326,31 @@ class HMIBMS : public PollingComponent, public uart::UARTDevice {
   HMIBMSNumber *balancing_periods_per_mV_number_{nullptr};
   HMIBMSNumber *balance_min_offset_mV_number_{nullptr};
   HMIBMSNumber *minimum_balancing_voltage_mV_number_{nullptr};
+  HMIBMSNumber *balancing_start_voltage_mV_number_{nullptr};
   HMIBMSNumber *max_charge_current_number_{nullptr};
   HMIBMSNumber *max_discharge_current_number_{nullptr};
-  sensor::Sensor *adc_sample_count_sensor_{nullptr};
-  sensor::Sensor *loop_frequency_hz_sensor_{nullptr};
+  sensor::Sensor *charge_current_limit_sensor_{nullptr};
+  sensor::Sensor *discharge_current_limit_sensor_{nullptr};
+  sensor::Sensor *temp_charge_current_limit_sensor_{nullptr};
+  sensor::Sensor *temp_discharge_current_limit_sensor_{nullptr};
+  sensor::Sensor *cell_voltage_charge_current_limit_sensor_{nullptr};
+  sensor::Sensor *cell_voltage_discharge_current_limit_sensor_{nullptr};
+  sensor::Sensor *working_charge_current_limit_sensor_{nullptr};
+  sensor::Sensor *working_discharge_current_limit_sensor_{nullptr};
+  sensor::Sensor *delta_charge_current_limit_sensor_{nullptr};
+  sensor::Sensor *hard_charge_current_limit_sensor_{nullptr};
+  sensor::Sensor *hard_discharge_current_limit_sensor_{nullptr};
+  float last_hard_charge_current_limit_a_{0.0f};
+  float last_hard_discharge_current_limit_a_{0.0f};
+  bool has_last_hard_charge_current_limit_{false};
+  bool has_last_hard_discharge_current_limit_{false};
   sensor::Sensor *last_event_sensor_{nullptr};
   sensor::Sensor *highest_event_level_sensor_{nullptr};
   text_sensor::TextSensor *event_history_text_sensor_{nullptr};
-  text_sensor::TextSensor *balancing_cells_text_sensor_{nullptr};
+  text_sensor::TextSensor *cells_balancing_text_sensor_{nullptr};
+  text_sensor::TextSensor *cells_balancing_active_text_sensor_{nullptr};
+  std::vector<int32_t> balancing_time_prev_;
+  std::vector<uint32_t> balancing_active_until_ms_;
   text_sensor::TextSensor *log_text_sensor_{nullptr};
   std::vector<text_sensor::TextSensor *> log_line_sensors_;
   uint16_t log_line_index_{0};
@@ -303,6 +359,7 @@ class HMIBMS : public PollingComponent, public uart::UARTDevice {
   bool log_line_snapshot_dirty_{false};
   uint32_t last_log_line_publish_time_{0};
   std::vector<sensor::Sensor *> cell_voltage_sensors_;
+  std::vector<sensor::Sensor *> balancing_time_sensors_;
   std::vector<sensor::Sensor *> module_temperature_sensors_;
   std::vector<sensor::Sensor *> raw_temperature_sensors_;
   bool bypass_crc_{false};
@@ -320,6 +377,7 @@ class HMIBMS : public PollingComponent, public uart::UARTDevice {
   HMIBMSLogSwitch *log_enable_switch_{nullptr};
   int last_event_code_{-1};
   int last_event_level_{0};
+  int last_event_count_{0};
   std::string last_event_type_str_{"UNKNOWN"};
   std::string log_buffer_;
   std::string log_sync_prefix_;
