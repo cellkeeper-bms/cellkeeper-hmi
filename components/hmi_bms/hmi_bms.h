@@ -135,6 +135,7 @@ enum HMIRegister {
   HMI_REG_ISOLATION_RESISTANCE = 62,                    // float (ohms), NAN unless contactors open
   HMI_REG_PACK_POS_TO_CHASSIS = 63,                     // float (V)
   HMI_REG_PACK_NEG_TO_CHASSIS = 64,                     // float (V)
+  HMI_REG_ISOLATION_CHECK_AGE = 65,                     // float (s); 0 = live, NAN = not measured yet
   HMI_REG_CELL_VOLTAGES_START = 0x100,
   HMI_REG_CELL_VOLTAGES_END = 0x1FF,
   HMI_REG_MODULE_TEMPS_START = 0x200,
@@ -178,6 +179,7 @@ class HMIBMS : public PollingComponent, public uart::UARTDevice {
   void set_supply_voltage_contactor_mV_sensor(sensor::Sensor *s) { supply_voltage_contactor_mV_sensor_ = s; }
   void set_pack_pos_to_chassis_sensor(sensor::Sensor *s) { pack_pos_to_chassis_sensor_ = s; }
   void set_pack_neg_to_chassis_sensor(sensor::Sensor *s) { pack_neg_to_chassis_sensor_ = s; }
+  void set_isolation_check_age_sensor(sensor::Sensor *s) { isolation_check_age_sensor_ = s; }
   void set_isolation_resistance_sensor(sensor::Sensor *s) { isolation_resistance_sensor_ = s; }
   void set_inverter_soc_sensor(sensor::Sensor *s) { inverter_soc_sensor_ = s; }
   void set_inverter_full_capacity_sensor(sensor::Sensor *s) { inverter_full_capacity_sensor_ = s; }
@@ -308,6 +310,7 @@ class HMIBMS : public PollingComponent, public uart::UARTDevice {
   sensor::Sensor *supply_voltage_contactor_mV_sensor_{nullptr};
   sensor::Sensor *pack_pos_to_chassis_sensor_{nullptr};
   sensor::Sensor *pack_neg_to_chassis_sensor_{nullptr};
+  sensor::Sensor *isolation_check_age_sensor_{nullptr};
   sensor::Sensor *isolation_resistance_sensor_{nullptr};
   sensor::Sensor *inverter_soc_sensor_{nullptr};
   sensor::Sensor *inverter_full_capacity_sensor_{nullptr};

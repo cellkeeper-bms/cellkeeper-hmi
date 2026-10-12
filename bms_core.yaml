@@ -139,7 +139,8 @@ sensor:
       name: "Supply Voltage Contactor"
       unit_of_measurement: "V"
       filters: [multiply: 0.001]
-    # Isolation monitor, calculated on the BMS (registers 62-64)
+    # Isolation monitor, calculated on the BMS (registers 62-65). Isolation Resistance
+    # is live with the contactors open, otherwise the last open reading (see its age).
     pack_pos_to_chassis:
       name: "Pack Pos to Chassis"
     pack_neg_to_chassis:
@@ -150,6 +151,9 @@ sensor:
       icon: mdi:shield-check-outline
       accuracy_decimals: 2
       filters: [multiply: 0.000001]
+    isolation_check_age:
+      name: "Isolation Check Age"
+      icon: mdi:timer-sand
     cell_voltage_delta:
       id: cell_delta
       name: "Cell Voltage Delta"
@@ -1012,6 +1016,7 @@ text_sensor:
     error_restarting: { name: "Event Info Restarting" }
     error_link_voltage_mismatch: { name: "Event Warning Link Voltage Mismatch" }
     error_fuse_voltage_drop_high: { name: "Event Warning Fuse Voltage Drop High" }
+    error_isolation_asymmetry: { name: "Event Warning Isolation Asymmetry" }
 
   - platform: template
     id: system_state_text

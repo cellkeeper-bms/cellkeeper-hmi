@@ -70,7 +70,8 @@ static const char* EVENT_TYPES[] = {
     "LOOP_OVERRUN",
     "RESTARTING",
     "LINK_VOLTAGE_MISMATCH",
-    "FUSE_VOLTAGE_DROP_HIGH"
+    "FUSE_VOLTAGE_DROP_HIGH",
+    "ISOLATION_ASYMMETRY"
 };
 
 #define MAX_EVENT_TYPE_ID 69
@@ -123,6 +124,7 @@ void HMIBMS::update() {
     if (this->isolation_resistance_sensor_) add_reg(HMI_REG_ISOLATION_RESISTANCE);
     if (this->pack_pos_to_chassis_sensor_) add_reg(HMI_REG_PACK_POS_TO_CHASSIS);
     if (this->pack_neg_to_chassis_sensor_) add_reg(HMI_REG_PACK_NEG_TO_CHASSIS);
+    if (this->isolation_check_age_sensor_) add_reg(HMI_REG_ISOLATION_CHECK_AGE);
     if (this->inverter_soc_sensor_) add_reg(HMI_REG_INVERTER_SOC);
     if (this->inverter_full_capacity_sensor_) add_reg(HMI_REG_INVERTER_FULL_CAPACITY_DAH);
     if (this->inverter_remaining_capacity_sensor_) add_reg(HMI_REG_INVERTER_REMAINING_CAPACITY_DAH);
@@ -785,7 +787,8 @@ void HMIBMS::handle_read_registers_response_(const uint8_t *data, size_t length)
       uint16_t val = v[0] | (v[1] << 8);
       this->publish_queue_.push_back({this->supply_voltage_contactor_mV_sensor_, (float)val});
     } else if ((reg_id == HMI_REG_ISOLATION_RESISTANCE || reg_id == HMI_REG_PACK_POS_TO_CHASSIS ||
-                reg_id == HMI_REG_PACK_NEG_TO_CHASSIS) && reg_type == HMI_TYPE_FLOAT) {
+                reg_id == HMI_REG_PACK_NEG_TO_CHASSIS || reg_id == HMI_REG_ISOLATION_CHECK_AGE) &&
+               reg_type == HMI_TYPE_FLOAT) {
       uint32_t raw = (uint32_t)v[0] | ((uint32_t)v[1] << 8) | ((uint32_t)v[2] << 16) | ((uint32_t)v[3] << 24);
       union {
         uint32_t u;
@@ -793,6 +796,7 @@ void HMIBMS::handle_read_registers_response_(const uint8_t *data, size_t length)
       } conv{raw};
       sensor::Sensor *s = reg_id == HMI_REG_PACK_POS_TO_CHASSIS   ? this->pack_pos_to_chassis_sensor_
                           : reg_id == HMI_REG_PACK_NEG_TO_CHASSIS ? this->pack_neg_to_chassis_sensor_
+                          : reg_id == HMI_REG_ISOLATION_CHECK_AGE ? this->isolation_check_age_sensor_
                                                                   : this->isolation_resistance_sensor_;
       if (s != nullptr) this->publish_queue_.push_back({s, conv.f});
     } else if (reg_id == HMI_REG_INVERTER_SOC && this->inverter_soc_sensor_ != nullptr) {

@@ -77,6 +77,7 @@ CONF_HARD_DISCHARGE_CURRENT_LIMIT = "hard_discharge_current_limit"
 CONF_INVERTER_SOC = "inverter_soc"
 CONF_PACK_POS_TO_CHASSIS = "pack_pos_to_chassis"
 CONF_PACK_NEG_TO_CHASSIS = "pack_neg_to_chassis"
+CONF_ISOLATION_CHECK_AGE = "isolation_check_age"
 CONF_ISOLATION_RESISTANCE = "isolation_resistance"
 CONF_INVERTER_FULL_CAPACITY = "inverter_full_capacity"
 CONF_INVERTER_REMAINING_CAPACITY = "inverter_remaining_capacity"
@@ -244,6 +245,11 @@ CONFIG_SCHEMA = cv.Schema({
         unit_of_measurement=UNIT_VOLT,
         accuracy_decimals=1,
         device_class=DEVICE_CLASS_VOLTAGE,
+        state_class=STATE_CLASS_MEASUREMENT,
+    ),
+    cv.Optional(CONF_ISOLATION_CHECK_AGE): sensor.sensor_schema(
+        unit_of_measurement="s",
+        accuracy_decimals=0,
         state_class=STATE_CLASS_MEASUREMENT,
     ),
     cv.Optional(CONF_ISOLATION_RESISTANCE): sensor.sensor_schema(
@@ -519,6 +525,9 @@ async def to_code(config):
     if CONF_PACK_NEG_TO_CHASSIS in config:
         sens = await sensor.new_sensor(config[CONF_PACK_NEG_TO_CHASSIS])
         cg.add(parent.set_pack_neg_to_chassis_sensor(sens))
+    if CONF_ISOLATION_CHECK_AGE in config:
+        sens = await sensor.new_sensor(config[CONF_ISOLATION_CHECK_AGE])
+        cg.add(parent.set_isolation_check_age_sensor(sens))
     if CONF_ISOLATION_RESISTANCE in config:
         sens = await sensor.new_sensor(config[CONF_ISOLATION_RESISTANCE])
         cg.add(parent.set_isolation_resistance_sensor(sens))

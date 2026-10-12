@@ -36,6 +36,8 @@ decluttering_templates:
           name: Pack Neg to Chassis
         - entity: 'sensor.[[node]]_isolation_resistance'
           name: Isolation Resistance
+        - entity: 'sensor.[[node]]_isolation_check_age'
+          name: Isolation Check Age
   detail2_inverter_can_values:
     card:
       type: entities
@@ -275,6 +277,7 @@ views:
               - entity: sensor.ck0_pack_pos_to_chassis
               - entity: sensor.ck0_pack_neg_to_chassis
               - entity: sensor.ck0_isolation_resistance
+              - entity: sensor.ck0_isolation_check_age
           - type: entities
             title: Inverter CAN Values
             entities:
@@ -359,7 +362,8 @@ views:
                 {% set ids = [
                   'sensor.ck0_pack_pos_to_chassis',
                   'sensor.ck0_pack_neg_to_chassis',
-                  'sensor.ck0_isolation_resistance'
+                  'sensor.ck0_isolation_resistance',
+                  'sensor.ck0_isolation_check_age'
                 ] %}
                 {% for entity_id in ids -%}
                   {{
@@ -1418,11 +1422,14 @@ views:
             heading: Isolation Calibration
           - type: markdown
             content: >
-              All isolation values are calculated by the BMS. Press **Calibrate
-              Isolation Zero** with the battery stopped (contactors open); the
-              BMS stores the zero and ignores the request otherwise. Isolation
-              Resistance only reads with the contactors open (capped at 100
-              Mohm); closed, the inverter sets the chassis voltage.
+              All isolation values are calculated by the BMS. At every boot,
+              while the contactors are still open, the BMS checks the zero: small
+              drift is blended in, a large offset raises **Isolation Asymmetry**
+              (possible leak) and the zero is kept. Isolation Resistance is live
+              with the contactors open and otherwise shows the last open reading
+              (see Isolation Check Age; capped at 100 Mohm). Press **Calibrate
+              Isolation Zero** with the battery stopped only after ruling out a
+              leak; it overwrites the zero.
           - type: entities
             entities:
               - entity: sensor.ck0_contactor_state_text
@@ -1435,6 +1442,8 @@ views:
                 name: Pack Neg to Chassis
               - entity: sensor.ck0_isolation_resistance
                 name: Isolation Resistance
+              - entity: sensor.ck0_isolation_check_age
+                name: Isolation Check Age
   - title: System
     type: sections
     max_columns: 2
@@ -2132,6 +2141,25 @@ views:
                     }
                 entity: sensor.ck0_event_warning_fuse_voltage_drop_high
                 name: Fuse Voltage Drop High
+              - type: tile
+                card_mod:
+                  style: |
+                    ha-card {
+                      {% set state = states(config.entity) %}
+                      {% if 'FATAL' in state %}
+                        --tile-color: #D50000 !important;
+                      {% elif 'CRITICAL' in state %}
+                        --tile-color: #F44336 !important;
+                      {% elif 'WARNING' in state %}
+                        --tile-color: #FFC107 !important;
+                      {% elif 'INFO' in state %}
+                        --tile-color: #2196F3 !important;
+                      {% elif state != 'INACTIVE (0)' and state != 'INACTIVE' %}
+                        --tile-color: #9C27B0 !important;
+                      {% endif %}
+                    }
+                entity: sensor.ck0_event_warning_isolation_asymmetry
+                name: Isolation Asymmetry
             title: Warning Events
           - square: false
             type: grid
