@@ -1017,6 +1017,7 @@ text_sensor:
     error_link_voltage_mismatch: { name: "Event Warning Link Voltage Mismatch" }
     error_fuse_voltage_drop_high: { name: "Event Warning Fuse Voltage Drop High" }
     error_isolation_asymmetry: { name: "Event Warning Isolation Asymmetry" }
+    error_contactor_port_energized: { name: "Event Warning Contactor Port Energized" }
 
   - platform: template
     id: system_state_text
