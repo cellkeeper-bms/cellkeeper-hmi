@@ -1710,6 +1710,25 @@ views:
                     }
                 entity: sensor.ck0_event_info_inverter_detected
                 name: Inverter Detected
+              - type: tile
+                card_mod:
+                  style: |
+                    ha-card {
+                      {% set state = states(config.entity) %}
+                      {% if 'FATAL' in state %}
+                        --tile-color: #D50000 !important;
+                      {% elif 'CRITICAL' in state %}
+                        --tile-color: #F44336 !important;
+                      {% elif 'WARNING' in state %}
+                        --tile-color: #FFC107 !important;
+                      {% elif 'INFO' in state %}
+                        --tile-color: #2196F3 !important;
+                      {% elif state != 'INACTIVE (0)' and state != 'INACTIVE' %}
+                        --tile-color: #9C27B0 !important;
+                      {% endif %}
+                    }
+                entity: sensor.ck0_event_info_contactor_port_energized
+                name: Contactor Port Energized
             title: Info Events
           - square: false
             type: grid
@@ -2160,25 +2179,6 @@ views:
                     }
                 entity: sensor.ck0_event_warning_isolation_asymmetry
                 name: Isolation Asymmetry
-              - type: tile
-                card_mod:
-                  style: |
-                    ha-card {
-                      {% set state = states(config.entity) %}
-                      {% if 'FATAL' in state %}
-                        --tile-color: #D50000 !important;
-                      {% elif 'CRITICAL' in state %}
-                        --tile-color: #F44336 !important;
-                      {% elif 'WARNING' in state %}
-                        --tile-color: #FFC107 !important;
-                      {% elif 'INFO' in state %}
-                        --tile-color: #2196F3 !important;
-                      {% elif state != 'INACTIVE (0)' and state != 'INACTIVE' %}
-                        --tile-color: #9C27B0 !important;
-                      {% endif %}
-                    }
-                entity: sensor.ck0_event_warning_contactor_port_energized
-                name: Contactor Port Energized
             title: Warning Events
           - square: false
             type: grid
