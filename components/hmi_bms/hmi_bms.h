@@ -136,6 +136,8 @@ enum HMIRegister {
   HMI_REG_PACK_POS_TO_CHASSIS = 63,                     // float (V)
   HMI_REG_PACK_NEG_TO_CHASSIS = 64,                     // float (V)
   HMI_REG_ISOLATION_CHECK_AGE = 65,                     // float (s); 0 = live, NAN = not measured yet
+  HMI_REG_BOARD_REVISION = 66,                          // uint16: major*10+minor (Rev1.3 = 13), 0 = Rev0, 0xFFFF = unknown
+  HMI_REG_BOARD_STRAP_COUNTS = 67,                      // float, revision strap ADC counts
   HMI_REG_CELL_VOLTAGES_START = 0x100,
   HMI_REG_CELL_VOLTAGES_END = 0x1FF,
   HMI_REG_MODULE_TEMPS_START = 0x200,
@@ -153,6 +155,8 @@ class HMIBMS : public PollingComponent, public uart::UARTDevice {
 
   void set_millis_sensor(sensor::Sensor *s) { millis_sensor_ = s; }
   void set_serial_text_sensor(text_sensor::TextSensor *s) { serial_text_sensor_ = s; }
+  void set_board_revision_text_sensor(text_sensor::TextSensor *s) { board_revision_text_sensor_ = s; }
+  void set_board_strap_counts_sensor(sensor::Sensor *s) { board_strap_counts_sensor_ = s; }
   void set_system_request_sensor(sensor::Sensor *s) { system_request_sensor_ = s; }
   void set_soc_sensor(sensor::Sensor *s) { soc_sensor_ = s; }
   void set_current_mA_sensor(sensor::Sensor *s) { current_mA_sensor_ = s; }
@@ -284,6 +288,8 @@ class HMIBMS : public PollingComponent, public uart::UARTDevice {
   
   sensor::Sensor *millis_sensor_{nullptr};
   text_sensor::TextSensor *serial_text_sensor_{nullptr};
+  text_sensor::TextSensor *board_revision_text_sensor_{nullptr};
+  sensor::Sensor *board_strap_counts_sensor_{nullptr};
   sensor::Sensor *system_request_sensor_{nullptr};
   sensor::Sensor *soc_sensor_{nullptr};
   sensor::Sensor *current_mA_sensor_{nullptr};

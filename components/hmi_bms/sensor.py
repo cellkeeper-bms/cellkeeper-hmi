@@ -78,6 +78,7 @@ CONF_INVERTER_SOC = "inverter_soc"
 CONF_PACK_POS_TO_CHASSIS = "pack_pos_to_chassis"
 CONF_PACK_NEG_TO_CHASSIS = "pack_neg_to_chassis"
 CONF_ISOLATION_CHECK_AGE = "isolation_check_age"
+CONF_BOARD_STRAP_COUNTS = "board_strap_counts"
 CONF_ISOLATION_RESISTANCE = "isolation_resistance"
 CONF_INVERTER_FULL_CAPACITY = "inverter_full_capacity"
 CONF_INVERTER_REMAINING_CAPACITY = "inverter_remaining_capacity"
@@ -246,6 +247,9 @@ CONFIG_SCHEMA = cv.Schema({
         accuracy_decimals=1,
         device_class=DEVICE_CLASS_VOLTAGE,
         state_class=STATE_CLASS_MEASUREMENT,
+    ),
+    cv.Optional(CONF_BOARD_STRAP_COUNTS): sensor.sensor_schema(
+        accuracy_decimals=0,
     ),
     cv.Optional(CONF_ISOLATION_CHECK_AGE): sensor.sensor_schema(
         unit_of_measurement="s",
@@ -525,6 +529,9 @@ async def to_code(config):
     if CONF_PACK_NEG_TO_CHASSIS in config:
         sens = await sensor.new_sensor(config[CONF_PACK_NEG_TO_CHASSIS])
         cg.add(parent.set_pack_neg_to_chassis_sensor(sens))
+    if CONF_BOARD_STRAP_COUNTS in config:
+        sens = await sensor.new_sensor(config[CONF_BOARD_STRAP_COUNTS])
+        cg.add(parent.set_board_strap_counts_sensor(sens))
     if CONF_ISOLATION_CHECK_AGE in config:
         sens = await sensor.new_sensor(config[CONF_ISOLATION_CHECK_AGE])
         cg.add(parent.set_isolation_check_age_sensor(sens))

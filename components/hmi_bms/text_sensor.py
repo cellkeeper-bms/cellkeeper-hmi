@@ -6,6 +6,7 @@ from esphome.const import CONF_ID
 from . import HMIBMS
 
 CONF_SERIAL = "serial"
+CONF_BOARD_REVISION = "board_revision"
 CONF_EVENT_HISTORY = "event_history"
 CONF_CELLS_BALANCING = "cells_balancing"
 CONF_CELLS_BALANCING_ACTIVE = "cells_balancing_active"
@@ -69,12 +70,14 @@ EVENT_TYPES = [
     "LINK_VOLTAGE_MISMATCH",
     "FUSE_VOLTAGE_DROP_HIGH",
     "ISOLATION_ASYMMETRY",
-    "CONTACTOR_PORT_ENERGIZED"
+    "CONTACTOR_PORT_ENERGIZED",
+    "BOARD_MISMATCH"
 ]
 
 CONFIG_SCHEMA = cv.Schema({
     cv.GenerateID(): cv.use_id(HMIBMS),
     cv.Optional(CONF_SERIAL): text_sensor.text_sensor_schema(),
+    cv.Optional(CONF_BOARD_REVISION): text_sensor.text_sensor_schema(),
     cv.Optional(CONF_EVENT_HISTORY): text_sensor.text_sensor_schema(),
     cv.Optional(CONF_CELLS_BALANCING): text_sensor.text_sensor_schema(),
     cv.Optional(CONF_CELLS_BALANCING_ACTIVE): text_sensor.text_sensor_schema(),
@@ -97,6 +100,9 @@ async def to_code(config):
     if CONF_SERIAL in config:
         sens = await text_sensor.new_text_sensor(config[CONF_SERIAL])
         cg.add(parent.set_serial_text_sensor(sens))
+    if CONF_BOARD_REVISION in config:
+        sens = await text_sensor.new_text_sensor(config[CONF_BOARD_REVISION])
+        cg.add(parent.set_board_revision_text_sensor(sens))
     if CONF_EVENT_HISTORY in config:
         sens = await text_sensor.new_text_sensor(config[CONF_EVENT_HISTORY])
         cg.add(parent.set_event_history_text_sensor(sens))

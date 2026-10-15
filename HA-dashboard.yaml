@@ -1456,6 +1456,8 @@ views:
             entities:
               - entity: sensor.ck0_serial
                 name: Serial
+              - entity: sensor.ck0_board_revision
+                name: Board Revision
               - entity: sensor.ck0_uptime_pico
                 name: Uptime Pico
               - entity: sensor.ck0_supply_voltage_3v3
@@ -2718,6 +2720,25 @@ views:
                     }
                 entity: sensor.ck0_event_fatal_e_stop_pressed
                 name: E-Stop Pressed
+              - type: tile
+                card_mod:
+                  style: |
+                    ha-card {
+                      {% set state = states(config.entity) %}
+                      {% if 'FATAL' in state %}
+                        --tile-color: #D50000 !important;
+                      {% elif 'CRITICAL' in state %}
+                        --tile-color: #F44336 !important;
+                      {% elif 'WARNING' in state %}
+                        --tile-color: #FFC107 !important;
+                      {% elif 'INFO' in state %}
+                        --tile-color: #2196F3 !important;
+                      {% elif state != 'INACTIVE (0)' and state != 'INACTIVE' %}
+                        --tile-color: #9C27B0 !important;
+                      {% endif %}
+                    }
+                entity: sensor.ck0_event_fatal_board_mismatch
+                name: Board Mismatch
             title: Fatal Events
         column_span: 5
   - title: Note

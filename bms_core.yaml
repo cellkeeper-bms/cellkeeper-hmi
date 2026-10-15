@@ -151,6 +151,9 @@ sensor:
       icon: mdi:shield-check-outline
       accuracy_decimals: 2
       filters: [multiply: 0.000001]
+    board_strap_counts:
+      name: "Board Strap Counts"
+      entity_category: diagnostic
     isolation_check_age:
       name: "Isolation Check Age"
       icon: mdi:timer-sand
@@ -844,6 +847,9 @@ text_sensor:
     serial:
       id: serial
       name: "Serial"
+    board_revision:
+      name: "Board Revision"
+      entity_category: diagnostic
     cells_balancing:
       id: cells_balancing
       name: "Cells Balancing"
@@ -1018,6 +1024,7 @@ text_sensor:
     error_fuse_voltage_drop_high: { name: "Event Warning Fuse Voltage Drop High" }
     error_isolation_asymmetry: { name: "Event Warning Isolation Asymmetry" }
     error_contactor_port_energized: { name: "Event Info Contactor Port Energized" }
+    error_board_mismatch: { name: "Event Fatal Board Mismatch" }
 
   - platform: template
     id: system_state_text

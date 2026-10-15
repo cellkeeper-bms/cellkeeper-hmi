@@ -72,7 +72,8 @@ static const char* EVENT_TYPES[] = {
     "LINK_VOLTAGE_MISMATCH",
     "FUSE_VOLTAGE_DROP_HIGH",
     "ISOLATION_ASYMMETRY",
-    "CONTACTOR_PORT_ENERGIZED"
+    "CONTACTOR_PORT_ENERGIZED",
+    "BOARD_MISMATCH"
 };
 
 #define MAX_EVENT_TYPE_ID 69
@@ -106,6 +107,9 @@ void HMIBMS::update() {
     // Always poll these basic sensors if configured
     if (this->millis_sensor_) add_reg(HMI_REG_MILLIS);
     if (this->serial_text_sensor_) add_reg(HMI_REG_SERIAL);
+    // PCB revision strap (registers 66/67; older firmware just doesn't answer)
+    if (this->board_revision_text_sensor_) add_reg(HMI_REG_BOARD_REVISION);
+    if (this->board_strap_counts_sensor_) add_reg(HMI_REG_BOARD_STRAP_COUNTS);
     if (this->system_request_sensor_) add_reg(HMI_REG_SYSTEM_REQUEST);
     if (this->soc_sensor_ || this->soc_number_) add_reg(HMI_REG_SOC);
     if (this->charge_raw_sensor_) add_reg(HMI_REG_CHARGE);
@@ -699,6 +703,25 @@ void HMIBMS::handle_read_registers_response_(const uint8_t *data, size_t length)
       char buf[32];
       snprintf(buf, sizeof(buf), "%llu", val);
       this->serial_text_sensor_->publish_state(buf);
+    } else if (reg_id == HMI_REG_BOARD_REVISION && this->board_revision_text_sensor_ != nullptr) {
+      uint16_t code = v[0] | (v[1] << 8);
+      char buf[24];
+      if (code == 0xFFFF) {
+        snprintf(buf, sizeof(buf), "Unknown");
+      } else if (code < 10) {
+        snprintf(buf, sizeof(buf), "Rev %u", code);
+      } else {
+        snprintf(buf, sizeof(buf), "Rev %u.%u", code / 10, code % 10);
+      }
+      this->board_revision_text_sensor_->publish_state(buf);
+    } else if (reg_id == HMI_REG_BOARD_STRAP_COUNTS && this->board_strap_counts_sensor_ != nullptr &&
+               reg_type == HMI_TYPE_FLOAT) {
+      uint32_t raw = (uint32_t)v[0] | ((uint32_t)v[1] << 8) | ((uint32_t)v[2] << 16) | ((uint32_t)v[3] << 24);
+      union {
+        uint32_t u;
+        float f;
+      } conv{raw};
+      this->publish_queue_.push_back({this->board_strap_counts_sensor_, conv.f});
     } else if (reg_id == HMI_REG_SOC) {
       uint32_t val;
       if (reg_type == HMI_TYPE_UINT16 || reg_type == HMI_TYPE_INT16) {
