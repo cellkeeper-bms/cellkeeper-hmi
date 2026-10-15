@@ -1,6 +1,21 @@
 substitutions:
   cell_width: "9"
   cell_gap: "6"
+  # Page-swipe sensitivity. LVGL's defaults (50 px travel, 3 px per read) turn
+  # pages on a short brush across the 1024 px screen. Distance is at most 255.
+  swipe_min_distance_px: "200"
+  swipe_min_velocity_px: "6"
+
+esphome:
+  on_boot:
+    # After LVGL and the touchscreen have registered their input device
+    priority: -200
+    then:
+      - lambda: |-
+          for (lv_indev_t *indev = lv_indev_get_next(nullptr); indev != nullptr; indev = lv_indev_get_next(indev)) {
+            lv_indev_set_gesture_min_distance(indev, ${swipe_min_distance_px});
+            lv_indev_set_gesture_min_velocity(indev, ${swipe_min_velocity_px});
+          }
 
 font:
   - file: "gfonts://Roboto"
