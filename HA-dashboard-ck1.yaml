@@ -1734,6 +1734,25 @@ views:
                     }
                 entity: sensor.ck1_event_info_contactor_port_energized
                 name: Contactor Port Energized
+              - type: tile
+                card_mod:
+                  style: |
+                    ha-card {
+                      {% set state = states(config.entity) %}
+                      {% if 'FATAL' in state %}
+                        --tile-color: #D50000 !important;
+                      {% elif 'CRITICAL' in state %}
+                        --tile-color: #F44336 !important;
+                      {% elif 'WARNING' in state %}
+                        --tile-color: #FFC107 !important;
+                      {% elif 'INFO' in state %}
+                        --tile-color: #2196F3 !important;
+                      {% elif state != 'INACTIVE (0)' and state != 'INACTIVE' %}
+                        --tile-color: #9C27B0 !important;
+                      {% endif %}
+                    }
+                entity: sensor.ck1_event_info_bmb_module_id_unknown
+                name: BMB Module ID Unknown
             title: Info Events
           - square: false
             type: grid
@@ -2184,6 +2203,63 @@ views:
                     }
                 entity: sensor.ck1_event_warning_isolation_asymmetry
                 name: Isolation Asymmetry
+              - type: tile
+                card_mod:
+                  style: |
+                    ha-card {
+                      {% set state = states(config.entity) %}
+                      {% if 'FATAL' in state %}
+                        --tile-color: #D50000 !important;
+                      {% elif 'CRITICAL' in state %}
+                        --tile-color: #F44336 !important;
+                      {% elif 'WARNING' in state %}
+                        --tile-color: #FFC107 !important;
+                      {% elif 'INFO' in state %}
+                        --tile-color: #2196F3 !important;
+                      {% elif state != 'INACTIVE (0)' and state != 'INACTIVE' %}
+                        --tile-color: #9C27B0 !important;
+                      {% endif %}
+                    }
+                entity: sensor.ck1_event_warning_supervisor_not_enabled
+                name: Supervisor Not Enabled
+              - type: tile
+                card_mod:
+                  style: |
+                    ha-card {
+                      {% set state = states(config.entity) %}
+                      {% if 'FATAL' in state %}
+                        --tile-color: #D50000 !important;
+                      {% elif 'CRITICAL' in state %}
+                        --tile-color: #F44336 !important;
+                      {% elif 'WARNING' in state %}
+                        --tile-color: #FFC107 !important;
+                      {% elif 'INFO' in state %}
+                        --tile-color: #2196F3 !important;
+                      {% elif state != 'INACTIVE (0)' and state != 'INACTIVE' %}
+                        --tile-color: #9C27B0 !important;
+                      {% endif %}
+                    }
+                entity: sensor.ck1_event_warning_bmb_module_id_check_failed
+                name: BMB Module ID Check Failed
+              - type: tile
+                card_mod:
+                  style: |
+                    ha-card {
+                      {% set state = states(config.entity) %}
+                      {% if 'FATAL' in state %}
+                        --tile-color: #D50000 !important;
+                      {% elif 'CRITICAL' in state %}
+                        --tile-color: #F44336 !important;
+                      {% elif 'WARNING' in state %}
+                        --tile-color: #FFC107 !important;
+                      {% elif 'INFO' in state %}
+                        --tile-color: #2196F3 !important;
+                      {% elif state != 'INACTIVE (0)' and state != 'INACTIVE' %}
+                        --tile-color: #9C27B0 !important;
+                      {% endif %}
+                    }
+                entity: sensor.ck1_event_warning_bmb_module_id_conflict
+                name: BMB Module ID Conflict
             title: Warning Events
           - square: false
             type: grid
@@ -2742,6 +2818,25 @@ views:
                     }
                 entity: sensor.ck1_event_fatal_board_mismatch
                 name: Board Mismatch
+              - type: tile
+                card_mod:
+                  style: |
+                    ha-card {
+                      {% set state = states(config.entity) %}
+                      {% if 'FATAL' in state %}
+                        --tile-color: #D50000 !important;
+                      {% elif 'CRITICAL' in state %}
+                        --tile-color: #F44336 !important;
+                      {% elif 'WARNING' in state %}
+                        --tile-color: #FFC107 !important;
+                      {% elif 'INFO' in state %}
+                        --tile-color: #2196F3 !important;
+                      {% elif state != 'INACTIVE (0)' and state != 'INACTIVE' %}
+                        --tile-color: #9C27B0 !important;
+                      {% endif %}
+                    }
+                entity: sensor.ck1_event_fatal_supervisor_disabled_contactors
+                name: Supervisor Disabled Contactors
             title: Fatal Events
         column_span: 5
   - title: Note
