@@ -1029,7 +1029,7 @@ text_sensor:
     error_supervisor_disabled_contactors: { name: "Event Fatal Supervisor Disabled Contactors" }
     error_bmb_module_id_check_failed: { name: "Event Warning BMB Module ID Check Failed" }
     error_bmb_module_id_unknown: { name: "Event Info BMB Module ID Unknown" }
-    error_bmb_module_id_conflict: { name: "Event Warning BMB Module ID Conflict" }
+    error_bmb_module_id_conflict: { name: "Event Fatal BMB Module ID Conflict" }
 
   - platform: template
     id: system_state_text
