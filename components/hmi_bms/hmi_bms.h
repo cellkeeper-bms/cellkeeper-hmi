@@ -28,6 +28,11 @@ class HMIBMSNumber : public number::Number {
       this->publish_state(this->last_bus_state_);
     }
   }
+  // For on-device automations (the weekly balance charge): write without the
+  // user's settings unlock. The BMS readback then updates the state.
+  void write_from_automation(float value);
+  bool has_bus_state() const { return this->has_bus_state_; }
+  float bus_state() const { return this->last_bus_state_; }
 
  protected:
   HMIBMS *parent_;
@@ -248,7 +253,8 @@ class HMIBMS : public PollingComponent, public uart::UARTDevice {
   void publish_settings_status(const char *status);
   void publish_settings_status_temporary(const char *status, uint32_t duration_ms);
   void send_system_request(uint8_t request);
-  void write_register(uint16_t reg_id, uint8_t type, float value, float scale);
+  // bypass_lock is only for HMIBMSNumber::write_from_automation()
+  void write_register(uint16_t reg_id, uint8_t type, float value, float scale, bool bypass_lock = false);
 
   void set_error_sensor(int type_id, text_sensor::TextSensor *s) {
     if (type_id < 0) return;

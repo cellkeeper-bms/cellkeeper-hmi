@@ -1419,6 +1419,65 @@ views:
                     style: buttons
       - cards:
           - type: heading
+            heading: Balance Charge
+          - type: markdown
+            content: >
+              Every **Interval** days (0 = off) the HMI raises **VLimit Offs
+              High** from **Float Offs High** to **Bal Chg Offs High** for
+              **Duration** hours from **Start Hour**, so the cells reach the knee
+              and balance. A missed window waits for the next day's. Offsets are
+              in 0.1 V. While the interval isn't 0, edit those two settings
+              instead of VLimit Offs High, which is put back within 30 s. No
+              unlock is needed for these.
+          - type: tile
+            entity: sensor.ck0_balance_charge_status
+            name: Balance Charge Status
+          - type: entities
+            show_header_toggle: false
+            entities:
+              - entity: button.ck0_start_balance_charge_now
+                name: Start Balance Charge Now
+          - type: grid
+            columns: 2
+            square: false
+            cards:
+              - type: tile
+                entity: number.ck0_balance_charge_interval
+                name: Interval
+                features_position: bottom
+                features:
+                  - type: numeric-input
+                    style: buttons
+              - type: tile
+                entity: number.ck0_balance_charge_start_hour
+                name: Start Hour
+                features_position: bottom
+                features:
+                  - type: numeric-input
+                    style: buttons
+              - type: tile
+                entity: number.ck0_balance_charge_duration
+                name: Duration
+                features_position: bottom
+                features:
+                  - type: numeric-input
+                    style: buttons
+              - type: tile
+                entity: number.ck0_float_offset_upper
+                name: Float Offs High
+                features_position: bottom
+                features:
+                  - type: numeric-input
+                    style: buttons
+              - type: tile
+                entity: number.ck0_balance_charge_offset_upper
+                name: Bal Chg Offs High
+                features_position: bottom
+                features:
+                  - type: numeric-input
+                    style: buttons
+      - cards:
+          - type: heading
             heading: Isolation Calibration
           - type: markdown
             content: >

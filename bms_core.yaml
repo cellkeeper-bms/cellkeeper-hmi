@@ -4,6 +4,9 @@ substitutions:
 
 debug:
 
+packages:
+  balance_charge: !include balance_charge.yaml
+
 external_components:
   - source:
       type: local

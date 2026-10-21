@@ -322,13 +322,13 @@ void HMIBMS::send_system_request(uint8_t request) {
   }
 }
 
-void HMIBMS::write_register(uint16_t reg_id, uint8_t type, float value, float scale) {
+void HMIBMS::write_register(uint16_t reg_id, uint8_t type, float value, float scale, bool bypass_lock) {
   if (this->address_ == 0) {
     ESP_LOGW(TAG, "Cannot write register: No device address assigned");
     return;
   }
-  
-  if (!this->settings_unlocked_) {
+
+  if (!bypass_lock && !this->settings_unlocked_) {
     ESP_LOGW(TAG, "Cannot write register %u: Settings are LOCKED. Enable 'Settings Unlock' first.", reg_id);
     return;
   }
@@ -368,7 +368,10 @@ void HMIBMS::write_register(uint16_t reg_id, uint8_t type, float value, float sc
   }
   
   this->send_packet_(payload);
-  this->last_settings_write_ms_ = millis();
+  if (!bypass_lock) {
+    // A user write keeps the unlock window open; an automation's doesn't
+    this->last_settings_write_ms_ = millis();
+  }
 }
 
 void HMIBMS::set_settings_unlocked(bool unlocked) {
@@ -398,6 +401,10 @@ void HMIBMS::publish_settings_status_temporary(const char *status, uint32_t dura
   }
   this->settings_status_restore_pending_ = true;
   this->settings_status_restore_at_ = millis() + duration_ms;
+}
+
+void HMIBMSNumber::write_from_automation(float value) {
+  this->parent_->write_register(this->reg_id_, this->type_, value, this->scale_, true);
 }
 
 void HMIBMSNumber::control(float value) {

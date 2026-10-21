@@ -1,0 +1,218 @@
+# Periodic balance charge.
+#
+# Keeping LFP at 100% ages it, so the pack normally floats lower (Float Offset
+# Upper), and every Balance Charge Interval days the HMI raises the BMS's
+# Voltage Limit Offset Upper to Balance Charge Offset Upper for Balance Charge
+# Duration hours. The cells then reach the knee, where the balancer can see who
+# is fuller, and the SoC counter gets a full point.
+#
+# A due charge starts in that day's window (Balance Charge Start Hour, for the
+# duration, ending at midnight at the latest); one that misses it waits for the
+# next day's window rather than starting at night. Start Balance Charge Now runs one right away and counts as
+# the interval's charge. The day of the last charge and the end of a running
+# one are kept in flash, so a reboot doesn't restart or cut short the cycle.
+#
+# Interval 0 is off and leaves the BMS alone. Otherwise this owns Voltage Limit
+# Offset Upper: every 30 s it writes the value for the current time if the BMS
+# reports a different one, so a manual edit is put back and a reboot can't
+# leave the pack held full.
+#
+# Offsets are in 0.1 V, like Voltage Limit Offset Upper. The inverter holds
+# about Cell Voltage Working Max x cells - cell spread + offset + 1 V.
+
+globals:
+  # Local day number (days since 1970-01-01) the last balance charge started on, -1 = never
+  - id: balance_charge_last_day
+    type: int
+    restore_value: yes
+    initial_value: '-1'
+  # When the running balance charge ends (Unix time), 0 = none
+  - id: balance_charge_until
+    type: int64_t
+    restore_value: yes
+    initial_value: '0'
+  # Start Balance Charge Now was pressed; the check records the day
+  - id: balance_charge_manual_pending
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+
+number:
+  - platform: template
+    name: "Balance Charge Interval"
+    id: balance_charge_interval
+    icon: mdi:calendar-sync
+    entity_category: config
+    unit_of_measurement: "d"
+    min_value: 0
+    max_value: 100
+    step: 1
+    initial_value: 0
+    optimistic: true
+    restore_value: true
+    mode: box
+  - platform: template
+    name: "Balance Charge Start Hour"
+    id: balance_charge_start_hour
+    icon: mdi:clock-start
+    entity_category: config
+    unit_of_measurement: "h"
+    min_value: 0
+    max_value: 23
+    step: 1
+    initial_value: 10
+    optimistic: true
+    restore_value: true
+    mode: box
+  - platform: template
+    name: "Balance Charge Duration"
+    id: balance_charge_duration
+    icon: mdi:timer-sand
+    entity_category: config
+    unit_of_measurement: "h"
+    min_value: 1
+    max_value: 24
+    step: 1
+    initial_value: 4
+    optimistic: true
+    restore_value: true
+    mode: box
+  - platform: template
+    name: "Float Offset Upper"
+    id: balance_charge_float_offset
+    icon: mdi:arrow-collapse-down
+    entity_category: config
+    min_value: -300
+    max_value: 100
+    step: 1
+    initial_value: -90
+    optimistic: true
+    restore_value: true
+    mode: box
+  - platform: template
+    name: "Balance Charge Offset Upper"
+    id: balance_charge_offset
+    icon: mdi:arrow-collapse-up
+    entity_category: config
+    min_value: -300
+    max_value: 100
+    step: 1
+    initial_value: -35
+    optimistic: true
+    restore_value: true
+    mode: box
+
+button:
+  - platform: template
+    name: "Start Balance Charge Now"
+    id: balance_charge_start_now
+    icon: mdi:battery-charging-high
+    on_press:
+      - lambda: |-
+          auto now = id(homeassistant_time).now();
+          if (!now.is_valid()) {
+            ESP_LOGW("balance_charge", "No time yet, can't start a balance charge");
+            return;
+          }
+          id(balance_charge_until) = (int64_t) now.timestamp + (int64_t) id(balance_charge_duration).state * 3600;
+          // The check records today as the last charge day
+          id(balance_charge_manual_pending) = true;
+          id(balance_charge_check).execute();
+
+text_sensor:
+  - platform: template
+    name: "Balance Charge Status"
+    id: balance_charge_status
+    icon: mdi:battery-sync
+
+script:
+  - id: balance_charge_check
+    mode: single
+    then:
+      - lambda: |-
+          static uint32_t last_write_ms = 0;
+
+          auto set_status = [](const std::string &s) {
+            if (id(balance_charge_status).state != s) {
+              id(balance_charge_status).publish_state(s);
+            }
+          };
+
+          const int interval = (int) id(balance_charge_interval).state;
+          if (interval <= 0) {
+            set_status("Off");
+            return;
+          }
+          auto now = id(homeassistant_time).now();
+          if (!now.is_valid()) {
+            set_status("Waiting for time");
+            return;
+          }
+
+          // Local day number (days since 1970-01-01), from the civil date
+          const int y = now.year - (now.month <= 2 ? 1 : 0);
+          const int era = (y >= 0 ? y : y - 399) / 400;
+          const int yoe = y - era * 400;
+          const int mp = (now.month + 9) % 12;
+          const int doy = (153 * mp + 2) / 5 + now.day_of_month - 1;
+          const int doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+          const int today = era * 146097 + doe - 719468;
+
+          const int start_hour = (int) id(balance_charge_start_hour).state;
+          // The window ends at midnight at the latest
+          const int end_hour = std::min(start_hour + (int) id(balance_charge_duration).state, 24);
+          const int64_t t = (int64_t) now.timestamp;
+
+          if (id(balance_charge_manual_pending)) {
+            id(balance_charge_manual_pending) = false;
+            id(balance_charge_last_day) = today;
+          }
+
+          // Start a due charge inside today's window
+          const int last = id(balance_charge_last_day);
+          const bool due = last < 0 || today - last >= interval;
+          const bool in_window = now.hour >= start_hour && now.hour < end_hour;
+          if (due && in_window && id(balance_charge_until) <= t) {
+            id(balance_charge_last_day) = today;
+            // Run to the end of the window (a full duration if started at its start)
+            id(balance_charge_until) = t + (int64_t) ((end_hour - now.hour) * 60 - now.minute) * 60;
+            ESP_LOGI("balance_charge", "Balance charge starts (every %d days)", interval);
+          }
+          const bool charging = id(balance_charge_until) > t;
+
+          const float want = charging ? id(balance_charge_offset).state : id(balance_charge_float_offset).state;
+          auto *offset = id(v_offset_upper);
+          if (!offset->has_bus_state()) {
+            set_status("Waiting for BMS");
+            return;
+          }
+          if (fabsf(offset->bus_state() - want) >= 0.5f && millis() - last_write_ms >= 60000) {
+            ESP_LOGI("balance_charge", "%s: Voltage Limit Offset Upper %.0f -> %.0f",
+                     charging ? "Balance charge" : "Float", offset->bus_state(), want);
+            offset->write_from_automation(want);
+            last_write_ms = millis();
+          }
+
+          char buf[64];
+          if (charging) {
+            const int left = (int) ((id(balance_charge_until) - t) / 60);
+            snprintf(buf, sizeof(buf), "Balance charging, %dh%02dm left", left / 60, left % 60);
+          } else {
+            // Days until the next window: today if due and the window hasn't passed
+            int in_days = last < 0 ? 0 : last + interval - today;
+            if (in_days < 0) in_days = 0;
+            if (in_days == 0 && now.hour >= end_hour) in_days = 1;
+            if (in_days == 0) {
+              snprintf(buf, sizeof(buf), "Floating, next today %02d:00", start_hour);
+            } else if (in_days == 1) {
+              snprintf(buf, sizeof(buf), "Floating, next tomorrow %02d:00", start_hour);
+            } else {
+              snprintf(buf, sizeof(buf), "Floating, next in %d days %02d:00", in_days, start_hour);
+            }
+          }
+          set_status(buf);
+
+interval:
+  - interval: 30s
+    then:
+      - script.execute: balance_charge_check
