@@ -8,9 +8,12 @@
 #
 # A due charge starts in that day's window (Balance Charge Start Hour, for the
 # duration, ending at midnight at the latest); one that misses it waits for the
-# next day's window rather than starting at night. Start Balance Charge Now runs one right away and counts as
-# the interval's charge. The day of the last charge and the end of a running
-# one are kept in flash, so a reboot doesn't restart or cut short the cycle.
+# next day's window rather than starting at night. Start Balance Charge Now
+# runs one right away for the full duration, and counts as the interval's
+# charge. Stop Balance Charge ends a running one, floats at once, and counts
+# today as the last balance day, so the next is a full interval away. The day
+# of the last charge and the end of a running one are kept in flash, so a
+# reboot doesn't restart or cut short the cycle.
 #
 # Interval 0 is off and leaves the BMS alone. Otherwise this owns Voltage Limit
 # Offset Upper: every 30 s it writes the value for the current time if the BMS
@@ -33,6 +36,11 @@ globals:
     initial_value: '0'
   # Start Balance Charge Now was pressed; the check records the day
   - id: balance_charge_manual_pending
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  # Stop Balance Charge was pressed; the check ends the charge and floats now
+  - id: balance_charge_stop_pending
     type: bool
     restore_value: no
     initial_value: 'false'
@@ -118,6 +126,16 @@ button:
           // The check records today as the last charge day
           id(balance_charge_manual_pending) = true;
           id(balance_charge_check).execute();
+  - platform: template
+    name: "Stop Balance Charge"
+    id: balance_charge_stop
+    icon: mdi:battery-arrow-down
+    on_press:
+      - lambda: |-
+          // Ends a running charge, returns to the float offset at once, and
+          // counts today as the last balance day (next one a full interval away)
+          id(balance_charge_stop_pending) = true;
+          id(balance_charge_check).execute();
 
 text_sensor:
   - platform: template
@@ -140,6 +158,9 @@ script:
 
           const int interval = (int) id(balance_charge_interval).state;
           if (interval <= 0) {
+            // Off: a press now isn't kept for later
+            id(balance_charge_manual_pending) = false;
+            id(balance_charge_stop_pending) = false;
             set_status("Off");
             return;
           }
@@ -167,6 +188,14 @@ script:
             id(balance_charge_manual_pending) = false;
             id(balance_charge_last_day) = today;
           }
+          bool write_now = false;
+          if (id(balance_charge_stop_pending)) {
+            id(balance_charge_stop_pending) = false;
+            id(balance_charge_until) = 0;
+            id(balance_charge_last_day) = today;
+            write_now = true;
+            ESP_LOGI("balance_charge", "Balance charge stopped; next in %d days", interval);
+          }
 
           // Start a due charge inside today's window
           const int last = id(balance_charge_last_day);
@@ -186,7 +215,7 @@ script:
             set_status("Waiting for BMS");
             return;
           }
-          if (fabsf(offset->bus_state() - want) >= 0.5f && millis() - last_write_ms >= 60000) {
+          if (fabsf(offset->bus_state() - want) >= 0.5f && (write_now || millis() - last_write_ms >= 60000)) {
             ESP_LOGI("balance_charge", "%s: Voltage Limit Offset Upper %.0f -> %.0f",
                      charging ? "Balance charge" : "Float", offset->bus_state(), want);
             offset->write_from_automation(want);

@@ -1429,9 +1429,10 @@ views:
               High** from **Float Offs High** to **Bal Chg Offs High** for
               **Duration** hours from **Start Hour**, so the cells reach the knee
               and balance. A missed window waits for the next day's. Offsets are
-              in 0.1 V. While the interval isn't 0, edit those two settings
-              instead of VLimit Offs High, which is put back within 30 s. No
-              unlock is needed for these.
+              in 0.1 V. **Stop Balance Charge** ends a running one and starts
+              the interval again from today. While the interval isn't 0, edit
+              those two settings instead of VLimit Offs High, which is put back
+              within 30 s. No unlock is needed for these.
           - type: tile
             entity: sensor.ck1_balance_charge_status
             name: Balance Charge Status
@@ -1440,6 +1441,8 @@ views:
             entities:
               - entity: button.ck1_start_balance_charge_now
                 name: Start Balance Charge Now
+              - entity: button.ck1_stop_balance_charge
+                name: Stop Balance Charge
           - type: grid
             columns: 2
             square: false
