@@ -142,19 +142,7 @@ void HMIBMS::update() {
     if (this->inverter_max_voltage_limit_sensor_) add_reg(HMI_REG_INVERTER_MAX_VOLTAGE_LIMIT_DV);
     if (this->pos_contactor_voltage_mV_sensor_) add_reg(HMI_REG_POS_CONTACTOR_VOLTAGE);
     if (this->neg_contactor_voltage_mV_sensor_) add_reg(HMI_REG_NEG_CONTACTOR_VOLTAGE);
-    if (this->cell_voltage_working_min_number_) add_reg(HMI_REG_CELL_VOLTAGE_WORKING_MIN);
-    if (this->cell_voltage_working_max_number_) add_reg(HMI_REG_CELL_VOLTAGE_WORKING_MAX);
-    if (this->soc_scaling_min_number_) add_reg(HMI_REG_SOC_SCALING_MIN);
-    if (this->soc_scaling_max_number_) add_reg(HMI_REG_SOC_SCALING_MAX);
-    if (this->voltage_limit_offset_lower_number_) add_reg(HMI_REG_VOLTAGE_LIMIT_OFFSET_LOWER);
-    if (this->voltage_limit_offset_upper_number_) add_reg(HMI_REG_VOLTAGE_LIMIT_OFFSET_UPPER);
-    if (this->cell_voltage_soft_min_number_) add_reg(HMI_REG_CELL_VOLTAGE_SOFT_MIN);
-    if (this->cell_voltage_soft_max_number_) add_reg(HMI_REG_CELL_VOLTAGE_SOFT_MAX);
-    if (this->auto_balancing_period_ms_number_) add_reg(HMI_REG_AUTO_BALANCING_PERIOD_MS);
-    if (this->balancing_periods_per_mV_number_) add_reg(HMI_REG_BALANCING_PERIODS_PER_MV);
-    if (this->balance_min_offset_mV_number_) add_reg(HMI_REG_BALANCE_MIN_OFFSET_MV);
-    if (this->minimum_balancing_voltage_mV_number_) add_reg(HMI_REG_MINIMUM_BALANCING_VOLTAGE_MV);
-    if (this->balancing_start_voltage_mV_number_) add_reg(HMI_REG_BALANCING_START_VOLTAGE_MV);
+    // Settings numbers are read in their own request (Tick 4)
 
     // Add configured raw temperature sensors
     for (size_t i = 0; i < this->raw_temperature_sensors_.size(); i++) {
@@ -206,6 +194,38 @@ void HMIBMS::update() {
 
     if (limit_payload.size() > 2) {
       this->send_packet_(limit_payload);
+    }
+  }
+
+  // Read the settings numbers (Tick 4) in a dedicated request. In the slot-0
+  // slow poll the BMS's reply reached its 256-byte buffer when every register
+  // was available, and it drops whatever doesn't fit (Balancing Start
+  // Voltage never arrived on ck1).
+  if (slot == 4) {
+    std::vector<uint8_t> settings_payload;
+    settings_payload.push_back(HMI_MSG_READ_REGISTERS);
+    settings_payload.push_back(this->address_);
+    auto add_settings_reg = [&](uint16_t reg) {
+      settings_payload.push_back(reg & 0xFF);
+      settings_payload.push_back(reg >> 8);
+    };
+
+    if (this->cell_voltage_working_min_number_) add_settings_reg(HMI_REG_CELL_VOLTAGE_WORKING_MIN);
+    if (this->cell_voltage_working_max_number_) add_settings_reg(HMI_REG_CELL_VOLTAGE_WORKING_MAX);
+    if (this->soc_scaling_min_number_) add_settings_reg(HMI_REG_SOC_SCALING_MIN);
+    if (this->soc_scaling_max_number_) add_settings_reg(HMI_REG_SOC_SCALING_MAX);
+    if (this->voltage_limit_offset_lower_number_) add_settings_reg(HMI_REG_VOLTAGE_LIMIT_OFFSET_LOWER);
+    if (this->voltage_limit_offset_upper_number_) add_settings_reg(HMI_REG_VOLTAGE_LIMIT_OFFSET_UPPER);
+    if (this->cell_voltage_soft_min_number_) add_settings_reg(HMI_REG_CELL_VOLTAGE_SOFT_MIN);
+    if (this->cell_voltage_soft_max_number_) add_settings_reg(HMI_REG_CELL_VOLTAGE_SOFT_MAX);
+    if (this->auto_balancing_period_ms_number_) add_settings_reg(HMI_REG_AUTO_BALANCING_PERIOD_MS);
+    if (this->balancing_periods_per_mV_number_) add_settings_reg(HMI_REG_BALANCING_PERIODS_PER_MV);
+    if (this->balance_min_offset_mV_number_) add_settings_reg(HMI_REG_BALANCE_MIN_OFFSET_MV);
+    if (this->minimum_balancing_voltage_mV_number_) add_settings_reg(HMI_REG_MINIMUM_BALANCING_VOLTAGE_MV);
+    if (this->balancing_start_voltage_mV_number_) add_settings_reg(HMI_REG_BALANCING_START_VOLTAGE_MV);
+
+    if (settings_payload.size() > 2) {
+      this->send_packet_(settings_payload);
     }
   }
 
