@@ -157,6 +157,15 @@ sensor:
     board_strap_counts:
       name: "Board Strap Counts"
       entity_category: diagnostic
+    bms_chip_temperature:
+      name: "BMS Chip Temperature"
+      entity_category: diagnostic
+    shunt_die_temperature:
+      name: "Shunt Die Temperature"
+      entity_category: diagnostic
+    shunt_ntc_temperature:
+      name: "Shunt NTC Temperature"
+      entity_category: diagnostic
     isolation_check_age:
       name: "Isolation Check Age"
       icon: mdi:timer-sand

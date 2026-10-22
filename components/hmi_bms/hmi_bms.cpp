@@ -150,6 +150,10 @@ void HMIBMS::update() {
     // PCB revision strap (registers 66/67; older firmware just doesn't answer)
     if (this->board_revision_text_sensor_) add_reg(HMI_REG_BOARD_REVISION);
     if (this->board_strap_counts_sensor_) add_reg(HMI_REG_BOARD_STRAP_COUNTS);
+    // Board temperatures (70 is new; older firmware doesn't answer it)
+    if (this->bms_chip_temperature_sensor_) add_reg(HMI_REG_MCU_TEMPERATURE);
+    if (this->shunt_die_temperature_sensor_) add_reg(HMI_REG_SHUNT_DIE_TEMP);
+    if (this->shunt_ntc_temperature_sensor_) add_reg(HMI_REG_SHUNT_NTC_TEMP);
     // Firmware build ID (registers 68/69; older firmware doesn't answer)
     if (this->bms_firmware_text_sensor_) {
       add_reg(HMI_REG_BUILD_HASH);
@@ -786,6 +790,19 @@ void HMIBMS::handle_read_registers_response_(const uint8_t *data, size_t length)
         snprintf(buf, sizeof(buf), "Rev %u.%u", code / 10, code % 10);
       }
       this->board_revision_text_sensor_->publish_state(buf);
+    } else if ((reg_id == HMI_REG_MCU_TEMPERATURE || reg_id == HMI_REG_SHUNT_DIE_TEMP || reg_id == HMI_REG_SHUNT_NTC_TEMP) &&
+               reg_type == HMI_TYPE_FLOAT) {
+      sensor::Sensor *s = reg_id == HMI_REG_MCU_TEMPERATURE  ? this->bms_chip_temperature_sensor_
+                          : reg_id == HMI_REG_SHUNT_DIE_TEMP ? this->shunt_die_temperature_sensor_
+                                                             : this->shunt_ntc_temperature_sensor_;
+      if (s != nullptr) {
+        uint32_t raw = (uint32_t)v[0] | ((uint32_t)v[1] << 8) | ((uint32_t)v[2] << 16) | ((uint32_t)v[3] << 24);
+        union {
+          uint32_t u;
+          float f;
+        } conv{raw};
+        this->publish_queue_.push_back({s, conv.f});
+      }
     } else if ((reg_id == HMI_REG_BUILD_HASH || reg_id == HMI_REG_BUILD_TIME) && reg_type == HMI_TYPE_UINT32) {
       uint32_t val = (uint32_t)v[0] | ((uint32_t)v[1] << 8) | ((uint32_t)v[2] << 16) | ((uint32_t)v[3] << 24);
       if (reg_id == HMI_REG_BUILD_HASH) {
