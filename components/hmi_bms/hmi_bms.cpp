@@ -1,6 +1,8 @@
 #include "hmi_bms.h"
 #include "esphome/core/log.h"
 #include "esphome/core/helpers.h"
+#include "esphome/core/application.h"
+#include <ctime>
 #include <map>
 #include <vector>
 
@@ -83,7 +85,40 @@ static const char* EVENT_TYPES[] = {
 
 #define MAX_EVENT_TYPE_ID 69
 
+// "2026-10-22 00:39 UTC", or "" for 0
+static std::string format_build_time(time_t t) {
+  if (t <= 0) return "";
+  struct tm tm_utc;
+  gmtime_r(&t, &tm_utc);
+  char buf[24];
+  strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M UTC", &tm_utc);
+  return buf;
+}
+
 void HMIBMS::setup() {
+  if (this->hmi_firmware_text_sensor_ != nullptr) {
+    std::string built = format_build_time(App.get_build_time());
+    this->hmi_firmware_text_sensor_->publish_state(built.empty() ? this->hmi_build_ : this->hmi_build_ + " · " + built);
+  }
+}
+
+// "dab3751 · 2026-10-22 00:39 UTC", "dab3751-dirty · ...", or "unknown" when the BMS has no ID
+void HMIBMS::publish_bms_firmware_() {
+  if (this->bms_firmware_text_sensor_ == nullptr || !this->bms_build_hash_seen_) return;
+  std::string text;
+  if ((this->bms_build_hash_ & 0x0FFFFFFF) == 0) {
+    text = "unknown";
+  } else {
+    char hash[16];
+    snprintf(hash, sizeof(hash), "%07x%s", (unsigned) (this->bms_build_hash_ & 0x0FFFFFFF),
+             (this->bms_build_hash_ & 0x80000000u) ? "-dirty" : "");
+    text = hash;
+  }
+  std::string built = format_build_time(this->bms_build_time_);
+  if (!built.empty()) text += " · " + built;
+  if (!this->bms_firmware_text_sensor_->has_state() || this->bms_firmware_text_sensor_->state != text) {
+    this->bms_firmware_text_sensor_->publish_state(text);
+  }
 }
 
 void HMIBMS::update() {
@@ -115,6 +150,11 @@ void HMIBMS::update() {
     // PCB revision strap (registers 66/67; older firmware just doesn't answer)
     if (this->board_revision_text_sensor_) add_reg(HMI_REG_BOARD_REVISION);
     if (this->board_strap_counts_sensor_) add_reg(HMI_REG_BOARD_STRAP_COUNTS);
+    // Firmware build ID (registers 68/69; older firmware doesn't answer)
+    if (this->bms_firmware_text_sensor_) {
+      add_reg(HMI_REG_BUILD_HASH);
+      add_reg(HMI_REG_BUILD_TIME);
+    }
     if (this->system_request_sensor_) add_reg(HMI_REG_SYSTEM_REQUEST);
     if (this->soc_sensor_ || this->soc_number_) add_reg(HMI_REG_SOC);
     if (this->charge_raw_sensor_) add_reg(HMI_REG_CHARGE);
@@ -746,6 +786,15 @@ void HMIBMS::handle_read_registers_response_(const uint8_t *data, size_t length)
         snprintf(buf, sizeof(buf), "Rev %u.%u", code / 10, code % 10);
       }
       this->board_revision_text_sensor_->publish_state(buf);
+    } else if ((reg_id == HMI_REG_BUILD_HASH || reg_id == HMI_REG_BUILD_TIME) && reg_type == HMI_TYPE_UINT32) {
+      uint32_t val = (uint32_t)v[0] | ((uint32_t)v[1] << 8) | ((uint32_t)v[2] << 16) | ((uint32_t)v[3] << 24);
+      if (reg_id == HMI_REG_BUILD_HASH) {
+        this->bms_build_hash_ = val;
+        this->bms_build_hash_seen_ = true;
+      } else {
+        this->bms_build_time_ = val;
+      }
+      this->publish_bms_firmware_();
     } else if (reg_id == HMI_REG_BOARD_STRAP_COUNTS && this->board_strap_counts_sensor_ != nullptr &&
                reg_type == HMI_TYPE_FLOAT) {
       uint32_t raw = (uint32_t)v[0] | ((uint32_t)v[1] << 8) | ((uint32_t)v[2] << 16) | ((uint32_t)v[3] << 24);

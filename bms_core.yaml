@@ -853,6 +853,14 @@ text_sensor:
     board_revision:
       name: "Board Revision"
       entity_category: diagnostic
+    bms_firmware:
+      name: "BMS Firmware"
+      icon: mdi:chip
+      entity_category: diagnostic
+    hmi_firmware:
+      name: "HMI Firmware"
+      icon: mdi:monitor-dashboard
+      entity_category: diagnostic
     cells_balancing:
       id: cells_balancing
       name: "Cells Balancing"

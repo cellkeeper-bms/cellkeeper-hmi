@@ -1,3 +1,6 @@
+import subprocess
+from pathlib import Path
+
 import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import text_sensor
@@ -7,6 +10,8 @@ from . import HMIBMS
 
 CONF_SERIAL = "serial"
 CONF_BOARD_REVISION = "board_revision"
+CONF_BMS_FIRMWARE = "bms_firmware"
+CONF_HMI_FIRMWARE = "hmi_firmware"
 CONF_EVENT_HISTORY = "event_history"
 CONF_CELLS_BALANCING = "cells_balancing"
 CONF_CELLS_BALANCING_ACTIVE = "cells_balancing_active"
@@ -83,6 +88,8 @@ CONFIG_SCHEMA = cv.Schema({
     cv.GenerateID(): cv.use_id(HMIBMS),
     cv.Optional(CONF_SERIAL): text_sensor.text_sensor_schema(),
     cv.Optional(CONF_BOARD_REVISION): text_sensor.text_sensor_schema(),
+    cv.Optional(CONF_BMS_FIRMWARE): text_sensor.text_sensor_schema(),
+    cv.Optional(CONF_HMI_FIRMWARE): text_sensor.text_sensor_schema(),
     cv.Optional(CONF_EVENT_HISTORY): text_sensor.text_sensor_schema(),
     cv.Optional(CONF_CELLS_BALANCING): text_sensor.text_sensor_schema(),
     cv.Optional(CONF_CELLS_BALANCING_ACTIVE): text_sensor.text_sensor_schema(),
@@ -99,6 +106,20 @@ for event_type in EVENT_TYPES:
         cv.Optional(key): text_sensor.text_sensor_schema()
     })
 
+def hmi_build():
+    """This HMI firmware's commit, "08e3c7a" or "08e3c7a-dirty", from the repo holding this
+    component; "unknown" outside git."""
+    repo = Path(__file__).resolve().parent
+    try:
+        commit = subprocess.run(
+            ["git", "rev-parse", "--short=7", "HEAD"], cwd=repo, capture_output=True, text=True, check=True
+        ).stdout.strip()
+        dirty = subprocess.run(["git", "diff", "--quiet", "HEAD", "--"], cwd=repo, capture_output=True).returncode != 0
+    except (OSError, subprocess.CalledProcessError):
+        return "unknown"
+    return f"{commit}-dirty" if dirty else commit
+
+
 async def to_code(config):
     parent = await cg.get_variable(config[CONF_ID])
 
@@ -108,6 +129,13 @@ async def to_code(config):
     if CONF_BOARD_REVISION in config:
         sens = await text_sensor.new_text_sensor(config[CONF_BOARD_REVISION])
         cg.add(parent.set_board_revision_text_sensor(sens))
+    if CONF_BMS_FIRMWARE in config:
+        sens = await text_sensor.new_text_sensor(config[CONF_BMS_FIRMWARE])
+        cg.add(parent.set_bms_firmware_text_sensor(sens))
+    if CONF_HMI_FIRMWARE in config:
+        sens = await text_sensor.new_text_sensor(config[CONF_HMI_FIRMWARE])
+        cg.add(parent.set_hmi_firmware_text_sensor(sens))
+        cg.add(parent.set_hmi_build(hmi_build()))
     if CONF_EVENT_HISTORY in config:
         sens = await text_sensor.new_text_sensor(config[CONF_EVENT_HISTORY])
         cg.add(parent.set_event_history_text_sensor(sens))
