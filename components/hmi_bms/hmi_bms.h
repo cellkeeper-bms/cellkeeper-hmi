@@ -136,6 +136,8 @@ enum HMIRegister {
   HMI_REG_DELTA_CHARGE_CURRENT_LIMIT_DA = 53,           // uint16 (0.1A)
   HMI_REG_HARD_CHARGE_CURRENT_LIMIT_DA = 54,            // uint16 (0.1A)
   HMI_REG_HARD_DISCHARGE_CURRENT_LIMIT_DA = 55,         // uint16 (0.1A)
+  HMI_REG_SHUNT_DIE_TEMP = 57,                          // float (C), the current shunt chip's (INA228) die temperature
+  HMI_REG_SHUNT_NTC_TEMP = 58,                          // float (C), the external NTC on the shunt
   // 60/61 (raw isolation ADC counts) exist on the BMS but are not shown here
   HMI_REG_ISOLATION_RESISTANCE = 62,                    // float (ohms), NAN unless contactors open
   HMI_REG_PACK_POS_TO_CHASSIS = 63,                     // float (V)
@@ -143,6 +145,9 @@ enum HMIRegister {
   HMI_REG_ISOLATION_CHECK_AGE = 65,                     // float (s); 0 = live, NAN = not measured yet
   HMI_REG_BOARD_REVISION = 66,                          // uint16: major*10+minor (Rev1.3 = 13), 0 = Rev0, 0xFFFF = unknown
   HMI_REG_BOARD_STRAP_COUNTS = 67,                      // float, revision strap ADC counts
+  HMI_REG_BUILD_HASH = 68,                              // uint32: firmware commit's first 7 hex digits; bit 31 = uncommitted changes; 0 = unknown
+  HMI_REG_BUILD_TIME = 69,                              // uint32: firmware build time, Unix seconds UTC; 0 = unknown
+  HMI_REG_MCU_TEMPERATURE = 70,                         // float (C), the BMS controller chip's own sensor
   HMI_REG_CELL_VOLTAGES_START = 0x100,
   HMI_REG_CELL_VOLTAGES_END = 0x1FF,
   HMI_REG_MODULE_TEMPS_START = 0x200,
@@ -161,7 +166,15 @@ class HMIBMS : public PollingComponent, public uart::UARTDevice {
   void set_millis_sensor(sensor::Sensor *s) { millis_sensor_ = s; }
   void set_serial_text_sensor(text_sensor::TextSensor *s) { serial_text_sensor_ = s; }
   void set_board_revision_text_sensor(text_sensor::TextSensor *s) { board_revision_text_sensor_ = s; }
+  // Which firmware the BMS and this HMI run (registers 68/69; the HMI's own commit from codegen)
+  void set_bms_firmware_text_sensor(text_sensor::TextSensor *s) { bms_firmware_text_sensor_ = s; }
+  void set_hmi_firmware_text_sensor(text_sensor::TextSensor *s) { hmi_firmware_text_sensor_ = s; }
+  void set_hmi_build(const std::string &build) { hmi_build_ = build; }
   void set_board_strap_counts_sensor(sensor::Sensor *s) { board_strap_counts_sensor_ = s; }
+  // BMS board temperatures: controller chip (register 70), current shunt die and NTC (57/58)
+  void set_bms_chip_temperature_sensor(sensor::Sensor *s) { bms_chip_temperature_sensor_ = s; }
+  void set_shunt_die_temperature_sensor(sensor::Sensor *s) { shunt_die_temperature_sensor_ = s; }
+  void set_shunt_ntc_temperature_sensor(sensor::Sensor *s) { shunt_ntc_temperature_sensor_ = s; }
   void set_system_request_sensor(sensor::Sensor *s) { system_request_sensor_ = s; }
   void set_soc_sensor(sensor::Sensor *s) { soc_sensor_ = s; }
   void set_current_mA_sensor(sensor::Sensor *s) { current_mA_sensor_ = s; }
@@ -295,7 +308,17 @@ class HMIBMS : public PollingComponent, public uart::UARTDevice {
   sensor::Sensor *millis_sensor_{nullptr};
   text_sensor::TextSensor *serial_text_sensor_{nullptr};
   text_sensor::TextSensor *board_revision_text_sensor_{nullptr};
+  text_sensor::TextSensor *bms_firmware_text_sensor_{nullptr};
+  text_sensor::TextSensor *hmi_firmware_text_sensor_{nullptr};
+  std::string hmi_build_{"unknown"};
+  uint32_t bms_build_hash_{0};
+  uint32_t bms_build_time_{0};
+  bool bms_build_hash_seen_{false};
+  void publish_bms_firmware_();
   sensor::Sensor *board_strap_counts_sensor_{nullptr};
+  sensor::Sensor *bms_chip_temperature_sensor_{nullptr};
+  sensor::Sensor *shunt_die_temperature_sensor_{nullptr};
+  sensor::Sensor *shunt_ntc_temperature_sensor_{nullptr};
   sensor::Sensor *system_request_sensor_{nullptr};
   sensor::Sensor *soc_sensor_{nullptr};
   sensor::Sensor *current_mA_sensor_{nullptr};

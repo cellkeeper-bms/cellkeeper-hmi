@@ -79,6 +79,9 @@ CONF_PACK_POS_TO_CHASSIS = "pack_pos_to_chassis"
 CONF_PACK_NEG_TO_CHASSIS = "pack_neg_to_chassis"
 CONF_ISOLATION_CHECK_AGE = "isolation_check_age"
 CONF_BOARD_STRAP_COUNTS = "board_strap_counts"
+CONF_BMS_CHIP_TEMPERATURE = "bms_chip_temperature"
+CONF_SHUNT_DIE_TEMPERATURE = "shunt_die_temperature"
+CONF_SHUNT_NTC_TEMPERATURE = "shunt_ntc_temperature"
 CONF_ISOLATION_RESISTANCE = "isolation_resistance"
 CONF_INVERTER_FULL_CAPACITY = "inverter_full_capacity"
 CONF_INVERTER_REMAINING_CAPACITY = "inverter_remaining_capacity"
@@ -251,6 +254,15 @@ CONFIG_SCHEMA = cv.Schema({
     cv.Optional(CONF_BOARD_STRAP_COUNTS): sensor.sensor_schema(
         accuracy_decimals=0,
     ),
+    **{
+        cv.Optional(key): sensor.sensor_schema(
+            unit_of_measurement=UNIT_CELSIUS,
+            accuracy_decimals=1,
+            device_class=DEVICE_CLASS_TEMPERATURE,
+            state_class=STATE_CLASS_MEASUREMENT,
+        )
+        for key in (CONF_BMS_CHIP_TEMPERATURE, CONF_SHUNT_DIE_TEMPERATURE, CONF_SHUNT_NTC_TEMPERATURE)
+    },
     cv.Optional(CONF_ISOLATION_CHECK_AGE): sensor.sensor_schema(
         unit_of_measurement="s",
         accuracy_decimals=0,
@@ -532,6 +544,15 @@ async def to_code(config):
     if CONF_BOARD_STRAP_COUNTS in config:
         sens = await sensor.new_sensor(config[CONF_BOARD_STRAP_COUNTS])
         cg.add(parent.set_board_strap_counts_sensor(sens))
+    if CONF_BMS_CHIP_TEMPERATURE in config:
+        sens = await sensor.new_sensor(config[CONF_BMS_CHIP_TEMPERATURE])
+        cg.add(parent.set_bms_chip_temperature_sensor(sens))
+    if CONF_SHUNT_DIE_TEMPERATURE in config:
+        sens = await sensor.new_sensor(config[CONF_SHUNT_DIE_TEMPERATURE])
+        cg.add(parent.set_shunt_die_temperature_sensor(sens))
+    if CONF_SHUNT_NTC_TEMPERATURE in config:
+        sens = await sensor.new_sensor(config[CONF_SHUNT_NTC_TEMPERATURE])
+        cg.add(parent.set_shunt_ntc_temperature_sensor(sens))
     if CONF_ISOLATION_CHECK_AGE in config:
         sens = await sensor.new_sensor(config[CONF_ISOLATION_CHECK_AGE])
         cg.add(parent.set_isolation_check_age_sensor(sens))
