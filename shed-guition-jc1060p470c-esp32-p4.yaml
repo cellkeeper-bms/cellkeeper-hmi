@@ -33,7 +33,7 @@ wifi:
   password: !secret wifi_password
   power_save_mode: none
   reboot_timeout: 0s
-  use_address: 172.16.2.9
+  use_address: !secret ck1_address
 
 api:
   batch_delay: 1000ms
