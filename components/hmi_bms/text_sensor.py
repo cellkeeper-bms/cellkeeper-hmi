@@ -1,3 +1,5 @@
+import os
+import re
 import subprocess
 from pathlib import Path
 
@@ -106,15 +108,31 @@ for event_type in EVENT_TYPES:
         cv.Optional(key): text_sensor.text_sensor_schema()
     })
 
+def git_args(repo):
+    """Options to put before every git command run in repo (any folder inside the checkout)."""
+    # Building in WSL from a Windows checkout: use Windows' line-ending setting, or every file
+    # looks modified, and follow a git worktree's Windows-style gitdir path (C:/... -> /mnt/c/...).
+    if "WSL_DISTRO_NAME" not in os.environ:
+        return []
+    args = ["-c", "core.autocrlf=true"]
+    top = next((d for d in (repo, *repo.parents) if (d / ".git").exists()), None)
+    if top is not None and (top / ".git").is_file():
+        m = re.search(r"gitdir: ([A-Za-z]):/([^\r\n]*)", (top / ".git").read_text())
+        if m:
+            args += [f"--git-dir=/mnt/{m.group(1).lower()}/{m.group(2)}", f"--work-tree={top}"]
+    return args
+
+
 def hmi_build():
     """This HMI firmware's commit, "08e3c7a" or "08e3c7a-dirty", from the repo holding this
     component; "unknown" outside git."""
     repo = Path(__file__).resolve().parent
     try:
+        git = ["git", *git_args(repo)]
         commit = subprocess.run(
-            ["git", "rev-parse", "--short=7", "HEAD"], cwd=repo, capture_output=True, text=True, check=True
+            [*git, "rev-parse", "--short=7", "HEAD"], cwd=repo, capture_output=True, text=True, check=True
         ).stdout.strip()
-        dirty = subprocess.run(["git", "diff", "--quiet", "HEAD", "--"], cwd=repo, capture_output=True).returncode != 0
+        dirty = subprocess.run([*git, "diff", "--quiet", "HEAD", "--"], cwd=repo, capture_output=True).returncode != 0
     except (OSError, subprocess.CalledProcessError):
         return "unknown"
     return f"{commit}-dirty" if dirty else commit
