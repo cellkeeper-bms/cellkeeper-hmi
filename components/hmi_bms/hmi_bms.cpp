@@ -1,4 +1,5 @@
 #include "hmi_bms.h"
+#include "hmi_protocol.h"
 #include "esphome/core/log.h"
 #include "esphome/core/helpers.h"
 #include "esphome/core/application.h"
@@ -356,22 +357,12 @@ void HMIBMS::update() {
 }
 
 void HMIBMS::send_packet_(const std::vector<uint8_t> &payload) {
-  if (payload.empty()) return;
-  uint8_t len_minus_1 = payload.size() - 1;
-  std::vector<uint8_t> frame;
-  frame.push_back(0xFF); // Sync byte included in CRC
-  frame.push_back(len_minus_1);
-  frame.insert(frame.end(), payload.begin(), payload.end());
-  
-  // Outgoing CRC includes the 0xFF sync byte and length byte
-  uint16_t crc = this->crc16_modbus_(frame.data(), frame.size());
-  
-  frame.push_back(crc & 0xFF);
-  frame.push_back(crc >> 8);
-
-  ESP_LOGD(TAG, "Sending packet: %s (payload_len=%zu)", 
-           format_hex_pretty(frame).c_str(), payload.size());
-
+  std::vector<uint8_t> frame = protocol::build_frame(payload);
+  if (frame.empty()) {
+    ESP_LOGW(TAG, "Not sending a payload of %zu bytes (1..%zu fit in a frame)", payload.size(), protocol::MAX_PAYLOAD);
+    return;
+  }
+  ESP_LOGD(TAG, "Sending packet: %s (payload_len=%zu)", format_hex_pretty(frame).c_str(), payload.size());
   this->write_array(frame);
 }
 
@@ -607,75 +598,31 @@ void HMIBMS::loop() {
     }
   }
 
-  static std::vector<uint8_t> dump_buffer;
-  uint32_t bytes_read = 0;
-  uint8_t packets_handled = 0;
-  
-  // 2. Read UART data - high limit to keep up with 460800 baud log stream
-  while (this->available() && bytes_read < 2048 && packets_handled < 10) {
-    uint8_t byte;
-    this->read_byte(&byte);
-    bytes_read++;
-
+  // 2. Read UART data - a high limit keeps up with the 460800 baud log stream
+  uint8_t chunk[256];
+  size_t bytes_read = 0;
+  while (bytes_read < 2048) {
+    size_t avail = this->available();
+    if (avail == 0) break;
+    size_t n = std::min(avail, sizeof(chunk));
+    if (!this->read_array(chunk, n)) break;
+    bytes_read += n;
     if (this->dump_raw_) {
-      dump_buffer.push_back(byte);
-      if (dump_buffer.size() >= 32) {
-        ESP_LOGD(TAG, "Raw Rx: %s", format_hex_pretty(dump_buffer).c_str());
-        dump_buffer.clear();
-      }
+      ESP_LOGD(TAG, "Raw Rx: %s", format_hex_pretty(chunk, n).c_str());
     }
+    this->rx_.push(chunk, n);
+  }
 
-    if (this->rx_buffer_.empty()) {
-      if (byte == 0xFF) {
-        this->rx_buffer_.push_back(byte);
-      }
-    } else if (this->rx_buffer_.size() == 1) {
-      // Length byte
-      this->rx_buffer_.push_back(byte);
-    } else if (this->rx_buffer_.size() == 2) {
-      // Message Type byte - check if it's a known BMS message type
-      // We'll be more permissive here to catch error responses (e.g. 0x80 + type)
-      this->rx_buffer_.push_back(byte);
-    } else {
-      this->rx_buffer_.push_back(byte);
-      uint8_t payload_len_minus_1 = this->rx_buffer_[1];
-      size_t payload_len = (size_t)payload_len_minus_1 + 1;
-      
-      // Packet is: 0xFF, len-1, payload[payload_len], crc[2]
-      if (this->rx_buffer_.size() == payload_len + 4) {
-        // Complete packet
-        uint16_t received_crc = (this->rx_buffer_[payload_len + 3] << 8) | this->rx_buffer_[payload_len + 2];
-        // Calculate Modbus CRC on the entire frame [FF, Len-1, Payload...]
-        uint16_t computed_crc = this->crc16_modbus_(this->rx_buffer_.data(), payload_len + 2);
-        
-        if (received_crc == computed_crc || this->bypass_crc_) {
-          this->last_rx_ms_ = millis();
-          if (received_crc != computed_crc) {
-            ESP_LOGV(TAG, "CRC mismatch (bypassed): 0x%04X != 0x%04X (len=%d)", received_crc, computed_crc, payload_len);
-          } else {
-            ESP_LOGV(TAG, "CRC match: 0x%04X", computed_crc);
-          }
-          this->handle_packet_(this->rx_buffer_.data() + 2, payload_len);
-          this->rx_buffer_.clear();
-          packets_handled++;
-        } else {
-          // The BMS sends the CRC low byte first (duart_send_packet); anything else is corrupt
-          ESP_LOGW(TAG, "CRC mismatch: Type=0x%02X LenField=0x%02X Calc=0x%04X Msg=0x%04X",
-                   this->rx_buffer_[2], payload_len_minus_1, computed_crc, received_crc);
-          ESP_LOGD(TAG, "Raw packet: %s", format_hex_pretty(this->rx_buffer_).c_str());
-          // Resync: drop the first byte and look for the next 0xFF
-          this->rx_buffer_.erase(this->rx_buffer_.begin());
-          while (!this->rx_buffer_.empty() && this->rx_buffer_[0] != 0xFF) {
-            this->rx_buffer_.erase(this->rx_buffer_.begin());
-          }
-        }
-      }
-    }
-    
-    if (this->rx_buffer_.size() > 512) {
-      ESP_LOGV(TAG, "Buffer overflow, clearing...");
-      this->rx_buffer_.clear();
-    }
+  // 3. Handle complete frames, at most 10 per loop; the rest wait in the parser
+  const uint8_t *payload;
+  size_t payload_len;
+  for (uint8_t handled = 0; handled < 10 && this->rx_.next_frame(payload, payload_len); handled++) {
+    this->last_rx_ms_ = millis();
+    this->handle_packet_(payload, payload_len);
+  }
+  if (this->rx_.crc_errors() != this->last_crc_errors_) {
+    ESP_LOGW(TAG, "CRC errors: %u so far (frames dropped and resynced)", (unsigned) this->rx_.crc_errors());
+    this->last_crc_errors_ = this->rx_.crc_errors();
   }
 }
 
@@ -1121,37 +1068,12 @@ void HMIBMS::handle_read_cell_voltages_response_(const uint8_t *data, size_t len
      ESP_LOGD(TAG, "CV Payload start: %s", hex_buf);
   }
 
-  size_t offset = 3;
-  int16_t last_cell_voltage = 0;
+  std::vector<int32_t> values;
+  protocol::decode_delta_array(data + 3, length - 3, num_cells, true, values);
   uint16_t cells_found = 0;
   uint16_t nonzero_cells = 0;
-  
-  for (int i = 0; i < num_cells && offset < length; i++) {
-    int16_t cell_voltage;
-    if (data[offset] & 0x80) {
-      // Absolute voltage (2 bytes, big-endian)
-      if (offset + 1 >= length) break;
-      uint16_t val = (((uint16_t)data[offset] & 0x7F) << 8) | data[offset + 1];
-      // Sign extend 15-bit to 16-bit
-      if (val & 0x4000) {
-        cell_voltage = (int16_t)(val | 0x8000);
-      } else {
-        cell_voltage = (int16_t)val;
-      }
-      offset += 2;
-    } else {
-      // Delta voltage (1 byte, signed 7-bit)
-      uint8_t val = data[offset] & 0x7F;
-      int8_t delta;
-      if (val & 0x40) {
-        delta = (int8_t)(val | 0x80);
-      } else {
-        delta = (int8_t)val;
-      }
-      cell_voltage = last_cell_voltage + delta;
-      offset += 1;
-    }
-    
+  for (size_t i = 0; i < values.size(); i++) {
+    const int32_t cell_voltage = values[i];
     if (i < this->cell_voltage_sensors_.size() && this->cell_voltage_sensors_[i] != nullptr) {
       if (cell_voltage == -1) {
         this->publish_queue_.push_back({this->cell_voltage_sensors_[i], NAN});
@@ -1163,7 +1085,6 @@ void HMIBMS::handle_read_cell_voltages_response_(const uint8_t *data, size_t len
     if (cell_voltage > 0) {
       nonzero_cells++;
     }
-    last_cell_voltage = cell_voltage;
   }
 
   // Publish only the number of parsed cells with non-zero voltage.
@@ -1181,8 +1102,8 @@ void HMIBMS::handle_read_balancing_times_response_(const uint8_t *data, size_t l
   uint8_t address = data[1];
   uint8_t num_cells = data[2];
   
-  size_t offset = 3;
-  int32_t last_time = 0;
+  std::vector<int32_t> times;
+  protocol::decode_delta_array(data + 3, length - 3, num_cells, false, times);
   std::string cells_balancing = "";
   std::string cells_balancing_active = "";
   const uint32_t now_ms = millis();
@@ -1230,33 +1151,9 @@ void HMIBMS::handle_read_balancing_times_response_(const uint8_t *data, size_t l
     active_run_end = -1;
   };
   
-  for (int i = 0; i < num_cells && offset < length; i++) {
-    int32_t time_val;
-    if (data[offset] & 0x80) {
-      // Absolute value (2 bytes, big-endian), encoded as 15-bit unsigned.
-      if (offset + 1 >= length) break;
-      uint16_t val = (((uint16_t)data[offset] & 0x7F) << 8) | data[offset + 1];
-      time_val = (int32_t) val;
-      offset += 2;
-    } else {
-      // Delta value (1 byte, signed 7-bit)
-      uint8_t val = data[offset] & 0x7F;
-      int8_t delta;
-      if (val & 0x40) {
-        delta = (int8_t)(val | 0x80);
-      } else {
-        delta = (int8_t)val;
-      }
-      time_val = last_time + delta;
-      offset += 1;
-    }
-
+  for (int i = 0; i < (int) times.size(); i++) {
     // Balancing-time counters are non-negative.
-    if (time_val < 0) {
-      time_val = 0;
-    }
-    
-    last_time = time_val;
+    const int32_t time_val = times[i] < 0 ? 0 : times[i];
 
     if (i < this->balancing_time_sensors_.size() && this->balancing_time_sensors_[i] != nullptr) {
       this->publish_queue_.push_back({this->balancing_time_sensors_[i], (float) time_val});
@@ -1444,35 +1341,24 @@ void HMIBMS::request_events_(uint16_t start_index) {
 // The BMS lists every event type that has happened (count > 0), active or not, starting
 // at the requested index. A full reply (11 events) means there may be more from next_index.
 void HMIBMS::handle_read_events_response_(const uint8_t *data, size_t length) {
-  static const size_t EVENT_RECORD_SIZE = 22;
-  static const uint16_t EVENTS_PER_FULL_REPLY = 11;  // (250 - 6) / 22 in hmi_handle_read_events
   static const uint8_t MAX_EVENT_PAGES = 8;
-  if (length < 6) return;
   auto &sw = this->event_sweep_;
   if (!sw.active) return;  // a late page from a sweep that was already finished
-  uint8_t address = data[1];
-  uint16_t next_index = data[2] | (data[3] << 8);
-  uint16_t count = data[4] | (data[5] << 8);
-  ESP_LOGD(TAG, "Read events response from 0x%02X, page %u, count=%u, next=%u", address, sw.pages, count, next_index);
+  uint16_t next_index = 0;
+  std::vector<protocol::EventRecord> records;
+  if (!protocol::parse_events(data, length, next_index, records)) return;
+  ESP_LOGD(TAG, "Read events response from 0x%02X, page %u, events=%zu, next=%u", data[1], sw.pages,
+           records.size(), next_index);
 
-  size_t offset = 6;
-  uint16_t parsed = 0;
-  for (uint16_t i = 0; i < count && offset + EVENT_RECORD_SIZE <= length; i++, offset += EVENT_RECORD_SIZE) {
-    uint16_t type = data[offset] | (data[offset + 1] << 8);
-    uint16_t level = data[offset + 2] | (data[offset + 3] << 8);
-    uint16_t event_count = data[offset + 4] | (data[offset + 5] << 8);
-    parsed++;
-
+  for (const auto &rec : records) {
+    const uint16_t type = rec.type;
     // Override: Inverter Detected (Type 45) is always Info level
-    if (type == 45) {
-      level = 1;  // INFO
-    }
-
+    const uint16_t level = (type == 45) ? 1 : rec.level;
     const char *type_str = event_type_name(type);
     const char *level_str = (level < sizeof(EVENT_LEVELS) / sizeof(EVENT_LEVELS[0])) ? EVENT_LEVELS[level] : "??";
 
     char state_buf[32];
-    snprintf(state_buf, sizeof(state_buf), "%s (%u)", level_str, event_count);
+    snprintf(state_buf, sizeof(state_buf), "%s (%u)", level_str, rec.count);
     if (type < this->error_sensors_.size() && this->error_sensors_[type] != nullptr) {
       auto *error_sensor = this->error_sensors_[type];
       if (!error_sensor->has_state() || error_sensor->state != state_buf) {
@@ -1485,18 +1371,18 @@ void HMIBMS::handle_read_events_response_(const uint8_t *data, size_t length) {
     if (sw.latest_type < 0) {
       sw.latest_type = type;
       sw.latest_level = level;
-      sw.latest_count = event_count;
+      sw.latest_count = rec.count;
     }
     if (level > sw.highest_level) sw.highest_level = level;
     if (level < 5) {
       char event_str[64];
-      snprintf(event_str, sizeof(event_str), "%s (%u)", type_str, event_count);
+      snprintf(event_str, sizeof(event_str), "%s (%u)", type_str, rec.count);
       sw.by_level[level].push_back(event_str);
     }
   }
   sw.pages++;
 
-  if (parsed >= EVENTS_PER_FULL_REPLY && sw.pages < MAX_EVENT_PAGES) {
+  if (records.size() >= protocol::EVENTS_PER_FULL_REPLY && sw.pages < MAX_EVENT_PAGES) {
     this->request_events_(next_index);
     return;
   }
@@ -1549,22 +1435,6 @@ void HMIBMS::finish_event_sweep_() {
       this->event_history_text_sensor_->publish_state(history);
     }
   }
-}
-
-uint16_t HMIBMS::crc16_modbus_(const uint8_t *data, size_t len) {
-  // Modbus CRC16 (poly 0x8005 -> reflected 0xA001), init 0xFFFF
-  uint16_t crc = 0xFFFF;
-  for (size_t i = 0; i < len; i++) {
-    crc ^= (uint16_t)data[i];
-    for (uint8_t j = 0; j < 8; j++) {
-      if (crc & 0x0001) {
-        crc = (crc >> 1) ^ 0xA001;
-      } else {
-        crc >>= 1;
-      }
-    }
-  }
-  return crc;
 }
 
 void HMIBMS::dump_config() {

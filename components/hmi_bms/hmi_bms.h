@@ -7,6 +7,7 @@
 #include "esphome/components/number/number.h"
 #include "esphome/components/switch/switch.h"
 #include <deque>
+#include "hmi_protocol.h"
 
 namespace esphome {
 namespace hmi_bms {
@@ -256,7 +257,7 @@ class HMIBMS : public PollingComponent, public uart::UARTDevice {
   static const char *event_type_name(int type);
   // ms since the last valid frame from the BMS; UINT32_MAX before the first one
   uint32_t ms_since_rx() const { return this->last_rx_ms_ == 0 ? UINT32_MAX : millis() - this->last_rx_ms_; }
-  void set_bypass_crc(bool bypass) { bypass_crc_ = bypass; }
+  void set_bypass_crc(bool bypass) { rx_.set_bypass_crc(bypass); }
   void set_baud_rate(uint32_t baud) { baud_rate_ = baud; }
   void set_dump_raw(bool dump) { dump_raw_ = dump; }
   void set_address(uint8_t address) { address_ = address; }
@@ -303,13 +304,13 @@ class HMIBMS : public PollingComponent, public uart::UARTDevice {
   
   void send_packet_(const std::vector<uint8_t> &payload);
   
-  uint16_t crc16_modbus_(const uint8_t *data, size_t len);
 
   uint8_t address_{0x00};
   uint64_t serial_{0};
   uint32_t update_count_{0};
   uint8_t temp_poll_index_{0};
-  std::vector<uint8_t> rx_buffer_;
+  protocol::FrameParser rx_;
+  uint32_t last_crc_errors_{0};
   
   sensor::Sensor *millis_sensor_{nullptr};
   text_sensor::TextSensor *serial_text_sensor_{nullptr};
@@ -412,7 +413,6 @@ class HMIBMS : public PollingComponent, public uart::UARTDevice {
   std::vector<sensor::Sensor *> balancing_time_sensors_;
   std::vector<sensor::Sensor *> module_temperature_sensors_;
   std::vector<sensor::Sensor *> raw_temperature_sensors_;
-  bool bypass_crc_{false};
   uint32_t baud_rate_{460800};
   bool dump_raw_{false};
   bool settings_unlocked_{false};
