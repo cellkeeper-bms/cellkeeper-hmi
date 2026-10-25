@@ -1,0 +1,134 @@
+# 1024x600 UI: System (the HMI itself). Backlight brightness, Wi-Fi (set up a network, forget
+# it), reboot, and about. Updated from scripts.yaml.
+
+lvgl:
+  pages:
+    - id: system_page
+      on_load:
+        - script.execute: {id: nav_set, tab: 9}
+      on_swipe_left:
+        - lvgl.page.show: energy_page
+      on_swipe_right:
+        - lvgl.page.show: bmslog_page
+      widgets:
+        - obj:
+            styles: st_card
+            x: 16
+            y: 8
+            width: 488
+            height: 280
+            scrollable: false
+            widgets:
+              - label: {text: "DISPLAY", x: 0, y: 0, text_font: font_roboto_18, text_color: 0x8FA39A}
+              - label: {text: "Brightness", x: 0, y: 40, text_font: font_roboto_24, text_color: 0xA9B4AF}
+              - label:
+                  id: sys_bright_lbl
+                  text: "--"
+                  align: TOP_RIGHT
+                  y: 40
+                  text_font: font_roboto_24
+                  text_color: 0xF0F0F0
+              - slider:
+                  id: sys_bright
+                  x: 12
+                  y: 96
+                  width: 440
+                  height: 24
+                  min_value: 5
+                  max_value: 100
+                  value: 30
+                  bg_color: 0x26302B
+                  indicator:
+                    bg_color: 0x5EE3A8
+                  knob:
+                    bg_color: 0xF0F0F0
+                    pad_all: 8
+                  on_value:
+                    - lambda: |-
+                        id(hmi_brightness) = x / 100.0f;
+                        id(ui_bright) = id(hmi_brightness);
+                        if (!id(ui_dimmed)) {
+                          auto call = id(display_backlight).turn_on();
+                          call.set_brightness(id(hmi_brightness));
+                          call.perform();
+                        }
+                        lv_label_set_text(id(sys_bright_lbl), str_sprintf("%.0f %%", x).c_str());
+              - label:
+                  text: "Kept across reboots. After 5 minutes without a touch the screen goes back to Main v2 and dims to 10 % until touched."
+                  x: 0
+                  y: 150
+                  width: 464
+                  long_mode: WRAP
+                  text_font: font_roboto_16
+                  text_color: 0x6F7A75
+              - button:
+                  styles: st_cmd_btn
+                  x: 0
+                  y: 188
+                  width: 464
+                  height: 64
+                  widgets: [{label: {text: "Reboot HMI", align: CENTER, text_font: font_roboto_20}}]
+                  on_click: [{script.execute: {id: confirm_open, cmd: 12}}]
+
+        - obj:
+            styles: st_card
+            x: 520
+            y: 8
+            width: 488
+            height: 280
+            scrollable: false
+            widgets:
+              - label: {text: "WI-FI", x: 0, y: 0, text_font: font_roboto_18, text_color: 0x8FA39A}
+              - label:
+                  text: "Network\nIP\nSignal\nAccess point"
+                  x: 0
+                  y: 30
+                  text_font: font_roboto_20
+                  text_color: 0xA9B4AF
+              - label:
+                  id: sys_net_vals
+                  text: "--\n--\n--\n--"
+                  align: TOP_RIGHT
+                  y: 30
+                  text_align: RIGHT
+                  text_font: font_roboto_20
+                  text_color: 0xF0F0F0
+              - button:
+                  styles: st_cmd_btn
+                  x: 0
+                  y: 188
+                  width: 280
+                  height: 64
+                  widgets: [{label: {text: "Set up a network", align: CENTER, text_font: font_roboto_20}}]
+                  on_click: [{script.execute: wifi_open}]
+              - button:
+                  styles: st_cmd_btn
+                  x: 296
+                  y: 188
+                  width: 168
+                  height: 64
+                  widgets: [{label: {text: "Forget", align: CENTER, text_font: font_roboto_20}}]
+                  on_click: [{script.execute: {id: confirm_open, cmd: 11}}]
+
+        - obj:
+            styles: st_card
+            x: 16
+            y: 296
+            width: 992
+            height: 262
+            scrollable: false
+            widgets:
+              - label: {text: "ABOUT", x: 0, y: 0, text_font: font_roboto_18, text_color: 0x8FA39A}
+              - label:
+                  text: "Board revision\nBMS serial\nBMS firmware\nHMI firmware\nUptime BMS / HMI\nHMI heap free / loop time\nHMI chip temperature"
+                  x: 0
+                  y: 30
+                  text_font: font_roboto_20
+                  text_color: 0xA9B4AF
+              - label:
+                  id: sys_about_vals
+                  text: "--\n--\n--\n--\n--\n--\n--"
+                  x: 330
+                  y: 30
+                  text_font: font_roboto_20
+                  text_color: 0xF0F0F0

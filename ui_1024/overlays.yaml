@@ -1,0 +1,378 @@
+# 1024x600 UI: shared styles and the top-layer overlays (tab bar, "no BMS data" tag,
+# numeric/PIN pad, confirm dialog, event details, Wi-Fi setup). The tab bar is on every page.
+# Pages draw in y 0..562 (tab bar 566..600).
+
+lvgl:
+  style_definitions:
+    - id: st_card
+      bg_color: 0x131715
+      bg_opa: COVER
+      border_width: 1
+      border_color: 0x26302B
+      radius: 12
+      pad_all: 12
+    - id: st_card_title
+      text_font: font_roboto_20
+      text_color: 0x8FA39A
+    - id: st_value_big
+      text_font: font_roboto_32
+      text_color: 0xF0F0F0
+    - id: st_value
+      text_font: font_roboto_24
+      text_color: 0xF0F0F0
+    - id: st_label
+      text_font: font_roboto_18
+      text_color: 0xA9B4AF
+    - id: st_row
+      bg_opa: TRANSP
+      border_width: 0
+      pad_all: 0
+      radius: 0
+    - id: st_value_btn
+      bg_color: 0x22302A
+      bg_opa: COVER
+      border_width: 1
+      border_color: 0x3A4A43
+      radius: 8
+      pad_all: 0
+    - id: st_cmd_btn
+      bg_color: 0x22302A
+      bg_opa: COVER
+      border_width: 1
+      border_color: 0x3A4A43
+      radius: 10
+      text_font: font_roboto_20
+      text_color: 0xF0F0F0
+
+  top_layer:
+    widgets:
+      # ---------------- Tab bar (every page, 34 px) ----------------
+      - obj:
+          id: ui_tabbar
+          x: 0
+          y: 566
+          width: 1024
+          height: 34
+          scrollable: false
+          radius: 0
+          pad_all: 0
+          border_width: 0
+          bg_color: 0x0B0D0C
+          bg_opa: COVER
+          widgets:
+            - button: {id: tab_btn_0, x: 0, y: 0, width: 102, height: 34, radius: 0, border_width: 0, shadow_width: 0, bg_color: 0x0B0D0C, widgets: [{label: {text: "Main", align: CENTER, text_font: font_roboto_18}}], on_click: [{lvgl.page.show: energy_page}]}
+            - button: {id: tab_btn_1, x: 102, y: 0, width: 102, height: 34, radius: 0, border_width: 0, shadow_width: 0, bg_color: 0x0B0D0C, widgets: [{label: {text: "Main v2", align: CENTER, text_font: font_roboto_18}}], on_click: [{lvgl.page.show: main_v2_page}]}
+            - button: {id: tab_btn_2, x: 204, y: 0, width: 103, height: 34, radius: 0, border_width: 0, shadow_width: 0, bg_color: 0x0B0D0C, widgets: [{label: {text: "Control", align: CENTER, text_font: font_roboto_18}}], on_click: [{lvgl.page.show: control_page}]}
+            - button: {id: tab_btn_3, x: 307, y: 0, width: 102, height: 34, radius: 0, border_width: 0, shadow_width: 0, bg_color: 0x0B0D0C, widgets: [{label: {text: "Cells", align: CENTER, text_font: font_roboto_18}}], on_click: [{lvgl.page.show: cells_page}]}
+            - button: {id: tab_btn_4, x: 409, y: 0, width: 103, height: 34, radius: 0, border_width: 0, shadow_width: 0, bg_color: 0x0B0D0C, widgets: [{label: {text: "Power", align: CENTER, text_font: font_roboto_18}}], on_click: [{lvgl.page.show: power_page}]}
+            - button: {id: tab_btn_5, x: 512, y: 0, width: 102, height: 34, radius: 0, border_width: 0, shadow_width: 0, bg_color: 0x0B0D0C, widgets: [{label: {text: "Health", align: CENTER, text_font: font_roboto_18}}], on_click: [{lvgl.page.show: health_page}]}
+            - button: {id: tab_btn_6, x: 614, y: 0, width: 102, height: 34, radius: 0, border_width: 0, shadow_width: 0, bg_color: 0x0B0D0C, widgets: [{label: {text: "Events", align: CENTER, text_font: font_roboto_18}}], on_click: [{lvgl.page.show: events_page}]}
+            - button: {id: tab_btn_7, x: 716, y: 0, width: 103, height: 34, radius: 0, border_width: 0, shadow_width: 0, bg_color: 0x0B0D0C, widgets: [{label: {text: "Settings", align: CENTER, text_font: font_roboto_18}}], on_click: [{lvgl.page.show: settings_page}]}
+            - button: {id: tab_btn_8, x: 819, y: 0, width: 102, height: 34, radius: 0, border_width: 0, shadow_width: 0, bg_color: 0x0B0D0C, widgets: [{label: {text: "Log", align: CENTER, text_font: font_roboto_18}}], on_click: [{lvgl.page.show: bmslog_page}]}
+            - button: {id: tab_btn_9, x: 921, y: 0, width: 103, height: 34, radius: 0, border_width: 0, shadow_width: 0, bg_color: 0x0B0D0C, widgets: [{label: {text: "System", align: CENTER, text_font: font_roboto_18}}], on_click: [{lvgl.page.show: system_page}]}
+
+      # ---------------- "No BMS data" tag (no reply for 5 s; not on the classic main) ----------------
+      - obj:
+          id: ui_stale
+          align: TOP_MID
+          y: 6
+          width: 240
+          height: 36
+          hidden: true
+          scrollable: false
+          clickable: false
+          radius: 18
+          pad_all: 0
+          border_width: 0
+          bg_color: 0xB71C1C
+          bg_opa: COVER
+          widgets:
+            - label: {text: "NO BMS DATA", align: CENTER, text_font: font_roboto_20, text_color: 0xFFFFFF}
+
+      # ---------------- Numeric pad (settings values and PIN entry) ----------------
+      - obj:
+          id: pad_overlay
+          x: 0
+          y: 0
+          width: 100%
+          height: 100%
+          hidden: true
+          scrollable: false
+          border_width: 0
+          radius: 0
+          pad_all: 0
+          bg_color: 0x000000
+          bg_opa: 60%
+          widgets:
+            - obj:
+                align: CENTER
+                width: 480
+                height: 410
+                scrollable: false
+                bg_color: 0x1A1A1A
+                bg_opa: 100%
+                border_width: 2
+                border_color: 0x555555
+                radius: 8
+                pad_all: 0
+                widgets:
+                  - label:
+                      id: pad_title
+                      text: "Setting"
+                      align: TOP_MID
+                      y: 12
+                      width: 460
+                      long_mode: DOT
+                      text_align: CENTER
+                      text_font: font_roboto_20
+                      text_color: 0xAAAAAA
+                  - label:
+                      id: pad_value_lbl
+                      text: " "
+                      align: TOP_MID
+                      y: 44
+                      text_font: font_roboto_40
+                      text_color: 0xFFD54A
+                  - button: {x: 24,  y: 110, width: 100, height: 62, widgets: [{label: {text: "7", align: CENTER, text_font: font_roboto_40}}], on_click: [{script.execute: {id: pad_key, key: "7"}}]}
+                  - button: {x: 138, y: 110, width: 100, height: 62, widgets: [{label: {text: "8", align: CENTER, text_font: font_roboto_40}}], on_click: [{script.execute: {id: pad_key, key: "8"}}]}
+                  - button: {x: 252, y: 110, width: 100, height: 62, widgets: [{label: {text: "9", align: CENTER, text_font: font_roboto_40}}], on_click: [{script.execute: {id: pad_key, key: "9"}}]}
+                  - button: {x: 366, y: 110, width: 100, height: 62, widgets: [{label: {text: "DEL", align: CENTER, text_font: font_roboto_20}}], on_click: [{script.execute: {id: pad_key, key: "D"}}]}
+                  - button: {x: 24,  y: 180, width: 100, height: 62, widgets: [{label: {text: "4", align: CENTER, text_font: font_roboto_40}}], on_click: [{script.execute: {id: pad_key, key: "4"}}]}
+                  - button: {x: 138, y: 180, width: 100, height: 62, widgets: [{label: {text: "5", align: CENTER, text_font: font_roboto_40}}], on_click: [{script.execute: {id: pad_key, key: "5"}}]}
+                  - button: {x: 252, y: 180, width: 100, height: 62, widgets: [{label: {text: "6", align: CENTER, text_font: font_roboto_40}}], on_click: [{script.execute: {id: pad_key, key: "6"}}]}
+                  - button: {x: 366, y: 180, width: 100, height: 62, widgets: [{label: {text: "+/-", align: CENTER, text_font: font_roboto_40}}], on_click: [{script.execute: {id: pad_key, key: "S"}}]}
+                  - button: {x: 24,  y: 250, width: 100, height: 62, widgets: [{label: {text: "1", align: CENTER, text_font: font_roboto_40}}], on_click: [{script.execute: {id: pad_key, key: "1"}}]}
+                  - button: {x: 138, y: 250, width: 100, height: 62, widgets: [{label: {text: "2", align: CENTER, text_font: font_roboto_40}}], on_click: [{script.execute: {id: pad_key, key: "2"}}]}
+                  - button: {x: 252, y: 250, width: 100, height: 62, widgets: [{label: {text: "3", align: CENTER, text_font: font_roboto_40}}], on_click: [{script.execute: {id: pad_key, key: "3"}}]}
+                  - button: {x: 366, y: 250, width: 100, height: 62, bg_color: 0x8B1A1A, widgets: [{label: {text: "CANCEL", align: CENTER, text_font: font_roboto_20}}], on_click: [{script.execute: {id: pad_cancel}}]}
+                  - button: {x: 24,  y: 320, width: 100, height: 62, widgets: [{label: {text: ".", align: CENTER, text_font: font_roboto_40}}], on_click: [{script.execute: {id: pad_key, key: "."}}]}
+                  - button: {x: 138, y: 320, width: 100, height: 62, widgets: [{label: {text: "0", align: CENTER, text_font: font_roboto_40}}], on_click: [{script.execute: {id: pad_key, key: "0"}}]}
+                  - button: {x: 252, y: 320, width: 214, height: 62, bg_color: 0x2E7D32, widgets: [{label: {text: "OK", align: CENTER, text_font: font_roboto_40}}], on_click: [{script.execute: {id: pad_ok}}]}
+
+      # ---------------- Confirm dialog (commands) ----------------
+      - obj:
+          id: confirm_overlay
+          x: 0
+          y: 0
+          width: 100%
+          height: 100%
+          hidden: true
+          scrollable: false
+          border_width: 0
+          radius: 0
+          pad_all: 0
+          bg_color: 0x000000
+          bg_opa: 60%
+          widgets:
+            - obj:
+                align: CENTER
+                width: 560
+                height: 270
+                scrollable: false
+                bg_color: 0x1A1A1A
+                bg_opa: 100%
+                border_width: 2
+                border_color: 0x555555
+                radius: 12
+                pad_all: 0
+                widgets:
+                  - label:
+                      id: confirm_title
+                      text: "Confirm"
+                      align: TOP_MID
+                      y: 20
+                      text_font: font_roboto_28
+                      text_color: 0xF0F0F0
+                  - label:
+                      id: confirm_text
+                      text: " "
+                      align: TOP_MID
+                      y: 70
+                      width: 500
+                      long_mode: WRAP
+                      text_align: CENTER
+                      text_font: font_roboto_20
+                      text_color: 0xA9B4AF
+                  - button:
+                      x: 30
+                      y: 178
+                      width: 230
+                      height: 66
+                      bg_color: 0x3A3A3A
+                      widgets: [{label: {text: "CANCEL", align: CENTER, text_font: font_roboto_24}}]
+                      on_click: [{script.execute: confirm_cancel}]
+                  - button:
+                      id: confirm_ok_btn
+                      x: 300
+                      y: 178
+                      width: 230
+                      height: 66
+                      bg_color: 0x8B1A1A
+                      widgets: [{label: {id: confirm_ok_lbl, text: "CONFIRM", align: CENTER, text_font: font_roboto_24}}]
+                      on_click: [{script.execute: confirm_ok}]
+
+      # ---------------- Event details pop-up ----------------
+      - obj:
+          id: event_popup
+          x: 0
+          y: 0
+          width: 100%
+          height: 100%
+          hidden: true
+          scrollable: false
+          border_width: 0
+          radius: 0
+          pad_all: 0
+          bg_color: 0x000000
+          bg_opa: 60%
+          on_click: [{lvgl.widget.hide: event_popup}]
+          widgets:
+            - obj:
+                id: event_popup_box
+                align: CENTER
+                width: 620
+                height: 280
+                scrollable: false
+                clickable: false
+                bg_color: 0x1A1A1A
+                bg_opa: 100%
+                border_width: 3
+                border_color: 0x555555
+                radius: 12
+                pad_all: 0
+                widgets:
+                  - label:
+                      id: event_popup_title
+                      text: " "
+                      align: TOP_MID
+                      y: 24
+                      text_font: font_roboto_28
+                      text_color: 0xF0F0F0
+                  - label:
+                      id: event_popup_text
+                      text: " "
+                      align: TOP_MID
+                      y: 76
+                      width: 560
+                      long_mode: WRAP
+                      text_align: CENTER
+                      text_font: font_roboto_20
+                      text_color: 0xA9B4AF
+                  - label:
+                      text: "Tap anywhere to close"
+                      align: BOTTOM_MID
+                      y: -16
+                      text_font: font_roboto_16
+                      text_color: 0x6F7A75
+
+      # ---------------- Wi-Fi setup (System page, after the PIN) ----------------
+      - obj:
+          id: wifi_overlay
+          x: 0
+          y: 0
+          width: 100%
+          height: 100%
+          hidden: true
+          scrollable: false
+          border_width: 0
+          radius: 0
+          pad_all: 0
+          bg_color: 0x0B0D0C
+          bg_opa: COVER
+          widgets:
+            - label: {text: "WI-FI NETWORK", x: 16, y: 12, text_font: font_roboto_20, text_color: 0x8FA39A}
+            - label: {text: "Networks seen at the last scan - tap one", x: 16, y: 40, text_font: font_roboto_16, text_color: 0x6F7A75}
+            - obj:
+                id: wf_list
+                x: 16
+                y: 64
+                width: 300
+                height: 224
+                radius: 8
+                pad_all: 6
+                border_width: 1
+                border_color: 0x26302B
+                bg_color: 0x131715
+                scrollable: true
+                scroll_dir: VER
+                layout:
+                  type: FLEX
+                  flex_flow: COLUMN
+                  pad_row: 4
+                widgets:
+                  - label: {text: " ", text_font: font_roboto_16}
+            - label: {text: "Network name (SSID)", x: 332, y: 40, text_font: font_roboto_18, text_color: 0xA9B4AF}
+            - textarea:
+                id: wf_ssid
+                x: 332
+                y: 64
+                width: 676
+                height: 52
+                one_line: true
+                max_length: 32
+                placeholder_text: "Network name"
+                text_font: font_roboto_24
+                on_click:
+                  - lambda: lv_keyboard_set_textarea(id(wf_kb)->obj, id(wf_ssid));
+            - label: {text: "Password", x: 332, y: 124, text_font: font_roboto_18, text_color: 0xA9B4AF}
+            - textarea:
+                id: wf_pass
+                x: 332
+                y: 148
+                width: 540
+                height: 52
+                one_line: true
+                password_mode: true
+                max_length: 64
+                placeholder_text: "Password"
+                text_font: font_roboto_24
+                on_click:
+                  - lambda: lv_keyboard_set_textarea(id(wf_kb)->obj, id(wf_pass));
+            - button:
+                styles: st_cmd_btn
+                x: 884
+                y: 148
+                width: 124
+                height: 52
+                widgets: [{label: {id: wf_show_lbl, text: "Show", align: CENTER, text_font: font_roboto_20}}]
+                on_click:
+                  - lambda: |-
+                      bool hidden = lv_textarea_get_password_mode(id(wf_pass));
+                      lv_textarea_set_password_mode(id(wf_pass), !hidden);
+                      lv_label_set_text(id(wf_show_lbl), hidden ? "Hide" : "Show");
+            - label:
+                id: wf_status
+                text: "Saving reboots the HMI to connect to the new network."
+                x: 332
+                y: 216
+                width: 360
+                long_mode: WRAP
+                text_font: font_roboto_16
+                text_color: 0xA9B4AF
+            - button:
+                styles: st_cmd_btn
+                x: 708
+                y: 216
+                width: 140
+                height: 64
+                widgets: [{label: {text: "Cancel", align: CENTER, text_font: font_roboto_20}}]
+                on_click:
+                  - lvgl.widget.hide: wifi_overlay
+            - button:
+                styles: st_cmd_btn
+                x: 860
+                y: 216
+                width: 148
+                height: 64
+                bg_color: 0x2E7D32
+                widgets: [{label: {text: "Save", align: CENTER, text_font: font_roboto_24}}]
+                on_click:
+                  - script.execute: wifi_save
+            - keyboard:
+                id: wf_kb
+                textarea: wf_ssid
+                x: 0
+                y: 296
+                width: 1024
+                height: 304
+                text_font: montserrat_24

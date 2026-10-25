@@ -1,0 +1,156 @@
+# 1024x600 UI: Health. Isolation, supplies, temperatures and
+# the BMS / contactor states. Updated from scripts.yaml.
+
+lvgl:
+  pages:
+    - id: health_page
+      on_load:
+        - script.execute: {id: nav_set, tab: 5}
+      on_swipe_left:
+        - lvgl.page.show: events_page
+      on_swipe_right:
+        - lvgl.page.show: power_page
+      widgets:
+        - obj:
+            styles: st_card
+            x: 16
+            y: 8
+            width: 320
+            height: 550
+            scrollable: false
+            widgets:
+              - label: {text: "ISOLATION", x: 0, y: 0, text_font: font_roboto_20, text_color: 0x8FA39A}
+              - label:
+                  id: hl_riso
+                  text: "--"
+                  x: 0
+                  y: 34
+                  text_font: font_roboto_48
+                  text_color: 0xF0F0F0
+              - label:
+                  id: hl_riso_sub
+                  text: "resistance"
+                  x: 0
+                  y: 92
+                  text_font: font_roboto_18
+                  text_color: 0xA9B4AF
+              - label:
+                  text: "Pack + to chassis\nPack - to chassis\nLast open-contactor check"
+                  x: 0
+                  y: 130
+                  text_font: font_roboto_18
+                  text_color: 0xA9B4AF
+              - label:
+                  id: hl_iso_vals
+                  text: "--\n--\n--"
+                  align: TOP_RIGHT
+                  y: 130
+                  text_align: RIGHT
+                  text_font: font_roboto_18
+                  text_color: 0xF0F0F0
+              - label:
+                  text: "Resistance is measured with the contactors open; while they are closed it shows the last open reading."
+                  x: 0
+                  y: 214
+                  width: 296
+                  long_mode: WRAP
+                  text_font: font_roboto_16
+                  text_color: 0x6F7A75
+              - label:
+                  text: "Calibrate isolation zero is on the Control page."
+                  x: 0
+                  y: 300
+                  width: 296
+                  long_mode: WRAP
+                  text_font: font_roboto_16
+                  text_color: 0x6F7A75
+
+        - obj:
+            styles: st_card
+            x: 352
+            y: 8
+            width: 320
+            height: 550
+            scrollable: false
+            widgets:
+              - label: {text: "SUPPLIES", x: 0, y: 0, text_font: font_roboto_20, text_color: 0x8FA39A}
+              - label:
+                  text: "3.3 V rail\n5 V rail\n12 V rail\nContactor supply"
+                  x: 0
+                  y: 34
+                  text_font: font_roboto_24
+                  text_color: 0xA9B4AF
+              - label:
+                  id: hl_sup_vals
+                  text: "--\n--\n--\n--"
+                  align: TOP_RIGHT
+                  y: 34
+                  text_align: RIGHT
+                  text_font: font_roboto_24
+                  text_color: 0xF0F0F0
+              - label: {text: "STATE", x: 0, y: 190, text_font: font_roboto_20, text_color: 0x8FA39A}
+              - label:
+                  text: "BMS\nContactors\nRequest\nContactor + / -"
+                  x: 0
+                  y: 224
+                  text_font: font_roboto_24
+                  text_color: 0xA9B4AF
+              - label:
+                  id: hl_state_vals
+                  text: "--\n--\n--\n--"
+                  align: TOP_RIGHT
+                  y: 224
+                  text_align: RIGHT
+                  text_font: font_roboto_24
+                  text_color: 0xF0F0F0
+
+        - obj:
+            styles: st_card
+            x: 688
+            y: 8
+            width: 320
+            height: 550
+            scrollable: false
+            widgets:
+              - label: {text: "TEMPERATURES", x: 0, y: 0, text_font: font_roboto_20, text_color: 0x8FA39A}
+              - label:
+                  text: "Modules min / max\nBMS chip\nShunt die\nShunt NTC\nHMI chip"
+                  x: 0
+                  y: 34
+                  text_font: font_roboto_24
+                  text_color: 0xA9B4AF
+              - label:
+                  id: hl_temp_vals
+                  text: "--\n--\n--\n--\n--"
+                  align: TOP_RIGHT
+                  y: 34
+                  text_align: RIGHT
+                  text_font: font_roboto_24
+                  text_color: 0xF0F0F0
+              - label: {text: "MODULES", x: 0, y: 220, text_font: font_roboto_20, text_color: 0x8FA39A}
+              - label:
+                  text: "1\n2\n3\n4"
+                  x: 0
+                  y: 254
+                  text_font: font_roboto_24
+                  text_color: 0x6F7A75
+              - label:
+                  id: hl_mod_a
+                  text: "--\n--\n--\n--"
+                  x: 30
+                  y: 254
+                  text_font: font_roboto_24
+                  text_color: 0xF0F0F0
+              - label:
+                  text: "5\n6\n7\n8"
+                  x: 150
+                  y: 254
+                  text_font: font_roboto_24
+                  text_color: 0x6F7A75
+              - label:
+                  id: hl_mod_b
+                  text: "--\n--\n--\n--"
+                  x: 180
+                  y: 254
+                  text_font: font_roboto_24
+                  text_color: 0xF0F0F0

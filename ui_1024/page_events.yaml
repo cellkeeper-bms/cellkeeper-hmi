@@ -1,0 +1,40 @@
+# 1024x600 UI: Events, as in the HA dashboard's Event view. Active events (coloured by
+# severity), previously active (purple, with counts) and all event types grouped by
+# severity. The tiles are built in scripts.yaml whenever an event state changes; tap one
+# for details.
+
+lvgl:
+  pages:
+    - id: events_page
+      on_load:
+        - script.execute: {id: nav_set, tab: 6}
+      on_swipe_left:
+        - lvgl.page.show: settings_page
+      on_swipe_right:
+        - lvgl.page.show: health_page
+      widgets:
+        - obj:
+            id: ev_list
+            x: 0
+            y: 0
+            width: 1024
+            height: 566
+            radius: 0
+            border_width: 0
+            bg_opa: TRANSP
+            pad_left: 16
+            pad_right: 16
+            pad_top: 8
+            pad_bottom: 12
+            scrollable: true
+            scroll_dir: VER
+            layout:
+              type: FLEX
+              flex_flow: ROW_WRAP
+              pad_row: 8
+              pad_column: 8
+            widgets:
+              - label:
+                  text: "Waiting for BMS events..."
+                  text_font: font_roboto_20
+                  text_color: 0x8FA39A

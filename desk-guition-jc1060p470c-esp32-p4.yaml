@@ -17,9 +17,11 @@ esphome:
           id: display_backlight
           brightness: 30%
 
+substitutions:
+  hmi_pin: !secret hmi_pin  # 4-digit PIN for Settings and System commands
+
 packages:
   core: !include bms_core.yaml
-  ui: !include bms_ui_scripts.yaml
   hardware: !include hardware_guition_jc1060p470-usb.yaml
 
 web_server:

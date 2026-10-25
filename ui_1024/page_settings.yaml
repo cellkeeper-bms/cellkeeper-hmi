@@ -1,0 +1,119 @@
+# 1024x600 UI: Settings. One lock for the page (unlocking needs the PIN); cards for charge
+# limits, SoC, balancing and balance charge. The rows (name, value button) are created in
+# scripts.yaml; a tap opens the numeric pad with the setting's unit and range.
+
+lvgl:
+  pages:
+    - id: settings_page
+      on_load:
+        - script.execute: {id: nav_set, tab: 7}
+      on_swipe_left:
+        - lvgl.page.show: bmslog_page
+      on_swipe_right:
+        - lvgl.page.show: events_page
+      widgets:
+        - obj:
+            id: set_list
+            x: 0
+            y: 0
+            width: 1024
+            height: 566
+            radius: 0
+            border_width: 0
+            bg_opa: TRANSP
+            pad_left: 16
+            pad_right: 16
+            pad_top: 8
+            pad_bottom: 12
+            scrollable: true
+            scroll_dir: VER
+            layout:
+              type: FLEX
+              flex_flow: ROW_WRAP
+              pad_row: 12
+              pad_column: 16
+            widgets:
+              # Lock row
+              - obj:
+                  width: 992
+                  height: 72
+                  radius: 0
+                  pad_all: 0
+                  border_width: 0
+                  bg_opa: TRANSP
+                  scrollable: false
+                  widgets:
+                    - button:
+                        id: set_lock_btn
+                        x: 0
+                        align: LEFT_MID
+                        width: 220
+                        height: 64
+                        radius: 10
+                        bg_color: 0x8B1A1A
+                        widgets:
+                          - label: {id: set_lock_lbl, text: "UNLOCK", align: CENTER, text_font: font_roboto_24}
+                        on_click:
+                          - script.execute: settings_lock_toggle
+                    - label:
+                        id: label_settings_status
+                        text: " "
+                        x: 240
+                        y: 8
+                        text_font: font_roboto_20
+                        text_color: 0xF0F0F0
+                    - label:
+                        text: "Tap a value to change it. Values show what the BMS has confirmed."
+                        x: 240
+                        y: 38
+                        text_font: font_roboto_16
+                        text_color: 0x6F7A75
+
+              - obj:
+                  id: set_card_lim
+                  styles: st_card
+                  width: 488
+                  height: SIZE_CONTENT
+                  scrollable: false
+                  layout:
+                    type: FLEX
+                    flex_flow: COLUMN
+                    pad_row: 6
+                  widgets:
+                    - label: {text: "CHARGE AND VOLTAGE LIMITS", text_font: font_roboto_18, text_color: 0x8FA39A}
+              - obj:
+                  id: set_card_soc
+                  styles: st_card
+                  width: 488
+                  height: SIZE_CONTENT
+                  scrollable: false
+                  layout:
+                    type: FLEX
+                    flex_flow: COLUMN
+                    pad_row: 6
+                  widgets:
+                    - label: {text: "STATE OF CHARGE", text_font: font_roboto_18, text_color: 0x8FA39A}
+              - obj:
+                  id: set_card_bal
+                  styles: st_card
+                  width: 488
+                  height: SIZE_CONTENT
+                  scrollable: false
+                  layout:
+                    type: FLEX
+                    flex_flow: COLUMN
+                    pad_row: 6
+                  widgets:
+                    - label: {text: "BALANCING", text_font: font_roboto_18, text_color: 0x8FA39A}
+              - obj:
+                  id: set_card_bc
+                  styles: st_card
+                  width: 488
+                  height: SIZE_CONTENT
+                  scrollable: false
+                  layout:
+                    type: FLEX
+                    flex_flow: COLUMN
+                    pad_row: 6
+                  widgets:
+                    - label: {text: "BALANCE CHARGE (HMI schedule)", text_font: font_roboto_18, text_color: 0x8FA39A}

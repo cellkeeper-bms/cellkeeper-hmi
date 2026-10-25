@@ -1,0 +1,84 @@
+# 1024x600 UI: Cells. Summary row, the per-cell bar chart (bars coloured low to high,
+# balancing timers in orange / yellow) and the module temperatures. Drawn from scripts.yaml.
+
+lvgl:
+  pages:
+    - id: cells_page
+      on_load:
+        - script.execute: {id: nav_set, tab: 3}
+      on_swipe_left:
+        - lvgl.page.show: power_page
+      on_swipe_right:
+        - lvgl.page.show: control_page
+      widgets:
+        - obj:
+            styles: st_card
+            x: 16
+            y: 8
+            width: 992
+            height: 88
+            scrollable: false
+            widgets:
+              - label: {text: "MIN",        x: 0,   y: 0, text_font: font_roboto_16, text_color: 0x8FA39A}
+              - label: {text: "AVG",        x: 140, y: 0, text_font: font_roboto_16, text_color: 0x8FA39A}
+              - label: {text: "MAX",        x: 280, y: 0, text_font: font_roboto_16, text_color: 0x8FA39A}
+              - label: {text: "DELTA",      x: 420, y: 0, text_font: font_roboto_16, text_color: 0x8FA39A}
+              - label: {text: "CELLS",      x: 550, y: 0, text_font: font_roboto_16, text_color: 0x8FA39A}
+              - label: {text: "BALANCING",  x: 650, y: 0, text_font: font_roboto_16, text_color: 0x8FA39A}
+              - label: {text: "CYCLE LEFT", x: 820, y: 0, text_font: font_roboto_16, text_color: 0x8FA39A}
+              - label: {id: cells_min,   text: "--", x: 0,   y: 24, text_font: font_roboto_32, text_color: 0xF0F0F0}
+              - label: {id: cells_avg,   text: "--", x: 140, y: 24, text_font: font_roboto_32, text_color: 0xF0F0F0}
+              - label: {id: cells_max,   text: "--", x: 280, y: 24, text_font: font_roboto_32, text_color: 0xF0F0F0}
+              - label: {id: cells_delta, text: "--", x: 420, y: 24, text_font: font_roboto_32, text_color: 0xF0F0F0}
+              - label: {id: label_cell_count, text: "--", x: 550, y: 24, text_font: font_roboto_32, text_color: 0xF0F0F0}
+              - label: {id: cells_bal,   text: "--", x: 650, y: 24, text_font: font_roboto_32, text_color: 0xF0F0F0}
+              - label: {id: label_balance_remaining, text: "--", x: 820, y: 24, text_font: font_roboto_32, text_color: 0xFDD835}
+
+        - obj:
+            styles: st_card
+            x: 16
+            y: 104
+            width: 992
+            height: 454
+            scrollable: false
+            widgets:
+              - label: {text: "CELL VOLTAGES", x: 0, y: 0, text_font: font_roboto_18, text_color: 0x8FA39A}
+              - label: {text: "BALANCING NOW", x: 200, y: 0, text_font: font_roboto_18, text_color: 0xFF9800}
+              - label: {text: "QUEUED", x: 370, y: 0, text_font: font_roboto_18, text_color: 0xFDD835}
+              - label:
+                  id: cells_bc
+                  text: " "
+                  align: TOP_RIGHT
+                  y: 0
+                  text_font: font_roboto_18
+                  text_color: 0xA9B4AF
+
+              # Scale lines at the top, middle and bottom of the chart
+              - line: {x: 90, y: 30,  width: 878, height: 1, line_width: 1, line_color: 0x224444, points: ["0, 0", "878, 0"]}
+              - line: {x: 90, y: 198, width: 878, height: 1, line_width: 1, line_color: 0x224444, points: ["0, 0", "878, 0"]}
+              - label: {id: label_cell_scale_max, text: "--", x: 0, y: 20,  text_font: font_roboto_18, text_color: 0x66CCFF}
+              - label: {id: label_cell_scale_mid, text: "--", x: 0, y: 188, text_font: font_roboto_18, text_color: 0x66CCFF}
+              - label: {id: label_cell_scale_min, text: "--", x: 0, y: 356, text_font: font_roboto_18, text_color: 0x66CCFF}
+
+              # Bar container + baseline; the bars are child rectangles drawn from scripts.yaml.
+              - line:
+                  id: cell_line_chart
+                  x: 90
+                  y: 30
+                  width: 878
+                  height: 336
+                  line_width: 2
+                  line_color: 0x444444
+                  points:
+                    - 0, 336
+                    - 878, 336
+
+              - label: {text: "MODULES", x: 0, y: 388, text_font: font_roboto_18, text_color: 0x8FA39A}
+              - label: {id: cells_mod_1, text: "--", x: 110, y: 382, text_font: font_roboto_24, text_color: 0xF0F0F0}
+              - label: {id: cells_mod_2, text: "--", x: 220, y: 382, text_font: font_roboto_24, text_color: 0xF0F0F0}
+              - label: {id: cells_mod_3, text: "--", x: 330, y: 382, text_font: font_roboto_24, text_color: 0xF0F0F0}
+              - label: {id: cells_mod_4, text: "--", x: 440, y: 382, text_font: font_roboto_24, text_color: 0xF0F0F0}
+              - label: {id: cells_mod_5, text: "--", x: 550, y: 382, text_font: font_roboto_24, text_color: 0xF0F0F0}
+              - label: {id: cells_mod_6, text: "--", x: 660, y: 382, text_font: font_roboto_24, text_color: 0xF0F0F0}
+              - label: {id: cells_mod_7, text: "--", x: 770, y: 382, text_font: font_roboto_24, text_color: 0xF0F0F0}
+              - label: {id: cells_mod_8, text: "--", x: 880, y: 382, text_font: font_roboto_24, text_color: 0xF0F0F0}

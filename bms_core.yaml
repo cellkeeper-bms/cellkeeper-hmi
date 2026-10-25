@@ -33,14 +33,18 @@ sensor:
     update_interval: 5s
 
   - platform: internal_temperature
+    id: hmi_internal_temp
     name: "Internal Temperature"
 
   - platform: debug
     free:
+      id: heap_free_sensor
       name: "Heap Free"
     block:
+      id: heap_block_sensor
       name: "Heap Max Block"
     loop_time:
+      id: loop_time_sensor
       name: "Loop Time"
 
   - platform: hmi_bms
@@ -145,10 +149,13 @@ sensor:
     # Isolation monitor, calculated on the BMS (registers 62-65). Isolation Resistance
     # is live with the contactors open, otherwise the last open reading (see its age).
     pack_pos_to_chassis:
+      id: pack_pos_chassis
       name: "Pack Pos to Chassis"
     pack_neg_to_chassis:
+      id: pack_neg_chassis
       name: "Pack Neg to Chassis"
     isolation_resistance:
+      id: iso_resistance
       name: "Isolation Resistance"
       unit_of_measurement: "MΩ"
       icon: mdi:shield-check-outline
@@ -158,15 +165,19 @@ sensor:
       name: "Board Strap Counts"
       entity_category: diagnostic
     bms_chip_temperature:
+      id: bms_chip_temp
       name: "BMS Chip Temperature"
       entity_category: diagnostic
     shunt_die_temperature:
+      id: shunt_die_temp
       name: "Shunt Die Temperature"
       entity_category: diagnostic
     shunt_ntc_temperature:
+      id: shunt_ntc_temp
       name: "Shunt NTC Temperature"
       entity_category: diagnostic
     isolation_check_age:
+      id: iso_check_age
       name: "Isolation Check Age"
       icon: mdi:timer-sand
     cell_voltage_delta:
@@ -853,6 +864,7 @@ text_sensor:
       id: wifi_ip_sensor
       name: "WiFi IP"
     bssid:
+      id: wifi_bssid_sensor
       name: "BSSID"
 
   - platform: hmi_bms
@@ -860,13 +872,16 @@ text_sensor:
       id: serial
       name: "Serial"
     board_revision:
+      id: board_revision_ts
       name: "Board Revision"
       entity_category: diagnostic
     bms_firmware:
+      id: bms_fw_ts
       name: "BMS Firmware"
       icon: mdi:chip
       entity_category: diagnostic
     hmi_firmware:
+      id: hmi_fw_ts
       name: "HMI Firmware"
       icon: mdi:monitor-dashboard
       entity_category: diagnostic

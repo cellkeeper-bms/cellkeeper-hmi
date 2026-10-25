@@ -4,3 +4,4 @@
 /.esphome/
 /secrets.yaml
 /temp_bmstest1
+__pycache__/

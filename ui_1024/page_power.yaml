@@ -1,0 +1,112 @@
+# 1024x600 UI: Power. The current-limit breakdown (rows built in scripts.yaml), what the
+# inverter is sent, the voltages, the SoC estimators and today's energy.
+
+lvgl:
+  pages:
+    - id: power_page
+      on_load:
+        - script.execute: {id: nav_set, tab: 4}
+      on_swipe_left:
+        - lvgl.page.show: health_page
+      on_swipe_right:
+        - lvgl.page.show: cells_page
+      widgets:
+        - obj:
+            styles: st_card
+            x: 16
+            y: 8
+            width: 560
+            height: 550
+            scrollable: false
+            widgets:
+              - label: {text: "CURRENT LIMITS", x: 0, y: 0, text_font: font_roboto_20, text_color: 0x8FA39A}
+              - label:
+                  text: "the lowest limit is in force (highlighted)"
+                  align: TOP_RIGHT
+                  y: 2
+                  text_font: font_roboto_16
+                  text_color: 0x6F7A75
+              # Rows are created by scripts.yaml
+              - obj:
+                  id: pw_limits_box
+                  x: 0
+                  y: 32
+                  width: 536
+                  height: 418
+                  radius: 0
+                  pad_all: 0
+                  border_width: 0
+                  bg_opa: TRANSP
+                  scrollable: false
+
+        - obj:
+            styles: st_card
+            x: 592
+            y: 8
+            width: 416
+            height: 168
+            scrollable: false
+            widgets:
+              - label: {text: "SENT TO THE INVERTER", x: 0, y: 0, text_font: font_roboto_18, text_color: 0x8FA39A}
+              - label:
+                  text: "SoC\nCapacity full / left\nVoltage max / min\nCharge / discharge"
+                  x: 0
+                  y: 28
+                  text_font: font_roboto_18
+                  text_color: 0xA9B4AF
+              - label:
+                  id: pw_inv_vals
+                  text: "--\n--\n--\n--"
+                  align: TOP_RIGHT
+                  y: 28
+                  text_align: RIGHT
+                  text_font: font_roboto_18
+                  text_color: 0xF0F0F0
+
+        - obj:
+            styles: st_card
+            x: 592
+            y: 184
+            width: 416
+            height: 184
+            scrollable: false
+            widgets:
+              - label: {text: "VOLTAGES", x: 0, y: 0, text_font: font_roboto_18, text_color: 0x8FA39A}
+              - label:
+                  text: "Pack (internal)\nOutput\nSum of modules\nContactor + / -"
+                  x: 0
+                  y: 28
+                  text_font: font_roboto_18
+                  text_color: 0xA9B4AF
+              - label:
+                  id: pw_volt_vals
+                  text: "--\n--\n--\n--"
+                  align: TOP_RIGHT
+                  y: 28
+                  text_align: RIGHT
+                  text_font: font_roboto_18
+                  text_color: 0xF0F0F0
+
+        - obj:
+            styles: st_card
+            x: 592
+            y: 376
+            width: 416
+            height: 182
+            scrollable: false
+            widgets:
+              - label: {text: "SOC AND ENERGY", x: 0, y: 0, text_font: font_roboto_18, text_color: 0x8FA39A}
+              - label:
+                  text: "SoC EKF / voltage / count\nCapacity / charge counter\nToday in / out\nToday net"
+                  x: 0
+                  y: 28
+                  text_font: font_roboto_18
+                  text_color: 0xA9B4AF
+              - label:
+                  id: pw_soc_vals
+                  text: "--\n--\n--\n--"
+                  align: TOP_RIGHT
+                  y: 28
+                  text_align: RIGHT
+                  text_font: font_roboto_18
+                  text_color: 0xF0F0F0
