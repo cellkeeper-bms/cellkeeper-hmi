@@ -1,6 +1,7 @@
 # Plan: fix and refactor the hmi_bms component
 
-**Status:** started 2026-10-25 on branch `hmi-bms-refactor`.
+**Status:** steps 1-5 done on branch `hmi-bms-refactor` (2026-10-25), each checked on the desk
+Guition against the previous build. The raw temperature sensors (an old test) were removed too.
 **Scope:** `components/hmi_bms/` (the ESPHome component that talks to the BMS over its HMI serial
 link). The serial protocol on the wire stays the same; it is defined by the BMS firmware
 (`bmstest1/bms/protocols/hmi_serial/`). **Every Home Assistant entity keeps its name and value**,
