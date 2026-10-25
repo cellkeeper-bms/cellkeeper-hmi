@@ -1,5 +1,5 @@
 # Device entry point: device-specific name, secrets (connection), and packages.
-# Waveshare ESP32-P4-WIFI6-Touch-LCD-7B: 7" 1024x600, BMS link on its UART header (H8).
+# Waveshare ESP32-P4-WIFI6-Touch-LCD-7B: 7" 1024x600, BMS link on its "USB 1.1" Type-C (P4 USB pins as UART).
 # Secrets are in this file so they stay at top level; values come from secrets.yaml.
 
 esphome:

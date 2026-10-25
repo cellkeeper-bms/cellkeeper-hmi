@@ -3,10 +3,11 @@
 # Schematic: https://files.waveshare.com/wiki/ESP32-P4-WIFI6-Touch-LCD-7B/ESP32-P4-WIFI6-Touch-LCD-7B.pdf
 # Includes the UI layout for this display size.
 #
-# BMS link on the 4-pin PH2.0 UART header H8: 1 VCC, 2 GND, 3 GPIO37 (TX), 4 GPIO38 (RX).
-# Those are UART0, shared with the board's USB-to-UART chip, so the logger stays on USB JTAG
-# and nothing should be plugged into the "UART" Type-C port while the BMS is connected.
-# Header VCC is 3.3 V by default (pad H3).
+# BMS link on the "USB 1.1" Type-C (H2): its data lines go straight to the ESP32-P4's USB pins,
+# used here as a UART like the Guition USB build (GPIO24 TX, GPIO25 RX). That port then no
+# longer works as USB-JTAG.
+# Programming and logs go through the "UART" Type-C (H1): a CH343P USB-to-UART chip on UART0
+# (GPIO37/38) with auto-reset, so esptool and ESPHome flash through it. OTA works as usual.
 
 substitutions:
   # The panel's controller can't rotate in hardware; LVGL rotates the whole UI instead.
@@ -51,16 +52,16 @@ esp32_hosted:
 
 logger:
   baud_rate: 115200
-  hardware_uart: USB_SERIAL_JTAG
+  hardware_uart: UART0  # GPIO37/38, the CH343 "UART" Type-C port
   level: DEBUG
   logs:
     sensor: INFO
 
 uart:
   - id: uart_bus
-    tx_pin: GPIO37
+    tx_pin: GPIO24  # USB JTAG pins of the ESP32-P4, on the "USB 1.1" Type-C
     rx_pin:
-      number: GPIO38
+      number: GPIO25
       mode:
         input: true
         pullup: false
