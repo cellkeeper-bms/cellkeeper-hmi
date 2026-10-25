@@ -7,11 +7,11 @@ lvgl:
   pages:
     - id: events_page
       on_load:
-        - script.execute: {id: nav_set, tab: 6}
+        - script.execute: {id: nav_set, tab: 3}
       on_swipe_left:
-        - lvgl.page.show: settings_page
+        - lvgl.page.show: cells_page
       on_swipe_right:
-        - lvgl.page.show: health_page
+        - lvgl.page.show: control_page
       widgets:
         - obj:
             id: ev_list

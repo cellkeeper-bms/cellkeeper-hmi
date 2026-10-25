@@ -107,7 +107,7 @@ script:
     then:
       - lambda: |-
           if (!id(hub).is_settings_unlocked()) {
-            id(hub).publish_settings_status_temporary("Locked - tap UNLOCK and enter the PIN", 3000);
+            id(hub).publish_settings_status_temporary("Locked - tap UNLOCK on Config and enter the PIN", 3000);
             return;
           }
           const ui1024::SettingDef *d = ui1024::setting_def(reg);
@@ -133,7 +133,7 @@ script:
       - lambda: |-
           id(pad_reg) = what;
           id(pad_buffer) = "";
-          lv_label_set_text(id(pad_title), what == 900 ? "PIN to unlock settings" : what == 902 ? "PIN to change Wi-Fi" : "PIN to run the command");
+          lv_label_set_text(id(pad_title), what == 900 ? "PIN to unlock Config" : what == 902 ? "PIN to change Wi-Fi" : "PIN to run the command");
           lv_label_set_text(id(pad_value_lbl), " ");
           lv_obj_clear_flag(id(pad_overlay), LV_OBJ_FLAG_HIDDEN);
 
@@ -200,7 +200,7 @@ script:
           }
           if (!id(hub).is_settings_unlocked()) {
             lv_obj_add_flag(id(pad_overlay), LV_OBJ_FLAG_HIDDEN);
-            id(hub).publish_settings_status_temporary("Locked - tap UNLOCK and enter the PIN", 3000);
+            id(hub).publish_settings_status_temporary("Locked - tap UNLOCK on Config and enter the PIN", 3000);
             return;
           }
           float v = in / d->mult;
@@ -405,9 +405,9 @@ interval:
             else if (lvl == worst) n_worst++;
           }
           // Events tab: count and colour of the worst active WARNING or worse
-          lv_obj_t *ev_tab = id(tab_btn_6);
+          lv_obj_t *ev_tab = id(tab_btn_3);
           lv_obj_t *ev_lbl = lv_obj_get_child(ev_tab, 0);
-          const bool ev_on = (id(ui_tab) == 6);
+          const bool ev_on = (id(ui_tab) == 3);
           if (worst >= ui1024::LVL_WARNING) {
             lv_label_set_text(ev_lbl, str_sprintf("Events %d", n_worst).c_str());
             lv_obj_set_style_bg_color(ev_tab, lv_color_hex(ui1024::level_color(worst)), LV_PART_MAIN);
@@ -744,79 +744,14 @@ interval:
             lv_obj_set_style_text_color(id(mv2_lim_dis), lv_color_hex(at_dis ? 0xFFC107 : 0xA9B4AF), LV_PART_MAIN);
           }
 
-          // Cell strip: one block per cell, coloured from the lowest (blue) to the highest (amber)
+          // Cell voltage and temperature min / max
           {
-            const auto &cells = id(hub).get_cell_voltage_sensors();
-            int n = 0;
-            for (int k = 0; k < (int) cells.size() && k < 120; k++)
-              if (!std::isnan(cells[k]->state) && cells[k]->state > 0.5f) n = k + 1;
             const float cmin = id(cell_min).state, cmax = id(cell_max).state;
-            bool act[121] = {false};
-            if (id(cells_balancing_active).has_state()) {
-              const std::string &raw = id(cells_balancing_active).state;
-              int val = 0, from = -1; bool in = false;
-              auto commit = [&](int last) { for (int c = (from >= 0 ? from : last); c <= last; c++) if (c >= 1 && c <= 120) act[c] = true; from = -1; };
-              for (char ch : raw) {
-                if (ch >= '0' && ch <= '9') { val = val * 10 + (ch - '0'); in = true; }
-                else { if (in) { if (ch == '-') from = val; else commit(val); } val = 0; in = false; }
-              }
-              if (in) commit(val);
-            }
-            int n_act = 0;
-            for (int c = 1; c <= 120; c++) if (act[c]) n_act++;
-            if (!std::isnan(cmin) && !std::isnan(cmax))
-              lv_label_set_text(id(mv2_cells_lbl), str_sprintf("Cells %.3f - %.3f V    Δ %.0f mV    %d balancing", cmin, cmax, (cmax - cmin) * 1000.0f, n_act).c_str());
-            static lv_obj_t *blk[120] = {nullptr};
-            const int w_all = 600;
-            for (int k = 0; k < 120; k++) {
-              if (k >= n) { if (blk[k]) lv_obj_add_flag(blk[k], LV_OBJ_FLAG_HIDDEN); continue; }
-              if (!blk[k]) {
-                blk[k] = lv_obj_create(id(mv2_cell_strip));
-                lv_obj_remove_style_all(blk[k]);
-                lv_obj_set_style_bg_opa(blk[k], LV_OPA_COVER, LV_PART_MAIN);
-                lv_obj_set_style_border_color(blk[k], lv_color_hex(0xFF9800), LV_PART_MAIN);
-                lv_obj_clear_flag(blk[k], LV_OBJ_FLAG_CLICKABLE);
-              }
-              int x0 = k * w_all / n, x1 = (k + 1) * w_all / n;
-              int gap = (x1 - x0) > 4 ? 1 : 0;
-              lv_obj_set_pos(blk[k], x0, 0);
-              lv_obj_set_size(blk[k], std::max(1, x1 - x0 - gap), 30);
-              float cvk = cells[k]->state;
-              float span = cmax - cmin;
-              float tt = (std::isnan(cvk) || std::isnan(span) || span < 0.002f) ? 0.5f : (cvk - cmin) / span;
-              lv_obj_set_style_bg_color(blk[k], lv_color_hex(std::isnan(cvk) ? 0x26302B : ui1024::cell_ramp(tt)), LV_PART_MAIN);
-              lv_obj_set_style_border_width(blk[k], act[k + 1] ? 3 : 0, LV_PART_MAIN);
-              lv_obj_clear_flag(blk[k], LV_OBJ_FLAG_HIDDEN);
-            }
-          }
-
-          // Module temperatures
-          {
-            sensor::Sensor *mt[] = {id(module_temperature_1), id(module_temperature_2), id(module_temperature_3), id(module_temperature_4),
-                                    id(module_temperature_5), id(module_temperature_6), id(module_temperature_7), id(module_temperature_8)};
+            lv_label_set_text(id(mv2_cells_lbl), (std::isnan(cmin) || std::isnan(cmax)) ? "--"
+                              : str_sprintf("%.3f  /  %.3f V", cmin, cmax).c_str());
             const float tmin = id(module_temperature_min).state, tmax = id(module_temperature_max).state;
-            if (!std::isnan(tmin) && !std::isnan(tmax))
-              lv_label_set_text(id(mv2_temps_lbl), str_sprintf("Modules %.1f - %.1f °C", tmin, tmax).c_str());
-            static lv_obj_t *dot[8] = {nullptr};
-            static lv_obj_t *dlbl[8] = {nullptr};
-            for (int k = 0; k < 8; k++) {
-              if (!dot[k]) {
-                dot[k] = lv_obj_create(id(mv2_temp_strip));
-                lv_obj_remove_style_all(dot[k]);
-                lv_obj_set_style_bg_opa(dot[k], LV_OPA_COVER, LV_PART_MAIN);
-                lv_obj_set_style_radius(dot[k], 6, LV_PART_MAIN);
-                lv_obj_clear_flag(dot[k], LV_OBJ_FLAG_CLICKABLE);
-                lv_obj_set_pos(dot[k], k * 43, 0);
-                lv_obj_set_size(dot[k], 39, 30);
-                dlbl[k] = lv_label_create(dot[k]);
-                lv_obj_set_style_text_font(dlbl[k], id(font_roboto_16), LV_PART_MAIN);
-                lv_obj_center(dlbl[k]);
-              }
-              float c = mt[k]->state;
-              lv_obj_set_style_bg_color(dot[k], lv_color_hex(ui1024::temp_color(c)), LV_PART_MAIN);
-              lv_obj_set_style_text_color(dlbl[k], lv_color_hex((c >= 35.0f && c < 45.0f) ? 0x000000 : 0xFFFFFF), LV_PART_MAIN);
-              lv_label_set_text(dlbl[k], std::isnan(c) ? "--" : str_sprintf("%.0f", c).c_str());
-            }
+            lv_label_set_text(id(mv2_temps_lbl), (std::isnan(tmin) || std::isnan(tmax)) ? "--"
+                              : str_sprintf("%.1f  /  %.1f °C", tmin, tmax).c_str());
           }
 
           // Bottom cards

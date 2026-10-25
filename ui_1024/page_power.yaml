@@ -5,7 +5,7 @@ lvgl:
   pages:
     - id: power_page
       on_load:
-        - script.execute: {id: nav_set, tab: 4}
+        - script.execute: {id: nav_set, tab: 5}
       on_swipe_left:
         - lvgl.page.show: health_page
       on_swipe_right:
