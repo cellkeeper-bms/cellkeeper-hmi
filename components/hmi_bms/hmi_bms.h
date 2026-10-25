@@ -47,6 +47,30 @@ class HMIBMSNumber : public number::Number {
   bool has_bus_state_{false};
 };
 
+// The settings lock: writes from HA or the LCD need it unlocked, and it locks itself after
+// 30 s without a write. It drives the "Settings Write Status" text sensor.
+class SettingsLock {
+ public:
+  void set_status_sensor(text_sensor::TextSensor *s) { status_ = s; }
+  void set_unlocked(bool unlocked);
+  bool is_unlocked() const { return unlocked_; }
+  // A user write keeps it unlocked for another 30 s
+  void note_write() { last_write_ms_ = millis(); }
+  void publish_status(const char *status);
+  // Shows status for duration_ms, then goes back to the countdown or "Settings locked"
+  void publish_status_temporary(const char *status, uint32_t duration_ms);
+  void loop();
+
+ protected:
+  static const uint32_t UNLOCK_TIMEOUT_MS = 30000;
+  text_sensor::TextSensor *status_{nullptr};
+  bool unlocked_{false};
+  uint32_t last_write_ms_{0};
+  uint32_t last_countdown_s_{UINT32_MAX};
+  bool restore_pending_{false};
+  uint32_t restore_at_ms_{0};
+};
+
 class HMIBMSLogSwitch : public switch_::Switch {
  public:
   void set_parent(HMIBMS *parent) { parent_ = parent; }
@@ -156,8 +180,6 @@ enum HMIRegister {
   HMI_REG_CELL_VOLTAGES_END = 0x1FF,
   HMI_REG_MODULE_TEMPS_START = 0x200,
   HMI_REG_MODULE_TEMPS_END = 0x207,
-  HMI_REG_RAW_TEMPS_START = 0x208,
-  HMI_REG_RAW_TEMPS_END = 0x238,
 };
 
 // When a register is read: FAST on every poll, the others on their own slot of the 10-poll cycle
@@ -227,11 +249,13 @@ class HMIBMS : public PollingComponent, public uart::UARTDevice {
   void set_log_enabled(bool enabled) { log_enabled_ = enabled; }
   uint32_t get_log_update_interval() const { return log_update_interval_ms_; }
   void set_log_update_interval(uint32_t ms) { log_update_interval_ms_ = ms; }
-  void set_settings_unlocked(bool unlocked);
-  bool is_settings_unlocked() const { return settings_unlocked_; }
-  void set_settings_status_text_sensor(text_sensor::TextSensor *s) { settings_status_text_sensor_ = s; }
-  void publish_settings_status(const char *status);
-  void publish_settings_status_temporary(const char *status, uint32_t duration_ms);
+  void set_settings_unlocked(bool unlocked) { settings_.set_unlocked(unlocked); }
+  bool is_settings_unlocked() const { return settings_.is_unlocked(); }
+  void set_settings_status_text_sensor(text_sensor::TextSensor *s) { settings_.set_status_sensor(s); }
+  void publish_settings_status(const char *status) { settings_.publish_status(status); }
+  void publish_settings_status_temporary(const char *status, uint32_t duration_ms) {
+    settings_.publish_status_temporary(status, duration_ms);
+  }
   void send_system_request(uint8_t request);
   // bypass_lock is only for HMIBMSNumber::write_from_automation()
   void write_register(uint16_t reg_id, uint8_t type, float value, float scale, bool bypass_lock = false);
@@ -260,6 +284,7 @@ class HMIBMS : public PollingComponent, public uart::UARTDevice {
   void handle_read_cell_voltages_response_(const uint8_t *data, size_t length);
   void handle_read_balancing_times_response_(const uint8_t *data, size_t length);
   void handle_read_log_response_(const uint8_t *data, size_t length);
+  void publish_log_();
   void handle_read_events_response_(const uint8_t *data, size_t length);
   
   void send_packet_(const std::vector<uint8_t> &payload);
@@ -267,6 +292,9 @@ class HMIBMS : public PollingComponent, public uart::UARTDevice {
 
   uint8_t address_{0x00};
   uint64_t serial_{0};
+  // Address assignment: last SET_DEVICE_ADDRESS sent, and whether address 1 was claimed
+  uint32_t last_assign_ms_{0};
+  bool address_claimed_{false};
   uint32_t update_count_{0};
   protocol::FrameParser rx_;
   uint32_t last_crc_errors_{0};
@@ -326,14 +354,8 @@ class HMIBMS : public PollingComponent, public uart::UARTDevice {
   std::vector<sensor::Sensor *> balancing_time_sensors_;
   uint32_t baud_rate_{460800};
   bool dump_raw_{false};
-  bool settings_unlocked_{false};
-  uint32_t last_settings_write_ms_{0};
+  SettingsLock settings_;
   uint32_t last_rx_ms_{0};
-  static const uint32_t SETTINGS_UNLOCK_TIMEOUT_MS = 30000;  // 30 seconds
-  text_sensor::TextSensor *settings_status_text_sensor_{nullptr};
-  uint32_t last_settings_countdown_s_{0xFFFFFFFFUL};
-  bool settings_status_restore_pending_{false};
-  uint32_t settings_status_restore_at_{0};
   bool log_enabled_{false};
   uint32_t log_update_interval_ms_{2000};
   HMIBMSLogSwitch *log_enable_switch_{nullptr};
