@@ -88,7 +88,6 @@ CONF_INVERTER_REMAINING_CAPACITY = "inverter_remaining_capacity"
 CONF_INVERTER_MIN_VOLTAGE_LIMIT = "inverter_min_voltage_limit"
 CONF_INVERTER_MAX_VOLTAGE_LIMIT = "inverter_max_voltage_limit"
 CONF_MODULE_TEMPERATURES = "module_temperatures"
-CONF_RAW_TEMPERATURES = "raw_temperatures"
 
 CONFIG_SCHEMA = cv.Schema({
     cv.GenerateID(CONF_HMI_BMS_ID): cv.use_id(HMIBMS),
@@ -436,69 +435,114 @@ CONFIG_SCHEMA = cv.Schema({
         device_class=DEVICE_CLASS_TEMPERATURE,
         state_class=STATE_CLASS_MEASUREMENT,
     )),
-    cv.Optional(CONF_RAW_TEMPERATURES): cv.ensure_list(sensor.sensor_schema(
-        unit_of_measurement=UNIT_CELSIUS,
-        accuracy_decimals=1,
-        device_class=DEVICE_CLASS_TEMPERATURE,
-        state_class=STATE_CLASS_MEASUREMENT,
-    )),
 })
+
+# How each register is decoded (low nibble = size in bytes), as in hmi_protocol.h
+T_UINT8 = 0x11
+T_UINT16 = 0x12
+T_INT16 = 0x22
+T_UINT32 = 0x14
+T_INT32 = 0x24
+T_UINT64 = 0x18
+T_INT64 = 0x28
+T_FLOAT = 0x34
+
+# Poll groups (hmi_bms.h PollGroup): FAST every poll, the others once per 10-poll cycle
+POLL_FAST = 0
+POLL_SLOW = 1
+POLL_MODULE_TEMPS = 2
+POLL_LIMITS = 3
+POLL_SETTINGS = 4
+
+MC_TO_AH = 1.0 / 3600000.0
+
+# Sensors read straight from one BMS register: key -> (register, type, scale, poll group).
+# Entity value = raw value * scale; units and filters come from the schema and the YAML.
+REGISTER_SENSORS = {
+    CONF_MILLIS: (2, T_UINT64, 1.0, POLL_SLOW),
+    CONF_SOC: (3, T_UINT16, 0.01, POLL_SLOW),
+    CONF_CURRENT_MA: (4, T_INT32, 1.0, POLL_FAST),
+    CONF_CHARGE_RAW: (5, T_INT64, MC_TO_AH, POLL_SLOW),
+    CONF_BATTERY_VOLTAGE_MV: (6, T_INT32, 1.0, POLL_FAST),
+    CONF_OUTPUT_VOLTAGE_MV: (7, T_INT32, 1.0, POLL_FAST),
+    CONF_POS_CONTACTOR_VOLTAGE_MV: (8, T_INT32, 1.0, POLL_SLOW),
+    CONF_NEG_CONTACTOR_VOLTAGE_MV: (9, T_INT32, 1.0, POLL_SLOW),
+    CONF_TEMPERATURE_MIN_DC: (10, T_FLOAT, 1.0, POLL_SLOW),
+    CONF_TEMPERATURE_MAX_DC: (11, T_FLOAT, 1.0, POLL_SLOW),
+    CONF_CELL_VOLTAGE_MIN_MV: (12, T_INT16, 1.0, POLL_SLOW),
+    CONF_CELL_VOLTAGE_MAX_MV: (13, T_INT16, 1.0, POLL_SLOW),
+    CONF_SYSTEM_REQUEST: (14, T_UINT8, 1.0, POLL_SLOW),
+    CONF_SYSTEM_SM: (15, T_UINT8, 1.0, POLL_SLOW),
+    CONF_CONTACTOR_SM: (16, T_UINT8, 1.0, POLL_FAST),
+    CONF_SOC_VOLTAGE_BASED: (17, T_UINT16, 0.01, POLL_SLOW),
+    CONF_SOC_BASIC_COUNT: (18, T_UINT16, 0.01, POLL_SLOW),
+    CONF_CAPACITY_MC: (20, T_UINT32, MC_TO_AH, POLL_SLOW),
+    CONF_SUPPLY_VOLTAGE_3V3_MV: (21, T_UINT16, 1.0, POLL_SLOW),
+    CONF_SUPPLY_VOLTAGE_5V_MV: (22, T_UINT16, 1.0, POLL_SLOW),
+    CONF_SUPPLY_VOLTAGE_12V_MV: (23, T_UINT16, 1.0, POLL_SLOW),
+    CONF_SUPPLY_VOLTAGE_CONTACTOR_MV: (24, T_UINT16, 1.0, POLL_SLOW),
+    # Settings as read-only sensors (the number platform has the editable ones)
+    CONF_SOC_SCALING_MIN: (27, T_INT16, 0.01, POLL_SETTINGS),
+    CONF_SOC_SCALING_MAX: (28, T_INT16, 0.01, POLL_SETTINGS),
+    CONF_VOLTAGE_LIMIT_OFFSET_LOWER: (29, T_INT16, 1.0, POLL_SETTINGS),
+    CONF_VOLTAGE_LIMIT_OFFSET_UPPER: (30, T_INT16, 1.0, POLL_SETTINGS),
+    CONF_CELL_VOLTAGE_SOFT_MIN_MV: (31, T_UINT16, 1.0, POLL_SETTINGS),
+    CONF_CELL_VOLTAGE_SOFT_MAX_MV: (32, T_UINT16, 1.0, POLL_SETTINGS),
+    CONF_AUTO_BALANCING_PERIOD_MS: (33, T_UINT32, 1.0, POLL_SETTINGS),
+    CONF_BALANCING_PERIODS_PER_MV: (34, T_UINT16, 1.0, POLL_SETTINGS),
+    CONF_BALANCE_MIN_OFFSET_MV: (35, T_UINT16, 1.0, POLL_SETTINGS),
+    CONF_MINIMUM_BALANCING_VOLTAGE_MV: (36, T_UINT16, 1.0, POLL_SETTINGS),
+    CONF_INVERTER_SOC: (37, T_INT16, 0.01, POLL_SLOW),
+    CONF_INVERTER_FULL_CAPACITY: (38, T_INT16, 0.1, POLL_SLOW),
+    CONF_INVERTER_REMAINING_CAPACITY: (39, T_INT16, 0.1, POLL_SLOW),
+    CONF_INVERTER_MIN_VOLTAGE_LIMIT: (40, T_INT16, 0.1, POLL_SLOW),
+    CONF_INVERTER_MAX_VOLTAGE_LIMIT: (41, T_INT16, 0.1, POLL_SLOW),
+    # Current limits in 0.1 A; 6553.5 A = no limit
+    CONF_CHARGE_CURRENT_LIMIT: (45, T_UINT16, 0.1, POLL_LIMITS),
+    CONF_DISCHARGE_CURRENT_LIMIT: (46, T_UINT16, 0.1, POLL_LIMITS),
+    CONF_TEMP_CHARGE_CURRENT_LIMIT: (47, T_UINT16, 0.1, POLL_LIMITS),
+    CONF_TEMP_DISCHARGE_CURRENT_LIMIT: (48, T_UINT16, 0.1, POLL_LIMITS),
+    CONF_CELL_VOLTAGE_CHARGE_CURRENT_LIMIT: (49, T_UINT16, 0.1, POLL_LIMITS),
+    CONF_CELL_VOLTAGE_DISCHARGE_CURRENT_LIMIT: (50, T_UINT16, 0.1, POLL_LIMITS),
+    CONF_WORKING_CHARGE_CURRENT_LIMIT: (51, T_UINT16, 0.1, POLL_LIMITS),
+    CONF_WORKING_DISCHARGE_CURRENT_LIMIT: (52, T_UINT16, 0.1, POLL_LIMITS),
+    CONF_DELTA_CHARGE_CURRENT_LIMIT: (53, T_UINT16, 0.1, POLL_LIMITS),
+    CONF_HARD_CHARGE_CURRENT_LIMIT: (54, T_UINT16, 0.1, POLL_LIMITS),
+    CONF_HARD_DISCHARGE_CURRENT_LIMIT: (55, T_UINT16, 0.1, POLL_LIMITS),
+    CONF_SHUNT_DIE_TEMPERATURE: (57, T_FLOAT, 1.0, POLL_SLOW),
+    CONF_SHUNT_NTC_TEMPERATURE: (58, T_FLOAT, 1.0, POLL_SLOW),
+    # Isolation monitor, calculated on the BMS (registers 62-65)
+    CONF_ISOLATION_RESISTANCE: (62, T_FLOAT, 1.0, POLL_SLOW),
+    CONF_PACK_POS_TO_CHASSIS: (63, T_FLOAT, 1.0, POLL_SLOW),
+    CONF_PACK_NEG_TO_CHASSIS: (64, T_FLOAT, 1.0, POLL_SLOW),
+    CONF_ISOLATION_CHECK_AGE: (65, T_FLOAT, 1.0, POLL_SLOW),
+    CONF_BOARD_STRAP_COUNTS: (67, T_FLOAT, 1.0, POLL_SLOW),
+    CONF_BMS_CHIP_TEMPERATURE: (70, T_FLOAT, 1.0, POLL_SLOW),
+}
+REG_MODULE_TEMPS_START = 0x200  # float degC, one per module (BMB)
+
+# Calculated in the component rather than read: key -> setter
+DERIVED_SENSORS = {
+    CONF_TEMPERATURE_DELTA: "set_temperature_delta_sensor",
+    CONF_CELL_VOLTAGE_DELTA: "set_cell_voltage_delta_sensor",
+    CONF_CELL_COUNT: "set_cell_count_sensor",
+    CONF_LAST_EVENT: "set_last_event_sensor",
+    CONF_HIGHEST_EVENT_LEVEL: "set_highest_event_level_sensor",
+}
+
 
 async def to_code(config):
     parent = await cg.get_variable(config[CONF_HMI_BMS_ID])
 
-    if CONF_MILLIS in config:
-        sens = await sensor.new_sensor(config[CONF_MILLIS])
-        cg.add(parent.set_millis_sensor(sens))
-    #if CONF_SERIAL in config:
-    #    sens = await text_sensor.new_text_sensor(config[CONF_SERIAL])
-    #    cg.add(parent.set_serial_text_sensor(sens))
-    if CONF_SYSTEM_REQUEST in config:
-        sens = await sensor.new_sensor(config[CONF_SYSTEM_REQUEST])
-        cg.add(parent.set_system_request_sensor(sens))
-    if CONF_SOC in config:
-        sens = await sensor.new_sensor(config[CONF_SOC])
-        cg.add(parent.set_soc_sensor(sens))
-    if CONF_CURRENT_MA in config:
-        sens = await sensor.new_sensor(config[CONF_CURRENT_MA])
-        cg.add(parent.set_current_mA_sensor(sens))
-    if CONF_CHARGE_RAW in config:
-        sens = await sensor.new_sensor(config[CONF_CHARGE_RAW])
-        cg.add(parent.set_charge_raw_sensor(sens))
-    if CONF_BATTERY_VOLTAGE_MV in config:
-        sens = await sensor.new_sensor(config[CONF_BATTERY_VOLTAGE_MV])
-        cg.add(parent.set_battery_voltage_mV_sensor(sens))
-    if CONF_OUTPUT_VOLTAGE_MV in config:
-        sens = await sensor.new_sensor(config[CONF_OUTPUT_VOLTAGE_MV])
-        cg.add(parent.set_output_voltage_mV_sensor(sens))
-    if CONF_POS_CONTACTOR_VOLTAGE_MV in config:
-        sens = await sensor.new_sensor(config[CONF_POS_CONTACTOR_VOLTAGE_MV])
-        cg.add(parent.set_pos_contactor_voltage_mV_sensor(sens))
-    if CONF_NEG_CONTACTOR_VOLTAGE_MV in config:
-        sens = await sensor.new_sensor(config[CONF_NEG_CONTACTOR_VOLTAGE_MV])
-        cg.add(parent.set_neg_contactor_voltage_mV_sensor(sens))
-    if CONF_TEMPERATURE_MIN_DC in config:
-        sens = await sensor.new_sensor(config[CONF_TEMPERATURE_MIN_DC])
-        cg.add(parent.set_temperature_min_dC_sensor(sens))
-    if CONF_TEMPERATURE_MAX_DC in config:
-        sens = await sensor.new_sensor(config[CONF_TEMPERATURE_MAX_DC])
-        cg.add(parent.set_temperature_max_dC_sensor(sens))
-    if CONF_TEMPERATURE_DELTA in config:
-        sens = await sensor.new_sensor(config[CONF_TEMPERATURE_DELTA])
-        cg.add(parent.set_temperature_delta_sensor(sens))
-    if CONF_CELL_VOLTAGE_MIN_MV in config:
-        sens = await sensor.new_sensor(config[CONF_CELL_VOLTAGE_MIN_MV])
-        cg.add(parent.set_cell_voltage_min_mV_sensor(sens))
-    if CONF_CELL_VOLTAGE_MAX_MV in config:
-        sens = await sensor.new_sensor(config[CONF_CELL_VOLTAGE_MAX_MV])
-        cg.add(parent.set_cell_voltage_max_mV_sensor(sens))
-    if CONF_CELL_VOLTAGE_DELTA in config:
-        sens = await sensor.new_sensor(config[CONF_CELL_VOLTAGE_DELTA])
-        cg.add(parent.set_cell_voltage_delta_sensor(sens))
-    if CONF_CELL_COUNT in config:
-        sens = await sensor.new_sensor(config[CONF_CELL_COUNT])
-        cg.add(parent.set_cell_count_sensor(sens))
-    
+    for key, (reg, type_, scale, group) in REGISTER_SENSORS.items():
+        if key in config:
+            sens = await sensor.new_sensor(config[key])
+            cg.add(parent.add_register_sensor(reg, type_, scale, group, sens))
+    for key, setter in DERIVED_SENSORS.items():
+        if key in config:
+            sens = await sensor.new_sensor(config[key])
+            cg.add(getattr(parent, setter)(sens))
+
     if CONF_CELL_VOLTAGES in config:
         for conf in config[CONF_CELL_VOLTAGES]:
             sens = await sensor.new_sensor(conf)
@@ -507,149 +551,7 @@ async def to_code(config):
         for conf in config[CONF_BALANCING_TIMES]:
             sens = await sensor.new_sensor(conf)
             cg.add(parent.add_balancing_time_sensor(sens))
-
-    if CONF_SYSTEM_SM in config:
-        sens = await sensor.new_sensor(config[CONF_SYSTEM_SM])
-        cg.add(parent.set_system_sm_sensor(sens))
-    if CONF_CONTACTOR_SM in config:
-        sens = await sensor.new_sensor(config[CONF_CONTACTOR_SM])
-        cg.add(parent.set_contactor_sm_sensor(sens))
-    if CONF_SOC_VOLTAGE_BASED in config:
-        sens = await sensor.new_sensor(config[CONF_SOC_VOLTAGE_BASED])
-        cg.add(parent.set_soc_voltage_based_sensor(sens))
-    if CONF_SOC_BASIC_COUNT in config:
-        sens = await sensor.new_sensor(config[CONF_SOC_BASIC_COUNT])
-        cg.add(parent.set_soc_basic_count_sensor(sens))
-    if CONF_CAPACITY_MC in config:
-        sens = await sensor.new_sensor(config[CONF_CAPACITY_MC])
-        cg.add(parent.set_capacity_mC_sensor(sens))
-    if CONF_SUPPLY_VOLTAGE_3V3_MV in config:
-        sens = await sensor.new_sensor(config[CONF_SUPPLY_VOLTAGE_3V3_MV])
-        cg.add(parent.set_supply_voltage_3V3_mV_sensor(sens))
-    if CONF_SUPPLY_VOLTAGE_5V_MV in config:
-        sens = await sensor.new_sensor(config[CONF_SUPPLY_VOLTAGE_5V_MV])
-        cg.add(parent.set_supply_voltage_5V_mV_sensor(sens))
-    if CONF_SUPPLY_VOLTAGE_12V_MV in config:
-        sens = await sensor.new_sensor(config[CONF_SUPPLY_VOLTAGE_12V_MV])
-        cg.add(parent.set_supply_voltage_12V_mV_sensor(sens))
-    if CONF_SUPPLY_VOLTAGE_CONTACTOR_MV in config:
-        sens = await sensor.new_sensor(config[CONF_SUPPLY_VOLTAGE_CONTACTOR_MV])
-        cg.add(parent.set_supply_voltage_contactor_mV_sensor(sens))
-    if CONF_PACK_POS_TO_CHASSIS in config:
-        sens = await sensor.new_sensor(config[CONF_PACK_POS_TO_CHASSIS])
-        cg.add(parent.set_pack_pos_to_chassis_sensor(sens))
-    if CONF_PACK_NEG_TO_CHASSIS in config:
-        sens = await sensor.new_sensor(config[CONF_PACK_NEG_TO_CHASSIS])
-        cg.add(parent.set_pack_neg_to_chassis_sensor(sens))
-    if CONF_BOARD_STRAP_COUNTS in config:
-        sens = await sensor.new_sensor(config[CONF_BOARD_STRAP_COUNTS])
-        cg.add(parent.set_board_strap_counts_sensor(sens))
-    if CONF_BMS_CHIP_TEMPERATURE in config:
-        sens = await sensor.new_sensor(config[CONF_BMS_CHIP_TEMPERATURE])
-        cg.add(parent.set_bms_chip_temperature_sensor(sens))
-    if CONF_SHUNT_DIE_TEMPERATURE in config:
-        sens = await sensor.new_sensor(config[CONF_SHUNT_DIE_TEMPERATURE])
-        cg.add(parent.set_shunt_die_temperature_sensor(sens))
-    if CONF_SHUNT_NTC_TEMPERATURE in config:
-        sens = await sensor.new_sensor(config[CONF_SHUNT_NTC_TEMPERATURE])
-        cg.add(parent.set_shunt_ntc_temperature_sensor(sens))
-    if CONF_ISOLATION_CHECK_AGE in config:
-        sens = await sensor.new_sensor(config[CONF_ISOLATION_CHECK_AGE])
-        cg.add(parent.set_isolation_check_age_sensor(sens))
-    if CONF_ISOLATION_RESISTANCE in config:
-        sens = await sensor.new_sensor(config[CONF_ISOLATION_RESISTANCE])
-        cg.add(parent.set_isolation_resistance_sensor(sens))
-    if CONF_SOC_SCALING_MIN in config:
-        sens = await sensor.new_sensor(config[CONF_SOC_SCALING_MIN])
-        cg.add(parent.set_soc_scaling_min_sensor(sens))
-    if CONF_SOC_SCALING_MAX in config:
-        sens = await sensor.new_sensor(config[CONF_SOC_SCALING_MAX])
-        cg.add(parent.set_soc_scaling_max_sensor(sens))
-    if CONF_VOLTAGE_LIMIT_OFFSET_LOWER in config:
-        sens = await sensor.new_sensor(config[CONF_VOLTAGE_LIMIT_OFFSET_LOWER])
-        cg.add(parent.set_voltage_limit_offset_lower_sensor(sens))
-    if CONF_VOLTAGE_LIMIT_OFFSET_UPPER in config:
-        sens = await sensor.new_sensor(config[CONF_VOLTAGE_LIMIT_OFFSET_UPPER])
-        cg.add(parent.set_voltage_limit_offset_upper_sensor(sens))
-    if CONF_CELL_VOLTAGE_SOFT_MIN_MV in config:
-        sens = await sensor.new_sensor(config[CONF_CELL_VOLTAGE_SOFT_MIN_MV])
-        cg.add(parent.set_cell_voltage_soft_min_sensor(sens))
-    if CONF_CELL_VOLTAGE_SOFT_MAX_MV in config:
-        sens = await sensor.new_sensor(config[CONF_CELL_VOLTAGE_SOFT_MAX_MV])
-        cg.add(parent.set_cell_voltage_soft_max_sensor(sens))
-    if CONF_AUTO_BALANCING_PERIOD_MS in config:
-        sens = await sensor.new_sensor(config[CONF_AUTO_BALANCING_PERIOD_MS])
-        cg.add(parent.set_auto_balancing_period_ms_sensor(sens))
-    if CONF_BALANCING_PERIODS_PER_MV in config:
-        sens = await sensor.new_sensor(config[CONF_BALANCING_PERIODS_PER_MV])
-        cg.add(parent.set_balancing_periods_per_mV_sensor(sens))
-    if CONF_BALANCE_MIN_OFFSET_MV in config:
-        sens = await sensor.new_sensor(config[CONF_BALANCE_MIN_OFFSET_MV])
-        cg.add(parent.set_balance_min_offset_mV_sensor(sens))
-    if CONF_MINIMUM_BALANCING_VOLTAGE_MV in config:
-        sens = await sensor.new_sensor(config[CONF_MINIMUM_BALANCING_VOLTAGE_MV])
-        cg.add(parent.set_minimum_balancing_voltage_mV_sensor(sens))
-    if CONF_LAST_EVENT in config:
-        sens = await sensor.new_sensor(config[CONF_LAST_EVENT])
-        cg.add(parent.set_last_event_sensor(sens))
-    if CONF_HIGHEST_EVENT_LEVEL in config:
-        sens = await sensor.new_sensor(config[CONF_HIGHEST_EVENT_LEVEL])
-        cg.add(parent.set_highest_event_level_sensor(sens))
-    if CONF_CHARGE_CURRENT_LIMIT in config:
-        sens = await sensor.new_sensor(config[CONF_CHARGE_CURRENT_LIMIT])
-        cg.add(parent.set_charge_current_limit_sensor(sens))
-    if CONF_DISCHARGE_CURRENT_LIMIT in config:
-        sens = await sensor.new_sensor(config[CONF_DISCHARGE_CURRENT_LIMIT])
-        cg.add(parent.set_discharge_current_limit_sensor(sens))
-    if CONF_TEMP_CHARGE_CURRENT_LIMIT in config:
-        sens = await sensor.new_sensor(config[CONF_TEMP_CHARGE_CURRENT_LIMIT])
-        cg.add(parent.set_temp_charge_current_limit_sensor(sens))
-    if CONF_TEMP_DISCHARGE_CURRENT_LIMIT in config:
-        sens = await sensor.new_sensor(config[CONF_TEMP_DISCHARGE_CURRENT_LIMIT])
-        cg.add(parent.set_temp_discharge_current_limit_sensor(sens))
-    if CONF_CELL_VOLTAGE_CHARGE_CURRENT_LIMIT in config:
-        sens = await sensor.new_sensor(config[CONF_CELL_VOLTAGE_CHARGE_CURRENT_LIMIT])
-        cg.add(parent.set_cell_voltage_charge_current_limit_sensor(sens))
-    if CONF_CELL_VOLTAGE_DISCHARGE_CURRENT_LIMIT in config:
-        sens = await sensor.new_sensor(config[CONF_CELL_VOLTAGE_DISCHARGE_CURRENT_LIMIT])
-        cg.add(parent.set_cell_voltage_discharge_current_limit_sensor(sens))
-    if CONF_WORKING_CHARGE_CURRENT_LIMIT in config:
-        sens = await sensor.new_sensor(config[CONF_WORKING_CHARGE_CURRENT_LIMIT])
-        cg.add(parent.set_working_charge_current_limit_sensor(sens))
-    if CONF_WORKING_DISCHARGE_CURRENT_LIMIT in config:
-        sens = await sensor.new_sensor(config[CONF_WORKING_DISCHARGE_CURRENT_LIMIT])
-        cg.add(parent.set_working_discharge_current_limit_sensor(sens))
-    if CONF_DELTA_CHARGE_CURRENT_LIMIT in config:
-        sens = await sensor.new_sensor(config[CONF_DELTA_CHARGE_CURRENT_LIMIT])
-        cg.add(parent.set_delta_charge_current_limit_sensor(sens))
-    if CONF_HARD_CHARGE_CURRENT_LIMIT in config:
-        sens = await sensor.new_sensor(config[CONF_HARD_CHARGE_CURRENT_LIMIT])
-        cg.add(parent.set_hard_charge_current_limit_sensor(sens))
-    if CONF_HARD_DISCHARGE_CURRENT_LIMIT in config:
-        sens = await sensor.new_sensor(config[CONF_HARD_DISCHARGE_CURRENT_LIMIT])
-        cg.add(parent.set_hard_discharge_current_limit_sensor(sens))
-    if CONF_INVERTER_SOC in config:
-        sens = await sensor.new_sensor(config[CONF_INVERTER_SOC])
-        cg.add(parent.set_inverter_soc_sensor(sens))
-    if CONF_INVERTER_FULL_CAPACITY in config:
-        sens = await sensor.new_sensor(config[CONF_INVERTER_FULL_CAPACITY])
-        cg.add(parent.set_inverter_full_capacity_sensor(sens))
-    if CONF_INVERTER_REMAINING_CAPACITY in config:
-        sens = await sensor.new_sensor(config[CONF_INVERTER_REMAINING_CAPACITY])
-        cg.add(parent.set_inverter_remaining_capacity_sensor(sens))
-    if CONF_INVERTER_MIN_VOLTAGE_LIMIT in config:
-        sens = await sensor.new_sensor(config[CONF_INVERTER_MIN_VOLTAGE_LIMIT])
-        cg.add(parent.set_inverter_min_voltage_limit_sensor(sens))
-    if CONF_INVERTER_MAX_VOLTAGE_LIMIT in config:
-        sens = await sensor.new_sensor(config[CONF_INVERTER_MAX_VOLTAGE_LIMIT])
-        cg.add(parent.set_inverter_max_voltage_limit_sensor(sens))
-
     if CONF_MODULE_TEMPERATURES in config:
-        for conf in config[CONF_MODULE_TEMPERATURES]:
+        for i, conf in enumerate(config[CONF_MODULE_TEMPERATURES]):
             sens = await sensor.new_sensor(conf)
-            cg.add(parent.add_module_temperature_sensor(sens))
-    
-    if CONF_RAW_TEMPERATURES in config:
-        for conf in config[CONF_RAW_TEMPERATURES]:
-            sens = await sensor.new_sensor(conf)
-            cg.add(parent.add_raw_temperature_sensor(sens))
+            cg.add(parent.add_register_sensor(REG_MODULE_TEMPS_START + i, T_FLOAT, 1.0, POLL_MODULE_TEMPS, sens))
