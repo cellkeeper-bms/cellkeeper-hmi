@@ -88,7 +88,6 @@ CONF_INVERTER_REMAINING_CAPACITY = "inverter_remaining_capacity"
 CONF_INVERTER_MIN_VOLTAGE_LIMIT = "inverter_min_voltage_limit"
 CONF_INVERTER_MAX_VOLTAGE_LIMIT = "inverter_max_voltage_limit"
 CONF_MODULE_TEMPERATURES = "module_temperatures"
-CONF_RAW_TEMPERATURES = "raw_temperatures"
 
 CONFIG_SCHEMA = cv.Schema({
     cv.GenerateID(CONF_HMI_BMS_ID): cv.use_id(HMIBMS),
@@ -436,12 +435,6 @@ CONFIG_SCHEMA = cv.Schema({
         device_class=DEVICE_CLASS_TEMPERATURE,
         state_class=STATE_CLASS_MEASUREMENT,
     )),
-    cv.Optional(CONF_RAW_TEMPERATURES): cv.ensure_list(sensor.sensor_schema(
-        unit_of_measurement=UNIT_CELSIUS,
-        accuracy_decimals=1,
-        device_class=DEVICE_CLASS_TEMPERATURE,
-        state_class=STATE_CLASS_MEASUREMENT,
-    )),
 })
 
 # How each register is decoded (low nibble = size in bytes), as in hmi_protocol.h
@@ -527,7 +520,6 @@ REGISTER_SENSORS = {
     CONF_BMS_CHIP_TEMPERATURE: (70, T_FLOAT, 1.0, POLL_SLOW),
 }
 REG_MODULE_TEMPS_START = 0x200  # float degC, one per module (BMB)
-REG_RAW_TEMPS_START = 0x208  # sent as uint16 but signed, 0.1 degC
 
 # Calculated in the component rather than read: key -> setter
 DERIVED_SENSORS = {
@@ -563,7 +555,3 @@ async def to_code(config):
         for i, conf in enumerate(config[CONF_MODULE_TEMPERATURES]):
             sens = await sensor.new_sensor(conf)
             cg.add(parent.add_register_sensor(REG_MODULE_TEMPS_START + i, T_FLOAT, 1.0, POLL_MODULE_TEMPS, sens))
-    if CONF_RAW_TEMPERATURES in config:
-        for i, conf in enumerate(config[CONF_RAW_TEMPERATURES]):
-            sens = await sensor.new_sensor(conf)
-            cg.add(parent.add_register_sensor(REG_RAW_TEMPS_START + i, T_INT16, 0.1, POLL_SLOW, sens))
