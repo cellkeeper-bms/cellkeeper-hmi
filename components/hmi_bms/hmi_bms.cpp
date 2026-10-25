@@ -3,7 +3,6 @@
 #include "esphome/core/helpers.h"
 #include "esphome/core/application.h"
 #include <ctime>
-#include <map>
 #include <vector>
 
 namespace esphome {
@@ -306,14 +305,19 @@ void HMIBMS::update() {
     this->send_packet_(cv_payload);
   }
 
-  // 5. Read Events (Tick 5)
+  // 5. Read Events (Tick 5): start a new sweep of the event list from index 0. A sweep
+  // that lost a page is simply restarted here.
   if (slot == 5) {
-    std::vector<uint8_t> event_payload;
-    event_payload.push_back(HMI_MSG_READ_EVENTS);
-    event_payload.push_back(this->address_);
-    event_payload.push_back(0x00); // Start index Lo
-    event_payload.push_back(0x00); // Start index Hi
-    this->send_packet_(event_payload);
+    auto &sw = this->event_sweep_;
+    sw.active = true;
+    sw.pages = 0;
+    sw.seen.assign(this->error_sensors_.size(), false);
+    for (auto &l : sw.by_level) l.clear();
+    sw.highest_level = 0;
+    sw.latest_type = -1;
+    sw.latest_level = 0;
+    sw.latest_count = 0;
+    this->request_events_(0);
   }
 
   // 6. Read Balancing Times (Tick 7)
@@ -402,20 +406,31 @@ void HMIBMS::write_register(uint16_t reg_id, uint8_t type, float value, float sc
     return;
   }
   
-  // Convert float value to raw integer based on scale
-  // e.g. value=3.5V, scale=0.001 (mV). Raw = 3.5 / 0.001 = 3500.
-  // Wait, my `publish` logic uses `val * scale` or `val / 100`.
-  // `scale` here should probably be the multiplier applied TO raw to get float.
-  // So raw = value / scale.
-  
-  int64_t raw_val = 0;
-  if (scale != 0.0f) {
-    raw_val = (int64_t)(value / scale);
-  } else {
-    raw_val = (int64_t)value;
+  // scale is what the raw register value is multiplied by to give the entity value
+  // (e.g. 0.01 for SoC in 0.01 %), so raw = value / scale. Rounded, not truncated:
+  // in float maths 98 / 0.01 can come out as 9799.9999.
+  const double scaled = (scale != 0.0f) ? (double) value / (double) scale : (double) value;
+  int64_t raw_val = llround(scaled);
+
+  // Keep the value inside what the register type can hold
+  int64_t lo = 0, hi = 0;
+  switch (type) {
+    case HMI_TYPE_UINT8: lo = 0; hi = UINT8_MAX; break;
+    case HMI_TYPE_INT8: lo = INT8_MIN; hi = INT8_MAX; break;
+    case HMI_TYPE_UINT16: lo = 0; hi = UINT16_MAX; break;
+    case HMI_TYPE_INT16: lo = INT16_MIN; hi = INT16_MAX; break;
+    case HMI_TYPE_UINT32: lo = 0; hi = UINT32_MAX; break;
+    case HMI_TYPE_INT32: lo = INT32_MIN; hi = INT32_MAX; break;
+    default:
+      ESP_LOGW(TAG, "Cannot write register %u: unsupported type 0x%02X", reg_id, type);
+      return;
+  }
+  if (raw_val < lo || raw_val > hi) {
+    ESP_LOGW(TAG, "Register %u: raw value %lld outside its type's range, clamped", reg_id, (long long) raw_val);
+    raw_val = raw_val < lo ? lo : hi;
   }
 
-  ESP_LOGI(TAG, "Writing register %u: %f (raw: %lld)", reg_id, value, raw_val);
+  ESP_LOGI(TAG, "Writing register %u: %f (raw: %lld)", reg_id, value, (long long) raw_val);
 
   std::vector<uint8_t> payload;
   payload.push_back(HMI_MSG_WRITE_REGISTERS);
@@ -644,21 +659,14 @@ void HMIBMS::loop() {
           this->rx_buffer_.clear();
           packets_handled++;
         } else {
-          // Try Big Endian CRC or alternate check
-          received_crc = (this->rx_buffer_[payload_len + 2] << 8) | this->rx_buffer_[payload_len + 3];
-          if (received_crc == computed_crc) {
-             this->handle_packet_(this->rx_buffer_.data() + 2, payload_len);
-             this->rx_buffer_.clear();
-             packets_handled++;
-          } else {
-             ESP_LOGW(TAG, "CRC mismatch: Type=0x%02X LenField=0x%02X Calc=0x%04X Msg=0x%04X", 
-                      this->rx_buffer_[2], payload_len_minus_1, computed_crc, received_crc);
-             ESP_LOGD(TAG, "Raw packet: %s", format_hex_pretty(this->rx_buffer_).c_str());
-             // Robust framing: discard the first byte and try to find a new 0xFF
-             this->rx_buffer_.erase(this->rx_buffer_.begin());
-             while (!this->rx_buffer_.empty() && this->rx_buffer_[0] != 0xFF) {
-               this->rx_buffer_.erase(this->rx_buffer_.begin());
-             }
+          // The BMS sends the CRC low byte first (duart_send_packet); anything else is corrupt
+          ESP_LOGW(TAG, "CRC mismatch: Type=0x%02X LenField=0x%02X Calc=0x%04X Msg=0x%04X",
+                   this->rx_buffer_[2], payload_len_minus_1, computed_crc, received_crc);
+          ESP_LOGD(TAG, "Raw packet: %s", format_hex_pretty(this->rx_buffer_).c_str());
+          // Resync: drop the first byte and look for the next 0xFF
+          this->rx_buffer_.erase(this->rx_buffer_.begin());
+          while (!this->rx_buffer_.empty() && this->rx_buffer_[0] != 0xFF) {
+            this->rx_buffer_.erase(this->rx_buffer_.begin());
           }
         }
       }
@@ -1077,22 +1085,22 @@ void HMIBMS::handle_read_registers_response_(const uint8_t *data, size_t length)
     offset += val_size;
   }
 
-  // Calculate and publish deltas using cached values or existing state.
-  // Temperature values are now published directly in degC from the bus.
-  if (this->temperature_delta_sensor_) {
-    float min_val = std::isnan(t_min) ? (this->temperature_min_dC_sensor_ ? this->temperature_min_dC_sensor_->state : NAN) : t_min;
-    float max_val = std::isnan(t_max) ? (this->temperature_max_dC_sensor_ ? this->temperature_max_dC_sensor_->state : NAN) : t_max;
-    if (!std::isnan(min_val) && !std::isnan(max_val)) {
-      this->publish_queue_.push_back({this->temperature_delta_sensor_, max_val - min_val});
-    }
+  // Deltas from the last raw values off the bus (degC, mV), independent of any YAML filters
+  if (!std::isnan(t_min)) this->last_temperature_min_c_ = t_min;
+  if (!std::isnan(t_max)) this->last_temperature_max_c_ = t_max;
+  if (!std::isnan(v_min)) this->last_cell_voltage_min_mv_ = v_min;
+  if (!std::isnan(v_max)) this->last_cell_voltage_max_mv_ = v_max;
+  const bool temps_new = !std::isnan(t_min) || !std::isnan(t_max);
+  const bool cells_new = !std::isnan(v_min) || !std::isnan(v_max);
+  if (this->temperature_delta_sensor_ && temps_new && !std::isnan(this->last_temperature_min_c_) &&
+      !std::isnan(this->last_temperature_max_c_)) {
+    this->publish_queue_.push_back(
+        {this->temperature_delta_sensor_, this->last_temperature_max_c_ - this->last_temperature_min_c_});
   }
-  if (this->cell_voltage_delta_sensor_) {
-    // Sensors have multiply: 0.001 filter, so state is in V. Convert back to mV for calculation.
-    float min_val = std::isnan(v_min) ? (this->cell_voltage_min_mV_sensor_ ? this->cell_voltage_min_mV_sensor_->state * 1000.0f : NAN) : v_min;
-    float max_val = std::isnan(v_max) ? (this->cell_voltage_max_mV_sensor_ ? this->cell_voltage_max_mV_sensor_->state * 1000.0f : NAN) : v_max;
-    if (!std::isnan(min_val) && !std::isnan(max_val)) {
-      this->publish_queue_.push_back({this->cell_voltage_delta_sensor_, max_val - min_val});
-    }
+  if (this->cell_voltage_delta_sensor_ && cells_new && !std::isnan(this->last_cell_voltage_min_mv_) &&
+      !std::isnan(this->last_cell_voltage_max_mv_)) {
+    this->publish_queue_.push_back(
+        {this->cell_voltage_delta_sensor_, this->last_cell_voltage_max_mv_ - this->last_cell_voltage_min_mv_});
   }
 }
 
@@ -1424,131 +1432,119 @@ void HMIBMS::handle_read_log_response_(const uint8_t *data, size_t length) {
   }
 }
 
+void HMIBMS::request_events_(uint16_t start_index) {
+  std::vector<uint8_t> payload;
+  payload.push_back(HMI_MSG_READ_EVENTS);
+  payload.push_back(this->address_);
+  payload.push_back(start_index & 0xFF);
+  payload.push_back(start_index >> 8);
+  this->send_packet_(payload);
+}
+
+// The BMS lists every event type that has happened (count > 0), active or not, starting
+// at the requested index. A full reply (11 events) means there may be more from next_index.
 void HMIBMS::handle_read_events_response_(const uint8_t *data, size_t length) {
+  static const size_t EVENT_RECORD_SIZE = 22;
+  static const uint16_t EVENTS_PER_FULL_REPLY = 11;  // (250 - 6) / 22 in hmi_handle_read_events
+  static const uint8_t MAX_EVENT_PAGES = 8;
   if (length < 6) return;
+  auto &sw = this->event_sweep_;
+  if (!sw.active) return;  // a late page from a sweep that was already finished
   uint8_t address = data[1];
   uint16_t next_index = data[2] | (data[3] << 8);
   uint16_t count = data[4] | (data[5] << 8);
-  
-  ESP_LOGD(TAG, "Read events response from 0x%02X, count=%u", address, count);
-  
-  size_t offset = 6;
-  uint16_t highest_level = 0;
-  uint16_t latest_event_type = 0xFFFF;
-  int latest_event_level = 0;
-  uint16_t latest_event_count = 0;
-  std::string latest_event_type_str = "UNKNOWN";
-  std::string history = "";
-  std::map<int, std::vector<std::string>> categorized_events;
-  // Track which error sensors we've updated in this loop
-  std::vector<bool> error_updated(this->error_sensors_.size(), false);
+  ESP_LOGD(TAG, "Read events response from 0x%02X, page %u, count=%u, next=%u", address, sw.pages, count, next_index);
 
-  for (uint16_t i = 0; i < count && offset + 22 <= length; i++) {
+  size_t offset = 6;
+  uint16_t parsed = 0;
+  for (uint16_t i = 0; i < count && offset + EVENT_RECORD_SIZE <= length; i++, offset += EVENT_RECORD_SIZE) {
     uint16_t type = data[offset] | (data[offset + 1] << 8);
     uint16_t level = data[offset + 2] | (data[offset + 3] << 8);
     uint16_t event_count = data[offset + 4] | (data[offset + 5] << 8);
-    
+    parsed++;
+
     // Override: Inverter Detected (Type 45) is always Info level
     if (type == 45) {
-      level = 1; // INFO
+      level = 1;  // INFO
     }
-    
-    const char* type_str = (type < sizeof(EVENT_TYPES)/sizeof(EVENT_TYPES[0])) ? EVENT_TYPES[type] : "UNKNOWN";
-    const char* level_str = (level < sizeof(EVENT_LEVELS)/sizeof(EVENT_LEVELS[0])) ? EVENT_LEVELS[level] : "??";
+
+    const char *type_str = event_type_name(type);
+    const char *level_str = (level < sizeof(EVENT_LEVELS) / sizeof(EVENT_LEVELS[0])) ? EVENT_LEVELS[level] : "??";
 
     char state_buf[32];
     snprintf(state_buf, sizeof(state_buf), "%s (%u)", level_str, event_count);
-
     if (type < this->error_sensors_.size() && this->error_sensors_[type] != nullptr) {
       auto *error_sensor = this->error_sensors_[type];
       if (!error_sensor->has_state() || error_sensor->state != state_buf) {
         error_sensor->publish_state(state_buf);
       }
-      error_updated[type] = true;
+      if (type < sw.seen.size()) sw.seen[type] = true;
     }
 
-    if (i == 0) {
-      latest_event_type = type;
-      latest_event_level = level;
-      latest_event_count = event_count;
-      latest_event_type_str = type_str;
+    // The first event of the sweep is the latest
+    if (sw.latest_type < 0) {
+      sw.latest_type = type;
+      sw.latest_level = level;
+      sw.latest_count = event_count;
     }
-    
-    uint64_t timestamp = 0;
-    for (int j = 0; j < 8; j++) timestamp |= (uint64_t)data[offset + 6 + j] << (j * 8);
-    
-    uint64_t event_data = 0;
-    for (int j = 0; j < 8; j++) event_data |= (uint64_t)data[offset + 14 + j] << (j * 8);
-
-    if (level > highest_level) {
-      highest_level = level;
+    if (level > sw.highest_level) sw.highest_level = level;
+    if (level < 5) {
+      char event_str[64];
+      snprintf(event_str, sizeof(event_str), "%s (%u)", type_str, event_count);
+      sw.by_level[level].push_back(event_str);
     }
-
-    char event_str[64];
-    snprintf(event_str, sizeof(event_str), "%s (%u)", type_str, event_count);
-    categorized_events[level].push_back(event_str);
-
-    offset += 22;
   }
+  sw.pages++;
 
-  // Update any error sensors that were NOT in the received list to "NONE" (Inactive)
-  // NOTE: This assumes we receive a full list of active events. If pagination is used and we only get page 1,
-  // this might incorrectly clear events on page 2. However, based on typical packet size and event count, 
-  // we likely fit most active errors in one packet.
+  if (parsed >= EVENTS_PER_FULL_REPLY && sw.pages < MAX_EVENT_PAGES) {
+    this->request_events_(next_index);
+    return;
+  }
+  this->finish_event_sweep_();
+}
+
+void HMIBMS::finish_event_sweep_() {
+  auto &sw = this->event_sweep_;
+  sw.active = false;
+
+  // Types the BMS didn't list on any page have never happened
   for (size_t i = 0; i < this->error_sensors_.size(); i++) {
-    if (this->error_sensors_[i] != nullptr && !error_updated[i]) {
-      auto *error_sensor = this->error_sensors_[i];
-      if (!error_sensor->has_state() || error_sensor->state != "INACTIVE") {
-        error_sensor->publish_state("INACTIVE");
-      }
+    if (this->error_sensors_[i] == nullptr || (i < sw.seen.size() && sw.seen[i])) continue;
+    auto *error_sensor = this->error_sensors_[i];
+    if (!error_sensor->has_state() || error_sensor->state != "INACTIVE") {
+      error_sensor->publish_state("INACTIVE");
     }
   }
 
-  // Construct history string based on categories
-  // Mapping: 0->Historic, 1->Info, 2->Warning, 3->Critical, 4->Fatal
-  static const char* CAT_NAMES[] = {"Historic", "Info", "Warning", "Critical", "Fatal"};
-  
+  // "Historic: ...\nInfo: ...\nWarning: none\n..." (level 0 = happened before, not active now)
+  static const char *CAT_NAMES[] = {"Historic", "Info", "Warning", "Critical", "Fatal"};
+  std::string history;
   for (int lvl = 0; lvl < 5; lvl++) {
-    if (!categorized_events[lvl].empty()) {
-      history += CAT_NAMES[lvl];
-      history += ": ";
-      for (size_t k = 0; k < categorized_events[lvl].size(); k++) {
+    history += CAT_NAMES[lvl];
+    history += ": ";
+    if (sw.by_level[lvl].empty()) {
+      history += "none";
+    } else {
+      for (size_t k = 0; k < sw.by_level[lvl].size(); k++) {
         if (k > 0) history += ", ";
-        history += categorized_events[lvl][k];
+        history += sw.by_level[lvl][k];
       }
-      history += "\n";
-    } else if (lvl > 0) { // For Info/Warn/Crit/Fatal show "none" if empty, but maybe skip Historic if empty?
-       // User asked for:
-       // Historic: ...
-       // Info: ...
-       // Warning: ...
-       // Critical: none
-       // Fatal: none
-       // Let's follow that pattern strictly.
-       history += CAT_NAMES[lvl];
-       history += ": none\n";
     }
-  }
-  // Historic special handling: if empty, maybe user still wants "Historic: none" or just skip? 
-  // User example had content. I'll include "Historic: none" if empty for consistency.
-  if (categorized_events[0].empty()) {
-      std::string temp = "Historic: none\n" + history;
-      history = temp;
+    history += "\n";
   }
 
   if (this->highest_event_level_sensor_) {
-    this->publish_queue_.push_back({this->highest_event_level_sensor_, (float)highest_level});
+    this->publish_queue_.push_back({this->highest_event_level_sensor_, (float) sw.highest_level});
   }
-  if (this->last_event_sensor_ && latest_event_type != 0xFFFF) {
-    this->publish_queue_.push_back({this->last_event_sensor_, (float)latest_event_type});
+  if (this->last_event_sensor_ && sw.latest_type >= 0) {
+    this->publish_queue_.push_back({this->last_event_sensor_, (float) sw.latest_type});
   }
-  
-  this->last_event_code_ = (latest_event_type == 0xFFFF) ? -1 : latest_event_type;
-  this->last_event_level_ = latest_event_level;
-  this->last_event_count_ = (latest_event_type == 0xFFFF) ? 0 : latest_event_count;
-  this->last_event_type_str_ = latest_event_type_str;
+  this->last_event_code_ = sw.latest_type;
+  this->last_event_level_ = sw.latest_level;
+  this->last_event_count_ = sw.latest_type < 0 ? 0 : sw.latest_count;
+  this->last_event_type_str_ = sw.latest_type < 0 ? "UNKNOWN" : event_type_name(sw.latest_type);
 
-  if (this->event_history_text_sensor_ && !history.empty()) {
+  if (this->event_history_text_sensor_) {
     if (!this->event_history_text_sensor_->has_state() || this->event_history_text_sensor_->state != history) {
       this->event_history_text_sensor_->publish_state(history);
     }

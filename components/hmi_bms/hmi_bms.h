@@ -385,6 +385,11 @@ class HMIBMS : public PollingComponent, public uart::UARTDevice {
   sensor::Sensor *delta_charge_current_limit_sensor_{nullptr};
   sensor::Sensor *hard_charge_current_limit_sensor_{nullptr};
   sensor::Sensor *hard_discharge_current_limit_sensor_{nullptr};
+  // Last raw min/max off the bus, for the deltas
+  float last_temperature_min_c_{NAN};
+  float last_temperature_max_c_{NAN};
+  float last_cell_voltage_min_mv_{NAN};
+  float last_cell_voltage_max_mv_{NAN};
   float last_hard_charge_current_limit_a_{0.0f};
   float last_hard_discharge_current_limit_a_{0.0f};
   bool has_last_hard_charge_current_limit_{false};
@@ -432,6 +437,21 @@ class HMIBMS : public PollingComponent, public uart::UARTDevice {
   bool log_busy_{false};
   std::deque<std::string> log_publish_queue_;
   std::vector<text_sensor::TextSensor *> error_sensors_;
+
+  // One read of the BMS event list: a reply holds at most 11 events, so it can take
+  // several pages (next_index). Types are marked inactive only after the last page.
+  void request_events_(uint16_t start_index);
+  void finish_event_sweep_();
+  struct EventSweep {
+    bool active{false};
+    uint8_t pages{0};
+    std::vector<bool> seen;
+    std::vector<std::string> by_level[5];
+    uint16_t highest_level{0};
+    int latest_type{-1};
+    int latest_level{0};
+    int latest_count{0};
+  } event_sweep_;
 
   struct SensorUpdate {
     sensor::Sensor *sensor;
