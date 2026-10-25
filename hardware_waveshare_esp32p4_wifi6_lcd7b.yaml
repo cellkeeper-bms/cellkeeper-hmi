@@ -13,6 +13,10 @@ substitutions:
   # The panel's controller can't rotate in hardware; LVGL rotates the whole UI instead.
   # 180 suits the board standing on its stand; 0 flips it.
   hmi_rotation: "180"
+  # Page swipes: this touch panel needs a lighter swipe than the Guition (200 px / 6 in
+  # ui_1024x600.yaml). LVGL's defaults are 50 px / 3.
+  swipe_min_distance_px: "120"
+  swipe_min_velocity_px: "4"
 
 packages:
   ui_layout: !include ui_1024x600.yaml

@@ -1,0 +1,452 @@
+# 1024x600 UI: the classic main page, unchanged apart from its swipe targets and the
+# tab-bar hook. Its values are updated in scripts.yaml (copied from bms_ui_scripts.yaml).
+
+lvgl:
+  pages:
+    - id: energy_page
+      on_load:
+        - script.execute: {id: nav_set, tab: 0}
+      on_swipe_left:
+        - lvgl.page.show: main_v2_page
+      on_swipe_right:
+        - lvgl.page.show: system_page
+      widgets:
+        - label:
+            id: label_events_energy
+            text: ""
+            align: TOP_MID
+            y: 0
+            width: 100%
+            text_align: CENTER
+            text_font: font_roboto_20
+            text_color: 0xFFFFFF
+            bg_opa: 100%
+            bg_color: 0x000000
+
+        - label:
+            id: label_contactor_energy
+            text: "Contactor: 0 OPEN / OFF"
+            align: TOP_LEFT
+            x: 40
+            y: 400
+            width: 440
+            long_mode: CLIP
+            text_align: LEFT
+            text_font: font_roboto_40
+            text_color: 0xFFFFFF
+
+        - arc:
+            id: energy_soc_arc
+            width: 340
+            height: 340
+            align: TOP_LEFT
+            x: 40
+            y: 40
+            min_value: 0
+            max_value: 100
+            bg_color: 0x1A1A1A
+            widgets:
+              - label:
+                  id: label_soc_energy
+                  text: " "
+                  align: CENTER
+                  text_font: font_roboto_80
+                  text_color: 0xFFFFFF
+              - label:
+                  text: "SOC"
+                  align: CENTER
+                  y: 50
+                  text_font: font_roboto_20
+                  text_color: 0xAAAAAA
+
+        - arc:
+            id: energy_soc_delta_arc
+            width: 300
+            height: 300
+            align: TOP_LEFT
+            x: 60
+            y: 60
+            min_value: 0
+            max_value: 100
+            value: 0
+            bg_opa: 0%
+            arc_width: 8
+            arc_color: 0xFFD54A
+
+        - label:
+            id: label_soc_delta_1h_energy
+            text: "1h change: ---%"
+            align: TOP_LEFT
+            x: 40
+            y: 290
+            width: 340
+            text_align: CENTER
+            text_font: font_roboto_20
+            text_color: 0xFFD54A
+
+        - label:
+            id: label_power_title_energy
+            text: "POWER"
+            align: TOP_RIGHT
+            x: -110
+            y: 38
+            width: 320
+            text_align: CENTER
+            text_font: font_roboto_20
+            text_color: 0xAAAAAA
+
+        - line:
+            id: power_scale_energy
+            width: 320
+            height: 1
+            align: TOP_RIGHT
+            x: -110
+            y: 76
+            line_width: 2
+            line_color: 0xDDDDDD
+            points:
+              - 0, 0
+              - 320, 0
+
+        - line:
+            width: 1
+            height: 14
+            align: TOP_RIGHT
+            x: -430
+            y: 62
+            line_width: 2
+            line_color: 0xDDDDDD
+            points:
+              - 0, 0
+              - 0, 14
+
+        - line:
+            width: 1
+            height: 14
+            align: TOP_RIGHT
+            x: -110
+            y: 62
+            line_width: 2
+            line_color: 0xDDDDDD
+            points:
+              - 0, 0
+              - 0, 14
+
+        - obj:
+            id: power_marker_energy
+            width: 2
+            height: 22
+            align: TOP_LEFT
+            x: -270
+            y: 65
+            bg_color: 0xFFD54A
+            border_width: 0
+            radius: 0
+
+        - obj:
+            id: power_indicator_energy
+            width: 5
+            height: 22
+            align: TOP_LEFT
+            x: -270
+            y: 65
+            bg_color: 0xFFFFFF
+            border_width: 0
+            radius: 0
+
+        - label:
+            id: label_power_scale_min_energy
+            text: "-18.0kW"
+            align: TOP_RIGHT
+            x: -390
+            y: 38
+            width: 80
+            text_align: CENTER
+            text_font: font_roboto_20
+            text_color: 0xAAAAAA
+
+        - label:
+            id: label_power_scale_max_energy
+            text: "18.0kW"
+            align: TOP_RIGHT
+            x: -70
+            y: 38
+            width: 80
+            text_align: CENTER
+            text_font: font_roboto_20
+            text_color: 0xAAAAAA
+
+        - label:
+            id: label_power_energy
+            text: "--"
+            align: TOP_LEFT
+            x: 0
+            y: 86
+            text_font: font_roboto_60
+            text_color: 0xFFFFFF
+
+        - label:
+            id: label_power_energy_unit
+            text: "W"
+            align: TOP_LEFT
+            x: 0
+            y: 100
+            text_font: font_roboto_40
+            text_color: 0xFFFFFF
+
+        - label:
+            id: label_current_title_energy
+            text: "CURRENT"
+            align: TOP_RIGHT
+            x: -110
+            y: 180
+            width: 320
+            text_align: CENTER
+            text_font: font_roboto_20
+            text_color: 0xAAAAAA
+
+        - line:
+            id: current_scale_energy
+            width: 320
+            height: 1
+            align: TOP_RIGHT
+            x: -110
+            y: 216
+            line_width: 2
+            line_color: 0xDDDDDD
+            points:
+              - 0, 0
+              - 320, 0
+
+        - line:
+            width: 1
+            height: 12
+            align: TOP_RIGHT
+            x: -430
+            y: 204
+            line_width: 2
+            line_color: 0xDDDDDD
+            points:
+              - 0, 0
+              - 0, 12
+
+        - line:
+            width: 1
+            height: 12
+            align: TOP_RIGHT
+            x: -110
+            y: 204
+            line_width: 2
+            line_color: 0xDDDDDD
+            points:
+              - 0, 0
+              - 0, 12
+
+        - obj:
+            id: current_marker_energy
+            width: 2
+            height: 20
+            align: TOP_LEFT
+            x: -270
+            y: 207
+            bg_color: 0xFFD54A
+            border_width: 0
+            radius: 0
+
+        - obj:
+            id: current_indicator_energy
+            width: 5
+            height: 20
+            align: TOP_LEFT
+            x: -270
+            y: 207
+            bg_color: 0xFFD54A
+            border_width: 0
+            radius: 0
+
+        - label:
+            id: label_current_scale_min_energy
+            text: "-50A"
+            align: TOP_RIGHT
+            x: -390
+            y: 180
+            width: 80
+            text_align: CENTER
+            text_font: font_roboto_20
+            text_color: 0xCCAA77
+
+        - label:
+            id: label_current_scale_max_energy
+            text: "50A"
+            align: TOP_RIGHT
+            x: -70
+            y: 180
+            width: 80
+            text_align: CENTER
+            text_font: font_roboto_20
+            text_color: 0xCCAA77
+
+        - label:
+            id: label_current_energy_value
+            text: "--.--"
+            align: TOP_LEFT
+            x: 0
+            y: 226
+            text_font: font_roboto_60
+            text_color: 0xFFA500
+
+        - label:
+            id: label_current_energy_unit
+            text: "A"
+            align: TOP_LEFT
+            x: 0
+            y: 240
+            text_font: font_roboto_40
+            text_color: 0xFFA500
+
+        - label:
+            id: label_voltage_title_energy
+            text: "VOLTAGE"
+            align: TOP_RIGHT
+            x: -110
+            y: 320
+            width: 320
+            text_align: CENTER
+            text_font: font_roboto_20
+            text_color: 0xAAAAAA
+
+        - line:
+            id: voltage_scale_energy
+            width: 320
+            height: 1
+            align: TOP_RIGHT
+            x: -110
+            y: 356
+            line_width: 2
+            line_color: 0xDDDDDD
+            points:
+              - 0, 0
+              - 320, 0
+
+        - line:
+            width: 1
+            height: 12
+            align: TOP_RIGHT
+            x: -430
+            y: 344
+            line_width: 2
+            line_color: 0xDDDDDD
+            points:
+              - 0, 0
+              - 0, 12
+
+        - line:
+            width: 1
+            height: 12
+            align: TOP_RIGHT
+            x: -110
+            y: 344
+            line_width: 2
+            line_color: 0xDDDDDD
+            points:
+              - 0, 0
+              - 0, 12
+
+        - obj:
+            id: voltage_marker_energy
+            width: 5
+            height: 20
+            align: TOP_LEFT
+            x: -270
+            y: 347
+            bg_color: 0x00BFFF
+            border_width: 0
+            radius: 0
+
+        - label:
+            id: label_voltage_scale_min_energy
+            text: "--.-V"
+            align: TOP_RIGHT
+            x: -390
+            y: 320
+            width: 80
+            text_align: CENTER
+            text_font: font_roboto_20
+            text_color: 0x77AACC
+
+        - label:
+            id: label_voltage_scale_max_energy
+            text: "--.-V"
+            align: TOP_RIGHT
+            x: -70
+            y: 320
+            width: 80
+            text_align: CENTER
+            text_font: font_roboto_20
+            text_color: 0x77AACC
+
+        - label:
+            id: label_voltage_energy_value
+            text: "--.-"
+            align: TOP_LEFT
+            x: 0
+            y: 366
+            text_font: font_roboto_60
+            text_color: 0x00BFFF
+
+        - label:
+            id: label_voltage_energy_unit
+            text: "V"
+            align: TOP_LEFT
+            x: 0
+            y: 380
+            text_font: font_roboto_40
+            text_color: 0x00BFFF
+
+        - obj:
+            width: 90%
+            height: 2
+            align: BOTTOM_MID
+            y: -140
+            bg_color: 0x333333
+
+        - label:
+            text: "TEMP MIN/MAX (DELTA)"
+            align: BOTTOM_LEFT
+            x: 40
+            y: -90
+            text_font: font_roboto_20
+            text_color: 0x888888
+        - label:
+            id: label_temp_energy
+            text: " "
+            align: BOTTOM_LEFT
+            x: 40
+            y: -40
+            text_font: font_roboto_40
+            text_color: 0xFFFFFF
+
+        - label:
+            text: "CELL MIN/MAX (DELTA)"
+            align: BOTTOM_RIGHT
+            x: -40
+            y: -90
+            text_font: font_roboto_20
+            text_color: 0x888888
+        - label:
+            id: label_cells_energy
+            text: " "
+            align: BOTTOM_RIGHT
+            x: -40
+            y: -40
+            text_font: font_roboto_40
+            text_color: 0xFFFFFF
+
+        - label:
+            id: label_uptime_energy
+            text: "HMI/BMS: -- / --"
+            align: BOTTOM_MID
+            y: -10
+            text_font: font_roboto_20
+            text_color: 0x444444
+

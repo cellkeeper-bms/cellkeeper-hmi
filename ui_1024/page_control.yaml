@@ -1,0 +1,168 @@
+# 1024x600 UI: Control. BMS state and the commands: Run / Stop, the calibrations, isolation
+# zero and balance charge start / stop. Every command asks for confirmation, then the PIN if
+# settings are locked (scripts.yaml confirm_open / run_cmd).
+
+lvgl:
+  pages:
+    - id: control_page
+      on_load:
+        - script.execute: {id: nav_set, tab: 2}
+      on_swipe_left:
+        - lvgl.page.show: cells_page
+      on_swipe_right:
+        - lvgl.page.show: main_v2_page
+      widgets:
+        - obj:
+            styles: st_card
+            x: 16
+            y: 8
+            width: 992
+            height: 130
+            scrollable: false
+            widgets:
+              - label: {text: "BMS", x: 0, y: 0, text_font: font_roboto_18, text_color: 0x8FA39A}
+              - label:
+                  id: ctl_state
+                  text: "--"
+                  x: 0
+                  y: 24
+                  text_font: font_roboto_48
+                  text_color: 0x5EE3A8
+              - label: {text: "CONTACTORS", x: 420, y: 0, text_font: font_roboto_18, text_color: 0x8FA39A}
+              - label:
+                  id: ctl_contactor
+                  text: "--"
+                  x: 420
+                  y: 24
+                  text_font: font_roboto_48
+                  text_color: 0xF0F0F0
+              - label:
+                  id: ctl_info
+                  text: " "
+                  align: TOP_RIGHT
+                  y: 0
+                  text_align: RIGHT
+                  text_font: font_roboto_20
+                  text_color: 0xA9B4AF
+              - label:
+                  id: ctl_status
+                  text: " "
+                  x: 0
+                  y: 84
+                  text_font: font_roboto_18
+                  text_color: 0xFFD54A
+
+        - obj:
+            styles: st_card
+            x: 16
+            y: 146
+            width: 440
+            height: 236
+            scrollable: false
+            widgets:
+              - label: {text: "RUN / STOP", x: 0, y: 0, text_font: font_roboto_18, text_color: 0x8FA39A}
+              - button:
+                  styles: st_cmd_btn
+                  x: 0
+                  y: 32
+                  width: 200
+                  height: 168
+                  bg_color: 0x1F5F3A
+                  widgets:
+                    - label: {text: "RUN", align: CENTER, y: -14, text_font: font_roboto_40}
+                    - label: {text: "close contactors", align: CENTER, y: 30, text_font: font_roboto_16, text_color: 0xC8D2CD}
+                  on_click: [{script.execute: {id: confirm_open, cmd: 1}}]
+              - button:
+                  styles: st_cmd_btn
+                  x: 216
+                  y: 32
+                  width: 200
+                  height: 168
+                  bg_color: 0x6A1818
+                  widgets:
+                    - label: {text: "STOP", align: CENTER, y: -14, text_font: font_roboto_40}
+                    - label: {text: "open contactors", align: CENTER, y: 30, text_font: font_roboto_16, text_color: 0xC8D2CD}
+                  on_click: [{script.execute: {id: confirm_open, cmd: 2}}]
+
+        - obj:
+            styles: st_card
+            x: 472
+            y: 146
+            width: 536
+            height: 236
+            scrollable: false
+            widgets:
+              - label: {text: "CALIBRATION", x: 0, y: 0, text_font: font_roboto_18, text_color: 0x8FA39A}
+              - button:
+                  styles: st_cmd_btn
+                  x: 0
+                  y: 32
+                  width: 248
+                  height: 80
+                  widgets: [{label: {text: "Current sensor\noffline, long", align: CENTER, text_align: CENTER, text_font: font_roboto_20}}]
+                  on_click: [{script.execute: {id: confirm_open, cmd: 3}}]
+              - button:
+                  styles: st_cmd_btn
+                  x: 264
+                  y: 32
+                  width: 248
+                  height: 80
+                  widgets: [{label: {text: "Current sensor\noffline, short", align: CENTER, text_align: CENTER, text_font: font_roboto_20}}]
+                  on_click: [{script.execute: {id: confirm_open, cmd: 4}}]
+              - button:
+                  styles: st_cmd_btn
+                  x: 0
+                  y: 120
+                  width: 248
+                  height: 80
+                  widgets: [{label: {text: "Current sensor\nonline", align: CENTER, text_align: CENTER, text_font: font_roboto_20}}]
+                  on_click: [{script.execute: {id: confirm_open, cmd: 5}}]
+              - button:
+                  styles: st_cmd_btn
+                  x: 264
+                  y: 120
+                  width: 248
+                  height: 80
+                  widgets: [{label: {text: "Isolation\nzero", align: CENTER, text_align: CENTER, text_font: font_roboto_20}}]
+                  on_click: [{script.execute: {id: confirm_open, cmd: 10}}]
+
+        - obj:
+            styles: st_card
+            x: 16
+            y: 390
+            width: 992
+            height: 168
+            scrollable: false
+            widgets:
+              - label: {text: "BALANCE CHARGE", x: 0, y: 0, text_font: font_roboto_18, text_color: 0x8FA39A}
+              - label:
+                  id: ctl_bc_status
+                  text: "--"
+                  x: 0
+                  y: 30
+                  width: 560
+                  long_mode: WRAP
+                  text_font: font_roboto_24
+                  text_color: 0xF0F0F0
+              - label:
+                  text: "Schedule and offsets are on the Settings page."
+                  x: 0
+                  y: 112
+                  text_font: font_roboto_16
+                  text_color: 0x6F7A75
+              - button:
+                  styles: st_cmd_btn
+                  x: 600
+                  y: 28
+                  width: 176
+                  height: 96
+                  widgets: [{label: {text: "Start now", align: CENTER, text_font: font_roboto_24}}]
+                  on_click: [{script.execute: {id: confirm_open, cmd: 13}}]
+              - button:
+                  styles: st_cmd_btn
+                  x: 792
+                  y: 28
+                  width: 176
+                  height: 96
+                  widgets: [{label: {text: "Stop", align: CENTER, text_font: font_roboto_24}}]
+                  on_click: [{script.execute: {id: confirm_open, cmd: 14}}]

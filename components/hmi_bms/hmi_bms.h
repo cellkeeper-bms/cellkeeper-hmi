@@ -250,6 +250,12 @@ class HMIBMS : public PollingComponent, public uart::UARTDevice {
   void add_raw_temperature_sensor(sensor::Sensor *s) { raw_temperature_sensors_.push_back(s); }
   const std::vector<sensor::Sensor *> &get_cell_voltage_sensors() const { return cell_voltage_sensors_; }
   const std::vector<sensor::Sensor *> &get_balancing_time_sensors() const { return balancing_time_sensors_; }
+  // One text sensor per BMS event type (index = type), state "LEVEL (count)" or "INACTIVE"; for the LCD
+  const std::vector<text_sensor::TextSensor *> &get_event_sensors() const { return error_sensors_; }
+  // BMS name of an event type, e.g. "CELL_VOLTAGE_HIGH"; "UNKNOWN" outside the table
+  static const char *event_type_name(int type);
+  // ms since the last valid frame from the BMS; UINT32_MAX before the first one
+  uint32_t ms_since_rx() const { return this->last_rx_ms_ == 0 ? UINT32_MAX : millis() - this->last_rx_ms_; }
   void set_bypass_crc(bool bypass) { bypass_crc_ = bypass; }
   void set_baud_rate(uint32_t baud) { baud_rate_ = baud; }
   void set_dump_raw(bool dump) { dump_raw_ = dump; }
@@ -406,6 +412,7 @@ class HMIBMS : public PollingComponent, public uart::UARTDevice {
   bool dump_raw_{false};
   bool settings_unlocked_{false};
   uint32_t last_settings_write_ms_{0};
+  uint32_t last_rx_ms_{0};
   static const uint32_t SETTINGS_UNLOCK_TIMEOUT_MS = 30000;  // 30 seconds
   text_sensor::TextSensor *settings_status_text_sensor_{nullptr};
   uint32_t last_settings_countdown_s_{0xFFFFFFFFUL};

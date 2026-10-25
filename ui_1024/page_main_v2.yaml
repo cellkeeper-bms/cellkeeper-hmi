@@ -1,0 +1,334 @@
+# 1024x600 UI: Main v2, the re-imagined main page (boot page). Events banner, SoC ring,
+# power with "limited by", cell and module strips, and today / inverter / balance charge.
+# Updated from scripts.yaml.
+
+lvgl:
+  pages:
+    - id: main_v2_page
+      on_load:
+        - script.execute: {id: nav_set, tab: 1}
+      on_swipe_left:
+        - lvgl.page.show: control_page
+      on_swipe_right:
+        - lvgl.page.show: energy_page
+      widgets:
+        # Events banner: shown only while a WARNING or worse is active.
+        - button:
+            id: mv2_banner
+            x: 16
+            y: 8
+            width: 992
+            height: 44
+            radius: 10
+            hidden: true
+            bg_color: 0xFFC107
+            border_width: 0
+            shadow_width: 0
+            widgets:
+              - label:
+                  id: mv2_banner_lbl
+                  text: " "
+                  align: LEFT_MID
+                  x: 8
+                  text_font: font_roboto_24
+                  text_color: 0x000000
+              - label:
+                  text: "Events >"
+                  align: RIGHT_MID
+                  x: -8
+                  text_font: font_roboto_20
+                  text_color: 0x000000
+            on_click:
+              - lvgl.page.show: events_page
+
+        # SoC ring
+        - obj:
+            styles: st_card
+            x: 16
+            y: 60
+            width: 300
+            height: 272
+            scrollable: false
+            widgets:
+              - arc:
+                  id: mv2_soc_arc
+                  align: CENTER
+                  width: 224
+                  height: 224
+                  min_value: 0
+                  max_value: 100
+                  value: 0
+                  start_angle: 135
+                  end_angle: 45
+                  arc_width: 18
+                  arc_color: 0x26302B
+                  clickable: false
+                  indicator:
+                    arc_width: 18
+                    arc_color: 0x5EE3A8
+                  knob:
+                    bg_opa: TRANSP
+                    pad_all: 0
+              - label:
+                  id: mv2_soc_lbl
+                  text: "--%"
+                  align: CENTER
+                  y: -8
+                  text_font: font_roboto_60
+                  text_color: 0xF0F0F0
+              - label:
+                  id: mv2_soc_sub
+                  text: "SoC"
+                  align: CENTER
+                  y: 42
+                  text_font: font_roboto_18
+                  text_color: 0x8FA39A
+
+        # Power, voltage, current and the limit in force
+        - obj:
+            styles: st_card
+            x: 332
+            y: 60
+            width: 676
+            height: 272
+            scrollable: false
+            widgets:
+              - label:
+                  id: mv2_state
+                  text: "--"
+                  x: 0
+                  y: 0
+                  text_font: font_roboto_20
+                  text_color: 0x5EE3A8
+              - label:
+                  id: mv2_contactor
+                  text: "--"
+                  x: 260
+                  y: 0
+                  text_font: font_roboto_20
+                  text_color: 0xA9B4AF
+              - label:
+                  id: mv2_soc_1h
+                  text: " "
+                  align: TOP_RIGHT
+                  y: 0
+                  text_font: font_roboto_20
+                  text_color: 0xFFD54A
+              - label:
+                  id: mv2_power
+                  text: "--"
+                  x: 0
+                  y: 26
+                  text_font: font_roboto_60
+                  text_color: 0xF0F0F0
+              - label:
+                  id: mv2_dir
+                  text: " "
+                  x: 260
+                  y: 48
+                  text_font: font_roboto_24
+                  text_color: 0xA9B4AF
+              - label:
+                  id: mv2_volt
+                  text: "-- V"
+                  align: TOP_RIGHT
+                  y: 28
+                  text_font: font_roboto_32
+                  text_color: 0x00BFFF
+              - label:
+                  id: mv2_curr
+                  text: "-- A"
+                  align: TOP_RIGHT
+                  y: 64
+                  text_font: font_roboto_32
+                  text_color: 0xFFD54A
+              # Power bar: discharge to the left of centre, charge to the right
+              - obj:
+                  id: mv2_pbar
+                  x: 0
+                  y: 114
+                  width: 652
+                  height: 16
+                  radius: 4
+                  pad_all: 0
+                  border_width: 0
+                  scrollable: false
+                  bg_color: 0x26302B
+                  widgets:
+                    - obj:
+                        id: mv2_pbar_fill
+                        x: 326
+                        y: 0
+                        width: 0
+                        height: 16
+                        radius: 0
+                        pad_all: 0
+                        border_width: 0
+                        bg_color: 0x5EE3A8
+                    - obj:
+                        x: 325
+                        y: 0
+                        width: 2
+                        height: 16
+                        radius: 0
+                        pad_all: 0
+                        border_width: 0
+                        bg_color: 0xA9B4AF
+              - label:
+                  id: mv2_pbar_min
+                  text: " "
+                  x: 0
+                  y: 134
+                  text_font: font_roboto_16
+                  text_color: 0x6F7A75
+              - label:
+                  text: "0"
+                  x: 322
+                  y: 134
+                  text_font: font_roboto_16
+                  text_color: 0x6F7A75
+              - label:
+                  id: mv2_pbar_max
+                  text: " "
+                  align: TOP_RIGHT
+                  y: 134
+                  text_font: font_roboto_16
+                  text_color: 0x6F7A75
+              - label:
+                  id: mv2_lim_chg
+                  text: "Charge limit --"
+                  x: 0
+                  y: 166
+                  text_font: font_roboto_20
+                  text_color: 0xA9B4AF
+              - label:
+                  id: mv2_lim_dis
+                  text: "Discharge limit --"
+                  x: 0
+                  y: 200
+                  text_font: font_roboto_20
+                  text_color: 0xA9B4AF
+
+        # Cells and module temperatures, tap for Cells
+        - obj:
+            styles: st_card
+            x: 16
+            y: 340
+            width: 992
+            height: 92
+            scrollable: false
+            on_click:
+              - lvgl.page.show: cells_page
+            widgets:
+              - label:
+                  id: mv2_cells_lbl
+                  text: "Cells --"
+                  x: 0
+                  y: 0
+                  text_font: font_roboto_18
+                  text_color: 0xA9B4AF
+              - obj:
+                  id: mv2_cell_strip
+                  x: 0
+                  y: 26
+                  width: 600
+                  height: 30
+                  radius: 0
+                  pad_all: 0
+                  border_width: 0
+                  bg_opa: TRANSP
+                  scrollable: false
+                  clickable: false
+                  event_bubble: true
+              - label:
+                  id: mv2_temps_lbl
+                  text: "Modules --"
+                  x: 624
+                  y: 0
+                  text_font: font_roboto_18
+                  text_color: 0xA9B4AF
+              - obj:
+                  id: mv2_temp_strip
+                  x: 624
+                  y: 26
+                  width: 344
+                  height: 30
+                  radius: 0
+                  pad_all: 0
+                  border_width: 0
+                  bg_opa: TRANSP
+                  scrollable: false
+                  clickable: false
+                  event_bubble: true
+
+        # Bottom cards
+        - obj:
+            styles: st_card
+            x: 16
+            y: 440
+            width: 320
+            height: 118
+            scrollable: false
+            on_click:
+              - lvgl.page.show: power_page
+            widgets:
+              - label: {text: "TODAY", x: 0, y: 0, text_font: font_roboto_16, text_color: 0x8FA39A}
+              - label:
+                  id: mv2_today
+                  text: "--"
+                  x: 0
+                  y: 22
+                  text_font: font_roboto_24
+                  text_color: 0xF0F0F0
+              - label:
+                  id: mv2_today_net
+                  text: " "
+                  x: 0
+                  y: 50
+                  text_font: font_roboto_16
+                  text_color: 0xA9B4AF
+        - obj:
+            styles: st_card
+            x: 352
+            y: 440
+            width: 320
+            height: 118
+            scrollable: false
+            on_click:
+              - lvgl.page.show: power_page
+            widgets:
+              - label: {text: "INVERTER SEES", x: 0, y: 0, text_font: font_roboto_16, text_color: 0x8FA39A}
+              - label:
+                  id: mv2_inv
+                  text: "--"
+                  x: 0
+                  y: 22
+                  text_font: font_roboto_24
+                  text_color: 0xF0F0F0
+              - label:
+                  id: mv2_inv_sub
+                  text: " "
+                  x: 0
+                  y: 50
+                  text_font: font_roboto_16
+                  text_color: 0xA9B4AF
+        - obj:
+            styles: st_card
+            x: 688
+            y: 440
+            width: 320
+            height: 118
+            scrollable: false
+            on_click:
+              - lvgl.page.show: control_page
+            widgets:
+              - label: {text: "BALANCE CHARGE", x: 0, y: 0, text_font: font_roboto_16, text_color: 0x8FA39A}
+              - label:
+                  id: mv2_bc
+                  text: "--"
+                  x: 0
+                  y: 22
+                  width: 296
+                  long_mode: WRAP
+                  text_font: font_roboto_18
+                  text_color: 0xF0F0F0

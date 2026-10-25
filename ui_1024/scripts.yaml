@@ -1,0 +1,1386 @@
+# 1024x600 UI: globals, scripts and the 250 ms page updates. The numeric pad, lock and
+# classic main page code come from bms_ui_scripts.yaml (which the 800x480 UI still uses);
+# here the pad also enters the PIN and the HMI's balance-charge numbers.
+
+esphome:
+  includes:
+    - ui_1024/ui_1024_helpers.h
+  on_boot:
+    then:
+      - lambda: |-
+          // Number entity per settings register, for the pad and the Settings page
+          ui1024::setting_slot(3) = id(soc_set_cmd);
+          ui1024::setting_slot(25) = id(cv_working_min);
+          ui1024::setting_slot(26) = id(cv_working_max);
+          ui1024::setting_slot(27) = id(soc_scale_min);
+          ui1024::setting_slot(28) = id(soc_scale_max);
+          ui1024::setting_slot(29) = id(v_offset_lower);
+          ui1024::setting_slot(30) = id(v_offset_upper);
+          ui1024::setting_slot(31) = id(cv_soft_min);
+          ui1024::setting_slot(32) = id(cv_soft_max);
+          ui1024::setting_slot(33) = id(auto_bal_period);
+          ui1024::setting_slot(34) = id(bal_periods_mv);
+          ui1024::setting_slot(35) = id(bal_min_offset);
+          ui1024::setting_slot(36) = id(min_bal_v);
+          ui1024::setting_slot(42) = id(bal_start_v);
+          ui1024::setting_slot(43) = id(max_charge);
+          ui1024::setting_slot(44) = id(max_discharge);
+          ui1024::setting_slot(101) = id(balance_charge_interval);
+          ui1024::setting_slot(102) = id(balance_charge_start_hour);
+          ui1024::setting_slot(103) = id(balance_charge_duration);
+          ui1024::setting_slot(104) = id(balance_charge_float_offset);
+          ui1024::setting_slot(105) = id(balance_charge_offset);
+
+globals:
+  # Register being edited in the numeric pad (0 = none; 900 = PIN to unlock, 901 = PIN for a command)
+  - id: pad_reg
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: pad_buffer
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  # Tab shown (0 Main .. 9 System)
+  - id: ui_tab
+    type: int
+    restore_value: no
+    initial_value: '1'
+  # Backlight dimmed by the idle timeout, and the brightness to go back to
+  - id: ui_dimmed
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  - id: ui_bright
+    type: float
+    restore_value: no
+    initial_value: '0.3'
+  # Command waiting for confirm / PIN (see run_cmd)
+  - id: confirm_cmd
+    type: int
+    restore_value: no
+    initial_value: '0'
+  # Backlight brightness set on the System page (0..1), kept across reboots
+  - id: hmi_brightness
+    type: float
+    restore_value: yes
+    initial_value: '0.3'
+  # Wi-Fi setup: the network was saved, reboot to connect
+  - id: wf_ok
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  # Log page shows the raw registers instead of the BMS log
+  - id: sys_show_raw
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+
+script:
+  # Tab highlight for the page just shown
+  - id: nav_set
+    mode: queued
+    parameters:
+      tab: int
+    then:
+      - lambda: |-
+          if (tab < 0 || tab > 9) return;
+          id(ui_tab) = tab;
+          lv_obj_t *btns[] = {id(tab_btn_0), id(tab_btn_1), id(tab_btn_2), id(tab_btn_3),
+                              id(tab_btn_4), id(tab_btn_5), id(tab_btn_6), id(tab_btn_7),
+                              id(tab_btn_8), id(tab_btn_9)};
+          for (int i = 0; i < 10; i++) {
+            const bool on = (i == tab);
+            lv_obj_set_style_bg_color(btns[i], lv_color_hex(on ? 0x1E3A2F : 0x0B0D0C), LV_PART_MAIN);
+            lv_obj_set_style_border_width(btns[i], on ? 3 : 0, LV_PART_MAIN);
+            lv_obj_set_style_border_side(btns[i], LV_BORDER_SIDE_TOP, LV_PART_MAIN);
+            lv_obj_set_style_border_color(btns[i], lv_color_hex(0x5EE3A8), LV_PART_MAIN);
+            lv_obj_t *lbl = lv_obj_get_child(btns[i], 0);
+            if (lbl) lv_obj_set_style_text_color(lbl, lv_color_hex(on ? 0x5EE3A8 : 0xA9B4AF), LV_PART_MAIN);
+          }
+
+  # Opens the numeric pad for a setting (see ui1024::SETTINGS), in display units, with its range.
+  - id: open_setting_pad
+    mode: single
+    parameters:
+      reg: int
+    then:
+      - lambda: |-
+          if (!id(hub).is_settings_unlocked()) {
+            id(hub).publish_settings_status_temporary("Locked - tap UNLOCK and enter the PIN", 3000);
+            return;
+          }
+          const ui1024::SettingDef *d = ui1024::setting_def(reg);
+          auto *n = (esphome::number::Number *) ui1024::setting_slot(reg);
+          if (d == nullptr || n == nullptr) return;
+          id(pad_reg) = reg;
+          float state = n->state;
+          id(pad_buffer) = std::isnan(state) ? std::string("") : str_sprintf(d->fmt, state * d->mult);
+          std::string lo = str_sprintf(d->fmt, n->traits.get_min_value() * d->mult);
+          std::string hi = str_sprintf(d->fmt, n->traits.get_max_value() * d->mult);
+          std::string title = std::string(d->title) + (d->unit[0] ? std::string(" (") + d->unit + ")" : std::string("")) +
+                              ":  " + lo + " to " + hi;
+          lv_label_set_text(id(pad_title), title.c_str());
+          lv_label_set_text(id(pad_value_lbl), id(pad_buffer).empty() ? " " : id(pad_buffer).c_str());
+          lv_obj_clear_flag(id(pad_overlay), LV_OBJ_FLAG_HIDDEN);
+
+  # Opens the pad for the PIN. what: 900 = unlock settings, 901 = run confirm_cmd, 902 = Wi-Fi setup.
+  - id: open_pin_pad
+    mode: single
+    parameters:
+      what: int
+    then:
+      - lambda: |-
+          id(pad_reg) = what;
+          id(pad_buffer) = "";
+          lv_label_set_text(id(pad_title), what == 900 ? "PIN to unlock settings" : what == 902 ? "PIN to change Wi-Fi" : "PIN to run the command");
+          lv_label_set_text(id(pad_value_lbl), " ");
+          lv_obj_clear_flag(id(pad_overlay), LV_OBJ_FLAG_HIDDEN);
+
+  # One keypad key. "D" = backspace, "S" = sign, otherwise appended. PIN entry shows dots.
+  - id: pad_key
+    mode: single
+    parameters:
+      key: string
+    then:
+      - lambda: |-
+          std::string &buf = id(pad_buffer);
+          const bool pin = id(pad_reg) >= 900;
+          if (key == "D") {
+            if (!buf.empty()) buf.pop_back();
+          } else if (key == "S") {
+            if (pin) return;
+            if (!buf.empty() && buf[0] == '-') buf.erase(0, 1);
+            else buf.insert(0, "-");
+          } else if (pin) {
+            if (key != "." && buf.size() < 4) buf += key;
+          } else if (buf.size() < 8) {
+            if (!(key == "." && buf.find('.') != std::string::npos)) buf += key;
+          }
+          if (pin) {
+            std::string dots;
+            for (size_t i = 0; i < buf.size(); i++) dots += "* ";
+            lv_label_set_text(id(pad_value_lbl), dots.empty() ? " " : dots.c_str());
+          } else {
+            lv_label_set_text(id(pad_value_lbl), buf.empty() ? " " : buf.c_str());
+          }
+
+  # OK: check the PIN, or parse the value, convert to entity units, refuse it if out of
+  # range, and write it.
+  - id: pad_ok
+    mode: single
+    then:
+      - lambda: |-
+          const std::string buf = id(pad_buffer);
+          const int reg = id(pad_reg);
+          if (reg >= 900) {
+            if (buf != "${hmi_pin}") {
+              id(pad_buffer) = "";
+              lv_label_set_text(id(pad_title), "Wrong PIN - try again");
+              lv_label_set_text(id(pad_value_lbl), " ");
+              return;
+            }
+            lv_obj_add_flag(id(pad_overlay), LV_OBJ_FLAG_HIDDEN);
+            id(hub).set_settings_unlocked(true);
+            if (reg == 901) id(run_cmd).execute(id(confirm_cmd));
+            if (reg == 902) id(wifi_show).execute();
+            return;
+          }
+          if (buf.empty()) {
+            lv_obj_add_flag(id(pad_overlay), LV_OBJ_FLAG_HIDDEN);
+            return;
+          }
+          char *endp = nullptr;
+          float in = strtof(buf.c_str(), &endp);
+          const ui1024::SettingDef *d = ui1024::setting_def(reg);
+          auto *n = (esphome::number::Number *) ui1024::setting_slot(reg);
+          if (endp == buf.c_str() || d == nullptr || n == nullptr) {
+            lv_obj_add_flag(id(pad_overlay), LV_OBJ_FLAG_HIDDEN);
+            return;
+          }
+          if (!id(hub).is_settings_unlocked()) {
+            lv_obj_add_flag(id(pad_overlay), LV_OBJ_FLAG_HIDDEN);
+            id(hub).publish_settings_status_temporary("Locked - tap UNLOCK and enter the PIN", 3000);
+            return;
+          }
+          float v = in / d->mult;
+          const float lo = n->traits.get_min_value(), hi = n->traits.get_max_value();
+          if (v < lo - 1e-3f || v > hi + 1e-3f) {
+            std::string t = std::string("Out of range: ") + str_sprintf(d->fmt, lo * d->mult) + " to " +
+                            str_sprintf(d->fmt, hi * d->mult);
+            lv_label_set_text(id(pad_title), t.c_str());
+            return;
+          }
+          lv_obj_add_flag(id(pad_overlay), LV_OBJ_FLAG_HIDDEN);
+          n->make_call().set_value(v).perform();
+
+  - id: pad_cancel
+    mode: single
+    then:
+      - lambda: |-
+          lv_obj_add_flag(id(pad_overlay), LV_OBJ_FLAG_HIDDEN);
+
+  # Lock button: locking is immediate, unlocking asks for the PIN.
+  - id: settings_lock_toggle
+    mode: single
+    then:
+      - lambda: |-
+          if (id(hub).is_settings_unlocked()) id(hub).set_settings_unlocked(false);
+          else id(open_pin_pad).execute(900);
+
+  # Confirm dialog for a command (codes in run_cmd)
+  - id: confirm_open
+    mode: single
+    parameters:
+      cmd: int
+    then:
+      - lambda: |-
+          const char *title = "Confirm";
+          const char *text = "";
+          switch (cmd) {
+            case 1:  title = "RUN the BMS?"; text = "Transition to Operating: the contactors will close."; break;
+            case 2:  title = "STOP the BMS?"; text = "Transition to Inactive: the contactors will open and the inverter loses the battery."; break;
+            case 3:  title = "Calibrate offline (long)?"; text = "Offline current-sensor calibration, long version. Open the contactors first."; break;
+            case 4:  title = "Calibrate offline (short)?"; text = "Offline current-sensor calibration, short version. Open the contactors first."; break;
+            case 5:  title = "Calibrate online?"; text = "Online current-sensor calibration while running."; break;
+            case 10: title = "Calibrate isolation zero?"; text = "Sets the isolation monitor's zero. Only with a healthy, isolated pack."; break;
+            case 11: title = "Forget the Wi-Fi network?"; text = "Clears a network set up on this screen and reboots. The HMI then uses the network built into its firmware (or its setup access point)."; break;
+            case 12: title = "Reboot the HMI?"; text = "Restarts this display. The BMS keeps running."; break;
+            case 13: title = "Start a balance charge now?"; text = "Raises the charge voltage target for the set duration."; break;
+            case 14: title = "Stop the balance charge?"; text = "Returns to the float target now."; break;
+            default: return;
+          }
+          id(confirm_cmd) = cmd;
+          lv_label_set_text(id(confirm_title), title);
+          lv_label_set_text(id(confirm_text), text);
+          lv_label_set_text(id(confirm_ok_lbl), id(hub).is_settings_unlocked() ? "CONFIRM" : "ENTER PIN");
+          lv_obj_clear_flag(id(confirm_overlay), LV_OBJ_FLAG_HIDDEN);
+
+  - id: confirm_ok
+    mode: single
+    then:
+      - lambda: |-
+          lv_obj_add_flag(id(confirm_overlay), LV_OBJ_FLAG_HIDDEN);
+          if (id(hub).is_settings_unlocked()) id(run_cmd).execute(id(confirm_cmd));
+          else id(open_pin_pad).execute(901);
+
+  - id: confirm_cancel
+    mode: single
+    then:
+      - lambda: |-
+          lv_obj_add_flag(id(confirm_overlay), LV_OBJ_FLAG_HIDDEN);
+          id(confirm_cmd) = 0;
+
+  - id: run_cmd
+    mode: single
+    parameters:
+      cmd: int
+    then:
+      - lambda: |-
+          id(confirm_cmd) = 0;
+          switch (cmd) {
+            case 1:  id(btn_web_run).press(); break;
+            case 2:  id(btn_web_stop).press(); break;
+            case 3:  id(btn_web_calibrate).press(); break;
+            case 4:  id(btn_web_calibrate_short).press(); break;
+            case 5:  id(btn_web_calibrate_online).press(); break;
+            case 10: id(btn_isolation_zero).press(); break;
+            case 11: wifi::global_wifi_component->clear_sta(); App.reboot(); break;
+            case 12: App.safe_reboot(); break;
+            case 13: id(balance_charge_start_now).press(); break;
+            case 14: id(balance_charge_stop).press(); break;
+            default: return;
+          }
+          id(hub).publish_settings_status_temporary("Command sent", 3000);
+
+  # "Set up a network": needs the PIN unless settings are unlocked
+  - id: wifi_open
+    mode: single
+    then:
+      - lambda: |-
+          if (id(hub).is_settings_unlocked()) id(wifi_show).execute();
+          else id(open_pin_pad).execute(902);
+
+  # Wi-Fi setup overlay: networks from the last scan (tap to use), name, password, keyboard
+  - id: wifi_show
+    mode: single
+    then:
+      - lambda: |-
+          static std::vector<std::string> ssids;
+          ssids.clear();
+          lv_obj_t *list = id(wf_list);
+          lv_obj_clean(list);
+          struct Net { std::string ssid; int rssi; bool auth; };
+          std::vector<Net> nets;
+          for (const auto &r : wifi::global_wifi_component->get_scan_result()) {
+            std::string n = r.get_ssid().str();
+            if (n.empty()) continue;
+            bool seen = false;
+            for (auto &x : nets) if (x.ssid == n) { seen = true; x.rssi = std::max(x.rssi, (int) r.get_rssi()); }
+            if (!seen) nets.push_back({n, (int) r.get_rssi(), r.get_with_auth()});
+          }
+          std::sort(nets.begin(), nets.end(), [](const Net &a, const Net &b) { return a.rssi > b.rssi; });
+          auto on_tap = [](lv_event_t *e) {
+            const size_t k = (size_t) (intptr_t) lv_event_get_user_data(e);
+            if (k < ssids.size()) {
+              lv_textarea_set_text(id(wf_ssid), ssids[k].c_str());
+              lv_textarea_set_text(id(wf_pass), "");
+              lv_keyboard_set_textarea(id(wf_kb)->obj, id(wf_pass));
+            }
+          };
+          for (auto &n : nets) {
+            ssids.push_back(n.ssid);
+            lv_obj_t *b = lv_button_create(list);
+            lv_obj_set_size(b, LV_PCT(100), 44);
+            lv_obj_set_style_bg_color(b, lv_color_hex(0x22302A), LV_PART_MAIN);
+            lv_obj_set_style_shadow_width(b, 0, LV_PART_MAIN);
+            lv_obj_set_style_radius(b, 6, LV_PART_MAIN);
+            lv_obj_add_event_cb(b, on_tap, LV_EVENT_CLICKED, (void *) (intptr_t) (ssids.size() - 1));
+            lv_obj_t *l = lv_label_create(b);
+            lv_obj_set_width(l, 270);
+            lv_label_set_long_mode(l, LV_LABEL_LONG_DOT);
+            lv_obj_align(l, LV_ALIGN_LEFT_MID, 0, 0);
+            lv_obj_set_style_text_font(l, id(font_roboto_18), LV_PART_MAIN);
+            lv_label_set_text(l, str_sprintf("%s  %d dBm%s", n.ssid.c_str(), n.rssi, n.auth ? "" : "  open").c_str());
+          }
+          if (nets.empty()) {
+            lv_obj_t *l = lv_label_create(list);
+            lv_obj_set_width(l, LV_PCT(100));
+            lv_label_set_long_mode(l, LV_LABEL_LONG_WRAP);
+            lv_obj_set_style_text_font(l, id(font_roboto_16), LV_PART_MAIN);
+            lv_obj_set_style_text_color(l, lv_color_hex(0xA9B4AF), LV_PART_MAIN);
+            lv_label_set_text(l, "No scan results kept (the HMI scans only while connecting). Type the network name.");
+          }
+          lv_textarea_set_text(id(wf_ssid), "");
+          lv_textarea_set_text(id(wf_pass), "");
+          lv_textarea_set_password_mode(id(wf_pass), true);
+          lv_label_set_text(id(wf_show_lbl), "Show");
+          lv_label_set_text(id(wf_status), "Saving reboots the HMI to connect to the new network.");
+          lv_keyboard_set_textarea(id(wf_kb)->obj, id(wf_ssid));
+          lv_obj_clear_flag(id(wifi_overlay), LV_OBJ_FLAG_HIDDEN);
+
+  # Save the network typed in the overlay, then reboot to connect to it
+  - id: wifi_save
+    mode: single
+    then:
+      - lambda: |-
+          std::string ssid = lv_textarea_get_text(id(wf_ssid));
+          std::string pass = lv_textarea_get_text(id(wf_pass));
+          id(wf_ok) = false;
+          if (ssid.empty()) { lv_label_set_text(id(wf_status), "Enter a network name first."); return; }
+          if (!pass.empty() && pass.size() < 8) { lv_label_set_text(id(wf_status), "A WPA password has at least 8 characters."); return; }
+          wifi::global_wifi_component->save_wifi_sta(ssid, pass);
+          lv_label_set_text(id(wf_status), ("Saved " + ssid + ". Rebooting to connect...").c_str());
+          id(wf_ok) = true;
+      - if:
+          condition:
+            lambda: return id(wf_ok);
+          then:
+            - delay: 2s
+            - lambda: App.safe_reboot();
+
+interval:
+  - interval: 250ms
+    then:
+      # --- Every page: backlight wake, Events tab, events banner, stale data ---
+      - lambda: |-
+          if (id(ui_dimmed) && lv_display_get_inactive_time(nullptr) < 1000) {
+            id(ui_dimmed) = false;
+            auto call = id(display_backlight).turn_on();
+            call.set_brightness(id(ui_bright));
+            call.perform();
+          }
+
+          // Events: worst active level and how many are at it
+          const auto &evs = id(hub).get_event_sensors();
+          int worst = 0, n_worst = 0, n_active = 0, worst_type = -1;
+          for (size_t t = 0; t < evs.size(); t++) {
+            auto *s = evs[t];
+            if (s == nullptr || !s->has_state()) continue;
+            int lvl, cnt;
+            ui1024::parse_event_state(s->state, lvl, cnt);
+            if (lvl <= 0) continue;
+            n_active++;
+            if (lvl > worst) { worst = lvl; n_worst = 1; worst_type = (int) t; }
+            else if (lvl == worst) n_worst++;
+          }
+          // Events tab: count and colour of the worst active WARNING or worse
+          lv_obj_t *ev_tab = id(tab_btn_6);
+          lv_obj_t *ev_lbl = lv_obj_get_child(ev_tab, 0);
+          const bool ev_on = (id(ui_tab) == 6);
+          if (worst >= ui1024::LVL_WARNING) {
+            lv_label_set_text(ev_lbl, str_sprintf("Events %d", n_worst).c_str());
+            lv_obj_set_style_bg_color(ev_tab, lv_color_hex(ui1024::level_color(worst)), LV_PART_MAIN);
+            lv_obj_set_style_text_color(ev_lbl, lv_color_hex(ui1024::level_text_color(worst)), LV_PART_MAIN);
+
+            lv_obj_clear_flag(id(mv2_banner), LV_OBJ_FLAG_HIDDEN);
+            lv_obj_set_style_bg_color(id(mv2_banner), lv_color_hex(ui1024::level_color(worst)), LV_PART_MAIN);
+            std::string b = std::string(ui1024::level_name(worst)) + "  " + ui1024::short_name(evs[worst_type]->get_name().c_str());
+            if (n_active > 1) b += str_sprintf("   (+%d more)", n_active - 1);
+            lv_label_set_text(id(mv2_banner_lbl), b.c_str());
+            lv_color_t tc = lv_color_hex(ui1024::level_text_color(worst));
+            lv_obj_set_style_text_color(id(mv2_banner_lbl), tc, LV_PART_MAIN);
+            lv_obj_set_style_text_color(lv_obj_get_child(id(mv2_banner), 1), tc, LV_PART_MAIN);
+          } else {
+            lv_label_set_text(ev_lbl, "Events");
+            lv_obj_set_style_bg_color(ev_tab, lv_color_hex(ev_on ? 0x1E3A2F : 0x0B0D0C), LV_PART_MAIN);
+            lv_obj_set_style_text_color(ev_lbl, lv_color_hex(ev_on ? 0x5EE3A8 : 0xA9B4AF), LV_PART_MAIN);
+            lv_obj_add_flag(id(mv2_banner), LV_OBJ_FLAG_HIDDEN);
+          }
+
+          // No BMS frame for 5 s: red tag at the top (not on the classic main page)
+          const bool stale = id(hub).ms_since_rx() > 5000 && lv_scr_act() != id(energy_page)->obj;
+          if (stale) lv_obj_clear_flag(id(ui_stale), LV_OBJ_FLAG_HIDDEN);
+          else lv_obj_add_flag(id(ui_stale), LV_OBJ_FLAG_HIDDEN);
+
+      # --- Classic main page (copied from bms_ui_scripts.yaml) ---
+      - lambda: |-
+          if (lv_scr_act() != id(energy_page)->obj) return;
+          static bool energy_delta_style_init = false;
+          if (!energy_delta_style_init) {
+            // Render only the indicator segment in yellow.
+            lv_obj_set_style_arc_opa(id(energy_soc_delta_arc), LV_OPA_TRANSP, LV_PART_MAIN);
+            lv_obj_set_style_arc_opa(id(energy_soc_delta_arc), LV_OPA_100, LV_PART_INDICATOR);
+            lv_obj_set_style_arc_color(id(energy_soc_delta_arc), lv_color_hex(0xFFD54A), LV_PART_INDICATOR);
+            lv_obj_set_style_arc_width(id(energy_soc_delta_arc), lv_obj_get_style_arc_width(id(energy_soc_arc), LV_PART_MAIN), LV_PART_INDICATOR);
+            lv_arc_set_value(id(energy_soc_delta_arc), 100);
+            energy_delta_style_init = true;
+          }
+
+          // --- MAIN PAGE UPDATES ---
+          float soc_value = id(soc).state;
+          if (!std::isnan(soc_value)) {
+            lv_label_set_text(id(label_soc_energy), str_sprintf("%.0f%%", soc_value).c_str());
+            lv_arc_set_value(id(energy_soc_arc), (int)soc_value);
+          }
+
+          float v = id(voltage_mV).state;
+          float i = id(current_mA).state;
+          if (!std::isnan(v)) lv_label_set_text(id(label_voltage_energy_value), str_sprintf("%.1f", v).c_str());
+          else lv_label_set_text(id(label_voltage_energy_value), "--.-");
+          if (!std::isnan(i)) lv_label_set_text(id(label_current_energy_value), str_sprintf("%.2f", i).c_str());
+          else lv_label_set_text(id(label_current_energy_value), "--.--");
+          lv_label_set_text(id(label_current_energy_unit), "A");
+          lv_label_set_text(id(label_voltage_energy_unit), "V");
+          
+          if (!std::isnan(v) && !std::isnan(i)) {
+            float p = v * i;
+            if (std::abs(p) >= 1000.0f) {
+              lv_label_set_text(id(label_power_energy), str_sprintf("%.2f", p / 1000.0f).c_str());
+              lv_label_set_text(id(label_power_energy_unit), "kW");
+            } else {
+              lv_label_set_text(id(label_power_energy), str_sprintf("%.0f", p).c_str());
+              lv_label_set_text(id(label_power_energy_unit), "W");
+            }
+
+            lv_color_t power_color = (p < 0.0f) ? lv_color_hex(0xFF4D4D) : lv_color_hex(0x66FF66);
+            lv_obj_set_style_text_color(id(label_power_energy), power_color, LV_PART_MAIN);
+            lv_obj_set_style_text_color(id(label_power_energy_unit), power_color, LV_PART_MAIN);
+            lv_obj_set_style_bg_color(id(power_marker_energy), power_color, LV_PART_MAIN);
+            lv_obj_set_style_bg_color(id(power_indicator_energy), power_color, LV_PART_MAIN);
+          }
+
+          {
+            lv_obj_t *scale = id(power_scale_energy)->obj;
+            int scale_x = lv_obj_get_x(scale);
+            int scale_w = lv_obj_get_width(scale);
+            int center_x = scale_x + (scale_w / 2);
+            int marker_target_x = center_x;
+            float p_kw_clamped = 0.0f;
+            if (!std::isnan(v) && !std::isnan(i)) {
+              float p_kw = (v * i) / 1000.0f;
+              p_kw_clamped = std::clamp(p_kw, -18.0f, 18.0f);
+              marker_target_x = scale_x + (int)std::round(((p_kw_clamped + 18.0f) / 36.0f) * (float)(scale_w - 1));
+              if (marker_target_x < scale_x) marker_target_x = scale_x;
+              if (marker_target_x > (scale_x + scale_w - 1)) marker_target_x = scale_x + scale_w - 1;
+            }
+            int bar_x = (marker_target_x < center_x) ? marker_target_x : center_x;
+            int bar_w = (marker_target_x < center_x) ? (center_x - marker_target_x + 1) : (marker_target_x - center_x + 1);
+            if (std::abs(p_kw_clamped) < 0.02f) {
+              lv_obj_add_flag(id(power_marker_energy), LV_OBJ_FLAG_HIDDEN);
+            } else {
+              lv_obj_clear_flag(id(power_marker_energy), LV_OBJ_FLAG_HIDDEN);
+              if (bar_w < 5) bar_w = 5;
+              lv_obj_set_x(id(power_marker_energy), bar_x);
+              lv_obj_set_width(id(power_marker_energy), bar_w);
+            }
+            int p_indicator_w = 5;
+            int p_indicator_x = marker_target_x - (p_indicator_w / 2);
+            if (p_indicator_x < scale_x) p_indicator_x = scale_x;
+            if (p_indicator_x > (scale_x + scale_w - p_indicator_w)) p_indicator_x = scale_x + scale_w - p_indicator_w;
+            lv_obj_set_x(id(power_indicator_energy), p_indicator_x);
+            lv_obj_set_width(id(power_indicator_energy), p_indicator_w);
+
+            int gap_px = 4;
+            lv_obj_update_layout(id(label_power_energy));
+            int number_w = lv_obj_get_content_width(id(label_power_energy));
+            // Fixed anchor: unit never moves, number is right-aligned against it,
+            // so the decimal point stays put when the value changes sign or width.
+            int unit_x = center_x + 50;
+            int number_x = unit_x - gap_px - number_w;
+            lv_obj_set_x(id(label_power_energy), number_x);
+            lv_obj_set_x(id(label_power_energy_unit), unit_x);
+            int power_num_y = lv_obj_get_y(id(label_power_energy));
+            int power_num_h = lv_obj_get_height(id(label_power_energy));
+            int power_unit_h = lv_obj_get_height(id(label_power_energy_unit));
+            lv_obj_set_y(id(label_power_energy_unit), power_num_y + power_num_h - power_unit_h - 4);
+          }
+
+          {
+            lv_obj_t *i_scale = id(current_scale_energy)->obj;
+            int i_scale_x = lv_obj_get_x(i_scale);
+            int i_scale_w = lv_obj_get_width(i_scale);
+            int i_center_x = i_scale_x + (i_scale_w / 2);
+            int i_target_x = i_center_x;
+            float i_clamped = 0.0f;
+            if (!std::isnan(i)) {
+              i_clamped = std::clamp(i, -50.0f, 50.0f);
+              i_target_x = i_scale_x + (int)std::round(((i_clamped + 50.0f) / 100.0f) * (float)(i_scale_w - 1));
+              if (i_target_x < i_scale_x) i_target_x = i_scale_x;
+              if (i_target_x > (i_scale_x + i_scale_w - 1)) i_target_x = i_scale_x + i_scale_w - 1;
+            }
+            int i_bar_x = (i_target_x < i_center_x) ? i_target_x : i_center_x;
+            int i_bar_w = (i_target_x < i_center_x) ? (i_center_x - i_target_x + 1) : (i_target_x - i_center_x + 1);
+            lv_color_t current_color = lv_color_hex(0xFFD54A);
+            lv_obj_set_style_bg_color(id(current_marker_energy), current_color, LV_PART_MAIN);
+            lv_obj_set_style_bg_color(id(current_indicator_energy), current_color, LV_PART_MAIN);
+            if (std::abs(i_clamped) < 0.02f) {
+              lv_obj_add_flag(id(current_marker_energy), LV_OBJ_FLAG_HIDDEN);
+            } else {
+              lv_obj_clear_flag(id(current_marker_energy), LV_OBJ_FLAG_HIDDEN);
+              if (i_bar_w < 5) i_bar_w = 5;
+              lv_obj_set_x(id(current_marker_energy), i_bar_x);
+              lv_obj_set_width(id(current_marker_energy), i_bar_w);
+            }
+            int i_indicator_w = 5;
+            int i_indicator_x = i_target_x - (i_indicator_w / 2);
+            if (i_indicator_x < i_scale_x) i_indicator_x = i_scale_x;
+            if (i_indicator_x > (i_scale_x + i_scale_w - i_indicator_w)) i_indicator_x = i_scale_x + i_scale_w - i_indicator_w;
+            lv_obj_set_x(id(current_indicator_energy), i_indicator_x);
+            lv_obj_set_width(id(current_indicator_energy), i_indicator_w);
+
+            int gap_px = 4;
+            lv_obj_update_layout(id(label_current_energy_value));
+            int number_w = lv_obj_get_content_width(id(label_current_energy_value));
+            int unit_x = i_center_x + 50;
+            int number_x = unit_x - gap_px - number_w;
+            lv_obj_set_x(id(label_current_energy_value), number_x);
+            lv_obj_set_x(id(label_current_energy_unit), unit_x);
+            int current_num_y = lv_obj_get_y(id(label_current_energy_value));
+            int current_num_h = lv_obj_get_height(id(label_current_energy_value));
+            int current_unit_h = lv_obj_get_height(id(label_current_energy_unit));
+            lv_obj_set_y(id(label_current_energy_unit), current_num_y + current_num_h - current_unit_h - 4);
+          }
+
+          {
+            float v_min_lim = id(inverter_can_voltage_limit_min).state;
+            float v_max_lim = id(inverter_can_voltage_limit_max).state;
+            lv_obj_t *v_scale = id(voltage_scale_energy)->obj;
+            int v_scale_x = lv_obj_get_x(v_scale);
+            int v_scale_w = lv_obj_get_width(v_scale);
+            int v_center_x = v_scale_x + (v_scale_w / 2);
+            int v_marker_w = 5;
+            int v_target_x = v_scale_x + (v_scale_w / 2);
+            if (!std::isnan(v) && !std::isnan(v_min_lim) && !std::isnan(v_max_lim) && (v_max_lim > v_min_lim + 0.1f)) {
+              lv_label_set_text(id(label_voltage_scale_min_energy), str_sprintf("%.1fV", v_min_lim).c_str());
+              lv_label_set_text(id(label_voltage_scale_max_energy), str_sprintf("%.1fV", v_max_lim).c_str());
+              float v_ratio = (v - v_min_lim) / (v_max_lim - v_min_lim);
+              v_ratio = std::clamp(v_ratio, 0.0f, 1.0f);  // peg to min/max when outside range
+              v_target_x = v_scale_x + (int)(v_ratio * (float)(v_scale_w - 1));
+            } else {
+              lv_label_set_text(id(label_voltage_scale_min_energy), "--.-V");
+              lv_label_set_text(id(label_voltage_scale_max_energy), "--.-V");
+            }
+            int v_marker_x = v_target_x - (v_marker_w / 2);
+            if (v_marker_x < v_scale_x) v_marker_x = v_scale_x;
+            if (v_marker_x > (v_scale_x + v_scale_w - v_marker_w)) v_marker_x = v_scale_x + v_scale_w - v_marker_w;
+            lv_obj_set_x(id(voltage_marker_energy), v_marker_x);
+            lv_obj_set_width(id(voltage_marker_energy), v_marker_w);
+
+            int gap_px = 4;
+            lv_obj_update_layout(id(label_voltage_energy_value));
+            int number_w = lv_obj_get_content_width(id(label_voltage_energy_value));
+            int unit_x = v_center_x + 50;
+            int number_x = unit_x - gap_px - number_w;
+            lv_obj_set_x(id(label_voltage_energy_value), number_x);
+            lv_obj_set_x(id(label_voltage_energy_unit), unit_x);
+            int voltage_num_y = lv_obj_get_y(id(label_voltage_energy_value));
+            int voltage_num_h = lv_obj_get_height(id(label_voltage_energy_value));
+            int voltage_unit_h = lv_obj_get_height(id(label_voltage_energy_unit));
+            lv_obj_set_y(id(label_voltage_energy_unit), voltage_num_y + voltage_num_h - voltage_unit_h - 4);
+          }
+
+          float cap_ah = id(capacity_mC).state;
+          if (!std::isnan(soc_value) && !std::isnan(i) && !std::isnan(cap_ah) && cap_ah > 0.1f) {
+            float delta_soc_1h = (i / cap_ah) * 100.0f;
+            float predicted_soc = std::clamp(soc_value + delta_soc_1h, 0.0f, 100.0f);
+            lv_label_set_text(id(label_soc_delta_1h_energy), str_sprintf("1h change: %+.1f%%", delta_soc_1h).c_str());
+
+            float a_soc = 135.0f + (soc_value * 2.7f);
+            float a_pred = 135.0f + (predicted_soc * 2.7f);
+            float a_start = fminf(a_soc, a_pred);
+            float a_end = fmaxf(a_soc, a_pred);
+            if ((a_end - a_start) < 1.0f) {
+              a_end = a_start + 1.0f;
+            }
+            while (a_start >= 360.0f) a_start -= 360.0f;
+            while (a_end >= 360.0f) a_end -= 360.0f;
+            lv_obj_clear_flag(id(energy_soc_delta_arc), LV_OBJ_FLAG_HIDDEN);
+            lv_arc_set_angles(id(energy_soc_delta_arc), (int)a_start, (int)a_end);
+            lv_arc_set_value(id(energy_soc_delta_arc), 100);
+          } else {
+            lv_label_set_text(id(label_soc_delta_1h_energy), "1h change: ---%");
+            lv_obj_add_flag(id(energy_soc_delta_arc), LV_OBJ_FLAG_HIDDEN);
+          }
+
+          float t_min = id(module_temperature_min).state;
+          float t_max = id(module_temperature_max).state;
+          if (!std::isnan(t_min) && !std::isnan(t_max)) {
+            lv_label_set_text(id(label_temp_energy), str_sprintf("%.1f / %.1f (%.1f)", t_min, t_max, t_max - t_min).c_str());
+          }
+
+          float c_min = id(cell_min).state;
+          float c_max = id(cell_max).state;
+          if (!std::isnan(c_min) && !std::isnan(c_max)) {
+            lv_label_set_text(id(label_cells_energy), str_sprintf("%.3f / %.3f (%.3f)", c_min, c_max, c_max - c_min).c_str());
+          }
+
+          if (id(contactor_state_text).has_state())
+            lv_label_set_text(id(label_contactor_energy), ("Contactor: " + id(contactor_state_text).state).c_str());
+
+          if (id(last_event_text).has_state())
+            lv_label_set_text(id(label_events_energy), id(last_event_text).state.c_str());
+
+          const float uptime_hmi_s = id(uptime_hmi_sec).state;
+          const float uptime_pico_s = id(uptime_pico_sec).state;
+          if (!std::isnan(uptime_hmi_s) && !std::isnan(uptime_pico_s)) {
+            lv_label_set_text(id(label_uptime_energy), str_sprintf("HMI/Pico: %.0fs / %.0fs", uptime_hmi_s, uptime_pico_s).c_str());
+          } else if (!std::isnan(uptime_hmi_s)) {
+            lv_label_set_text(id(label_uptime_energy), str_sprintf("HMI/Pico: %.0fs / --", uptime_hmi_s).c_str());
+          } else if (!std::isnan(uptime_pico_s)) {
+            lv_label_set_text(id(label_uptime_energy), str_sprintf("HMI/Pico: -- / %.0fs", uptime_pico_s).c_str());
+          } else {
+            lv_label_set_text(id(label_uptime_energy), "HMI/Pico: -- / --");
+          }
+
+      # --- Main v2 ---
+      - lambda: |-
+          if (lv_scr_act() != id(main_v2_page)->obj) return;
+          const float soc_v = id(soc).state;
+          if (!std::isnan(soc_v)) {
+            lv_arc_set_value(id(mv2_soc_arc), (int) lroundf(soc_v));
+            lv_label_set_text(id(mv2_soc_lbl), str_sprintf("%.0f%%", soc_v).c_str());
+          } else {
+            lv_label_set_text(id(mv2_soc_lbl), "--%");
+          }
+          lv_label_set_text(id(mv2_state), id(system_state_text).has_state() ? id(system_state_text).state.c_str() : "--");
+          lv_label_set_text(id(mv2_contactor), id(contactor_state_text).has_state() ? ("Contactors " + id(contactor_state_text).state).c_str() : "--");
+
+          const float v = id(voltage_mV).state;
+          const float i = id(current_mA).state;
+          const bool vi = !std::isnan(v) && !std::isnan(i);
+          const float p = vi ? v * i : NAN;
+          uint32_t pcol = 0xA9B4AF;
+          const char *dir = "IDLE";
+          if (vi && i > 0.5f) { pcol = 0x5EE3A8; dir = "CHARGING"; }
+          else if (vi && i < -0.5f) { pcol = 0xFF8A65; dir = "DISCHARGING"; }
+          if (vi) {
+            const float ap = std::fabs(p);
+            lv_label_set_text(id(mv2_power), (ap >= 1000.0f ? str_sprintf("%.2f kW", ap / 1000.0f) : str_sprintf("%.0f W", ap)).c_str());
+          } else {
+            lv_label_set_text(id(mv2_power), "--");
+          }
+          lv_obj_set_style_text_color(id(mv2_power), lv_color_hex(pcol), LV_PART_MAIN);
+          lv_label_set_text(id(mv2_dir), dir);
+          lv_obj_set_style_text_color(id(mv2_dir), lv_color_hex(pcol), LV_PART_MAIN);
+          lv_label_set_text(id(mv2_volt), std::isnan(v) ? "-- V" : str_sprintf("%.1f V", v).c_str());
+          lv_label_set_text(id(mv2_curr), std::isnan(i) ? "-- A" : str_sprintf("%+.1f A", i).c_str());
+
+          const float cap = id(capacity_mC).state;
+          if (!std::isnan(i) && !std::isnan(cap) && cap > 0.1f)
+            lv_label_set_text(id(mv2_soc_1h), str_sprintf("1 h: %+.1f%%", i / cap * 100.0f).c_str());
+          else
+            lv_label_set_text(id(mv2_soc_1h), " ");
+
+          // Power bar: scale to the larger of the charge / discharge limits at this voltage
+          const float chg = id(charge_current_limit).state, dis = id(discharge_current_limit).state;
+          float scale_kw = 0.0f;
+          if (!std::isnan(v)) {
+            if (ui1024::limit_valid(chg)) scale_kw = std::max(scale_kw, chg * v / 1000.0f);
+            if (ui1024::limit_valid(dis)) scale_kw = std::max(scale_kw, dis * v / 1000.0f);
+          }
+          if (scale_kw < 1.0f) scale_kw = 18.0f;
+          if (vi) scale_kw = std::max(scale_kw, std::fabs(p) / 1000.0f);
+          lv_label_set_text(id(mv2_pbar_min), str_sprintf("-%.1f kW", scale_kw).c_str());
+          lv_label_set_text(id(mv2_pbar_max), str_sprintf("+%.1f kW", scale_kw).c_str());
+          {
+            const int half = 325;
+            int px = vi ? (int) lroundf(std::min(1.0f, std::fabs(p) / 1000.0f / scale_kw) * half) : 0;
+            lv_obj_set_width(id(mv2_pbar_fill), px);
+            lv_obj_set_x(id(mv2_pbar_fill), (vi && p < 0) ? 326 - px : 326);
+            lv_obj_set_style_bg_color(id(mv2_pbar_fill), lv_color_hex(pcol), LV_PART_MAIN);
+          }
+
+          // Which limiter sets each limit
+          {
+            static const char *const cn[] = {"hard limit", "working limit", "temperature", "cell voltage", "cell delta"};
+            float cv[] = {id(hard_charge_current_limit).state, id(working_charge_current_limit).state,
+                          id(temp_charge_current_limit).state, id(cell_voltage_charge_current_limit).state,
+                          id(delta_charge_current_limit).state};
+            int ci = ui1024::lowest_limit(cv, 5);
+            std::string t = !ui1024::limit_valid(chg) ? std::string("Charge: no limit")
+                            : str_sprintf("Charge limit %.1f A", chg) + (ci >= 0 ? std::string("  -  set by ") + cn[ci] : std::string(""));
+            lv_label_set_text(id(mv2_lim_chg), t.c_str());
+            const bool at_chg = vi && ui1024::limit_valid(chg) && i > 0.5f && i >= chg * 0.9f;
+            lv_obj_set_style_text_color(id(mv2_lim_chg), lv_color_hex(at_chg ? 0xFFC107 : 0xA9B4AF), LV_PART_MAIN);
+
+            float dv[] = {id(hard_discharge_current_limit).state, id(working_discharge_current_limit).state,
+                          id(temp_discharge_current_limit).state, id(cell_voltage_discharge_current_limit).state};
+            int di = ui1024::lowest_limit(dv, 4);
+            t = !ui1024::limit_valid(dis) ? std::string("Discharge: no limit")
+                : str_sprintf("Discharge limit %.1f A", dis) + (di >= 0 ? std::string("  -  set by ") + cn[di] : std::string(""));
+            lv_label_set_text(id(mv2_lim_dis), t.c_str());
+            const bool at_dis = vi && ui1024::limit_valid(dis) && i < -0.5f && -i >= dis * 0.9f;
+            lv_obj_set_style_text_color(id(mv2_lim_dis), lv_color_hex(at_dis ? 0xFFC107 : 0xA9B4AF), LV_PART_MAIN);
+          }
+
+          // Cell strip: one block per cell, coloured from the lowest (blue) to the highest (amber)
+          {
+            const auto &cells = id(hub).get_cell_voltage_sensors();
+            int n = 0;
+            for (int k = 0; k < (int) cells.size() && k < 120; k++)
+              if (!std::isnan(cells[k]->state) && cells[k]->state > 0.5f) n = k + 1;
+            const float cmin = id(cell_min).state, cmax = id(cell_max).state;
+            bool act[121] = {false};
+            if (id(cells_balancing_active).has_state()) {
+              const std::string &raw = id(cells_balancing_active).state;
+              int val = 0, from = -1; bool in = false;
+              auto commit = [&](int last) { for (int c = (from >= 0 ? from : last); c <= last; c++) if (c >= 1 && c <= 120) act[c] = true; from = -1; };
+              for (char ch : raw) {
+                if (ch >= '0' && ch <= '9') { val = val * 10 + (ch - '0'); in = true; }
+                else { if (in) { if (ch == '-') from = val; else commit(val); } val = 0; in = false; }
+              }
+              if (in) commit(val);
+            }
+            int n_act = 0;
+            for (int c = 1; c <= 120; c++) if (act[c]) n_act++;
+            if (!std::isnan(cmin) && !std::isnan(cmax))
+              lv_label_set_text(id(mv2_cells_lbl), str_sprintf("Cells %.3f - %.3f V    Δ %.0f mV    %d balancing", cmin, cmax, (cmax - cmin) * 1000.0f, n_act).c_str());
+            static lv_obj_t *blk[120] = {nullptr};
+            const int w_all = 600;
+            for (int k = 0; k < 120; k++) {
+              if (k >= n) { if (blk[k]) lv_obj_add_flag(blk[k], LV_OBJ_FLAG_HIDDEN); continue; }
+              if (!blk[k]) {
+                blk[k] = lv_obj_create(id(mv2_cell_strip));
+                lv_obj_remove_style_all(blk[k]);
+                lv_obj_set_style_bg_opa(blk[k], LV_OPA_COVER, LV_PART_MAIN);
+                lv_obj_set_style_border_color(blk[k], lv_color_hex(0xFF9800), LV_PART_MAIN);
+                lv_obj_clear_flag(blk[k], LV_OBJ_FLAG_CLICKABLE);
+              }
+              int x0 = k * w_all / n, x1 = (k + 1) * w_all / n;
+              int gap = (x1 - x0) > 4 ? 1 : 0;
+              lv_obj_set_pos(blk[k], x0, 0);
+              lv_obj_set_size(blk[k], std::max(1, x1 - x0 - gap), 30);
+              float cvk = cells[k]->state;
+              float span = cmax - cmin;
+              float tt = (std::isnan(cvk) || std::isnan(span) || span < 0.002f) ? 0.5f : (cvk - cmin) / span;
+              lv_obj_set_style_bg_color(blk[k], lv_color_hex(std::isnan(cvk) ? 0x26302B : ui1024::cell_ramp(tt)), LV_PART_MAIN);
+              lv_obj_set_style_border_width(blk[k], act[k + 1] ? 3 : 0, LV_PART_MAIN);
+              lv_obj_clear_flag(blk[k], LV_OBJ_FLAG_HIDDEN);
+            }
+          }
+
+          // Module temperatures
+          {
+            sensor::Sensor *mt[] = {id(module_temperature_1), id(module_temperature_2), id(module_temperature_3), id(module_temperature_4),
+                                    id(module_temperature_5), id(module_temperature_6), id(module_temperature_7), id(module_temperature_8)};
+            const float tmin = id(module_temperature_min).state, tmax = id(module_temperature_max).state;
+            if (!std::isnan(tmin) && !std::isnan(tmax))
+              lv_label_set_text(id(mv2_temps_lbl), str_sprintf("Modules %.1f - %.1f °C", tmin, tmax).c_str());
+            static lv_obj_t *dot[8] = {nullptr};
+            static lv_obj_t *dlbl[8] = {nullptr};
+            for (int k = 0; k < 8; k++) {
+              if (!dot[k]) {
+                dot[k] = lv_obj_create(id(mv2_temp_strip));
+                lv_obj_remove_style_all(dot[k]);
+                lv_obj_set_style_bg_opa(dot[k], LV_OPA_COVER, LV_PART_MAIN);
+                lv_obj_set_style_radius(dot[k], 6, LV_PART_MAIN);
+                lv_obj_clear_flag(dot[k], LV_OBJ_FLAG_CLICKABLE);
+                lv_obj_set_pos(dot[k], k * 43, 0);
+                lv_obj_set_size(dot[k], 39, 30);
+                dlbl[k] = lv_label_create(dot[k]);
+                lv_obj_set_style_text_font(dlbl[k], id(font_roboto_16), LV_PART_MAIN);
+                lv_obj_center(dlbl[k]);
+              }
+              float c = mt[k]->state;
+              lv_obj_set_style_bg_color(dot[k], lv_color_hex(ui1024::temp_color(c)), LV_PART_MAIN);
+              lv_obj_set_style_text_color(dlbl[k], lv_color_hex((c >= 35.0f && c < 45.0f) ? 0x000000 : 0xFFFFFF), LV_PART_MAIN);
+              lv_label_set_text(dlbl[k], std::isnan(c) ? "--" : str_sprintf("%.0f", c).c_str());
+            }
+          }
+
+          // Bottom cards
+          {
+            const float ein = id(energy_charged_daily).state, eout = id(energy_discharged_daily).state, enet = id(energy_net_daily).state;
+            lv_label_set_text(id(mv2_today), (std::isnan(ein) || std::isnan(eout)) ? "--" : str_sprintf("In %.1f   Out %.1f kWh", ein, eout).c_str());
+            lv_label_set_text(id(mv2_today_net), std::isnan(enet) ? " " : str_sprintf("Net %+.1f kWh", enet).c_str());
+            const float isoc = id(inverter_can_soc).state, cvl = id(inverter_can_voltage_limit_max).state, dvl = id(inverter_can_voltage_limit_min).state;
+            lv_label_set_text(id(mv2_inv), std::isnan(isoc) ? "--" : str_sprintf("%.0f%%   CVL %.1f V", isoc, cvl).c_str());
+            const float cfull = id(inverter_can_capacity_full).state, crem = id(inverter_can_capacity_remaining).state;
+            lv_label_set_text(id(mv2_inv_sub), std::isnan(dvl) ? " " : str_sprintf("DVL %.1f V   %.0f / %.0f Ah", dvl, crem, cfull).c_str());
+            lv_label_set_text(id(mv2_bc), id(balance_charge_status).has_state() ? id(balance_charge_status).state.c_str() : "--");
+          }
+
+      # --- Cells ---
+      - lambda: |-
+          if (lv_scr_act() != id(cells_page)->obj) return;
+          auto sensors = id(hub).get_cell_voltage_sensors();
+          const int max_cells = 120;
+          int cell_count = std::min((int) sensors.size(), max_cells);
+          int populated = 0;
+          for (int k = 0; k < cell_count; k++) {
+            float cv = sensors[k]->state;
+            if (!std::isnan(cv) && cv > 0.5f) populated = k + 1;
+          }
+          cell_count = populated;
+          lv_label_set_text(id(label_cell_count), str_sprintf("%d", cell_count).c_str());
+
+          float v_min = 1000.0f, v_max = -1000.0f, v_sum = 0.0f;
+          int n_valid = 0;
+          for (int k = 0; k < cell_count; k++) {
+            float v = sensors[k]->state;
+            if (std::isnan(v)) continue;
+            n_valid++;
+            v_sum += v;
+            v_min = std::min(v_min, v);
+            v_max = std::max(v_max, v);
+          }
+          if (n_valid == 0) {
+            lv_label_set_text(id(cells_min), "--");
+            lv_label_set_text(id(cells_avg), "--");
+            lv_label_set_text(id(cells_max), "--");
+            lv_label_set_text(id(cells_delta), "--");
+            lv_label_set_text(id(label_cell_scale_max), "--");
+            lv_label_set_text(id(label_cell_scale_mid), "--");
+            lv_label_set_text(id(label_cell_scale_min), "--");
+            return;
+          }
+          lv_label_set_text(id(cells_min), str_sprintf("%.3f", v_min).c_str());
+          lv_label_set_text(id(cells_avg), str_sprintf("%.3f", v_sum / n_valid).c_str());
+          lv_label_set_text(id(cells_max), str_sprintf("%.3f", v_max).c_str());
+          lv_label_set_text(id(cells_delta), str_sprintf("%.0f mV", (v_max - v_min) * 1000.0f).c_str());
+
+          {
+            sensor::Sensor *mt[] = {id(module_temperature_1), id(module_temperature_2), id(module_temperature_3), id(module_temperature_4),
+                                    id(module_temperature_5), id(module_temperature_6), id(module_temperature_7), id(module_temperature_8)};
+            lv_obj_t *ml[] = {id(cells_mod_1), id(cells_mod_2), id(cells_mod_3), id(cells_mod_4),
+                              id(cells_mod_5), id(cells_mod_6), id(cells_mod_7), id(cells_mod_8)};
+            for (int k = 0; k < 8; k++) {
+              float c = mt[k]->state;
+              lv_label_set_text(ml[k], std::isnan(c) ? "--" : str_sprintf("%.1f°", c).c_str());
+              lv_obj_set_style_text_color(ml[k], lv_color_hex(std::isnan(c) || c < 35.0f ? 0xF0F0F0 : ui1024::temp_color(c)), LV_PART_MAIN);
+            }
+          }
+          lv_label_set_text(id(cells_bc), id(balance_charge_status).has_state() ? ("Balance charge: " + id(balance_charge_status).state).c_str() : " ");
+
+          lv_obj_t *chart = id(cell_line_chart)->obj;
+          int chart_w = lv_obj_get_content_width(chart);
+          int chart_h = lv_obj_get_content_height(chart);
+          if (chart_w <= 2 || chart_h <= 2) return;
+
+          float span = v_max - v_min;
+          if (span < 0.03f) span = 0.03f;
+          float margin = span * 0.12f;
+          float v_lo = v_min - margin, v_hi = v_max + margin;
+          float v_range = v_hi - v_lo;
+          lv_label_set_text(id(label_cell_scale_max), str_sprintf("%.3f", v_hi).c_str());
+          lv_label_set_text(id(label_cell_scale_mid), str_sprintf("%.3f", (v_hi + v_lo) * 0.5f).c_str());
+          lv_label_set_text(id(label_cell_scale_min), str_sprintf("%.3f", v_lo).c_str());
+
+          bool act_cells[121];
+          for (int k = 0; k <= 120; k++) act_cells[k] = false;
+          if (id(cells_balancing_active).has_state()) {
+            const std::string &raw = id(cells_balancing_active).state;
+            int val = 0, from = -1; bool in = false;
+            auto commit = [&](int last) { for (int c = (from >= 0 ? from : last); c <= last; c++) if (c >= 1 && c <= 120) act_cells[c] = true; from = -1; };
+            for (char ch : raw) {
+              if (ch >= '0' && ch <= '9') { val = val * 10 + (ch - '0'); in = true; }
+              else { if (in) { if (ch == '-') from = val; else commit(val); } val = 0; in = false; }
+            }
+            if (in) commit(val);
+          }
+          int n_act = 0;
+          for (int k = 1; k <= 120; k++) if (act_cells[k]) n_act++;
+
+          // Balancing timers, scaled as on the HA dashboard (see bms_ui_scripts.yaml)
+          const auto &timers = id(hub).get_balancing_time_sensors();
+          static float axis_max_hold = 1.0f;
+          static float max_timer_prev = 0.0f;
+          float timer_s[120];
+          float max_timer = 0.0f;
+          int max_timer_idx = -1, n_timer = 0;
+          for (int k = 0; k < cell_count; k++) {
+            float t = 0.0f;
+            if (k < (int) timers.size() && timers[k] != nullptr && !std::isnan(timers[k]->state) && timers[k]->state > 0.0f)
+              t = timers[k]->state;
+            timer_s[k] = t;
+            if (t > 0.0f) n_timer++;
+            if (t > max_timer) { max_timer = t; max_timer_idx = k; }
+          }
+          lv_label_set_text(id(cells_bal), str_sprintf("%d / %d", n_act, n_timer).c_str());
+          {
+            float rem = id(max_balancing_timer).state;
+            lv_label_set_text(id(label_balance_remaining), std::isnan(rem) ? "--" : ui1024::fmt_duration(rem).c_str());
+          }
+          if (max_timer > 0.0f && max_timer_idx >= 0 && !std::isnan(sensors[max_timer_idx]->state)) {
+            float blue_norm = std::clamp((sensors[max_timer_idx]->state - v_lo) / v_range, 0.05f, 1.0f);
+            float proposed = max_timer / (blue_norm * 0.98f);
+            if (max_timer > max_timer_prev && std::isfinite(proposed) && proposed > 0.0f) axis_max_hold = proposed;
+          }
+          max_timer_prev = max_timer;
+
+          static lv_obj_t *bar_objs[120] = {nullptr};
+          static lv_obj_t *mark_objs[120] = {nullptr};
+          for (int k = 0; k < cell_count; k++) {
+            if (bar_objs[k] == nullptr) {
+              lv_obj_t *bar = lv_obj_create(chart);
+              lv_obj_remove_style_all(bar);
+              lv_obj_set_style_bg_opa(bar, LV_OPA_COVER, LV_PART_MAIN);
+              lv_obj_clear_flag(bar, LV_OBJ_FLAG_CLICKABLE);
+              bar_objs[k] = bar;
+              lv_obj_t *mark = lv_obj_create(chart);
+              lv_obj_remove_style_all(mark);
+              lv_obj_set_style_bg_opa(mark, LV_OPA_COVER, LV_PART_MAIN);
+              lv_obj_clear_flag(mark, LV_OBJ_FLAG_CLICKABLE);
+              mark_objs[k] = mark;
+            }
+            int x0 = (k * chart_w) / cell_count;
+            int x1 = ((k + 1) * chart_w) / cell_count - 2;
+            if (x1 <= x0) x1 = x0 + 1;
+            if (x1 >= chart_w) x1 = chart_w - 1;
+            int w = x1 - x0 + 1;
+            float val = sensors[k]->state;
+            int y = chart_h - 1;
+            float tcol = 0.5f;
+            if (!std::isnan(val)) {
+              float norm = std::clamp((val - v_lo) / v_range, 0.0f, 1.0f);
+              y = (int) ((chart_h - 1) - norm * (chart_h - 1));
+              if (v_max - v_min >= 0.002f) tcol = (val - v_min) / (v_max - v_min);
+            }
+            int y_c = std::clamp(y, 0, chart_h - 2);
+            lv_obj_set_pos(bar_objs[k], x0, y_c);
+            lv_obj_set_size(bar_objs[k], w, chart_h - y_c);
+            lv_obj_set_style_bg_color(bar_objs[k], lv_color_hex(ui1024::cell_ramp(tcol)), LV_PART_MAIN);
+            lv_obj_clear_flag(bar_objs[k], LV_OBJ_FLAG_HIDDEN);
+
+            int th = 0;
+            if (timer_s[k] > 0.0f && axis_max_hold > 0.0f) th = (int) (std::min(1.0f, timer_s[k] / axis_max_hold) * (chart_h - 1));
+            if (th > 0) {
+              lv_obj_set_pos(mark_objs[k], x0, std::max(0, chart_h - th));
+              lv_obj_set_size(mark_objs[k], w, th);
+              lv_obj_set_style_bg_color(mark_objs[k], lv_color_hex(act_cells[k + 1] ? 0xFF9800 : 0xFDD835), LV_PART_MAIN);
+              lv_obj_clear_flag(mark_objs[k], LV_OBJ_FLAG_HIDDEN);
+            } else {
+              lv_obj_add_flag(mark_objs[k], LV_OBJ_FLAG_HIDDEN);
+            }
+          }
+          for (int k = cell_count; k < max_cells; k++) {
+            if (bar_objs[k] != nullptr) lv_obj_add_flag(bar_objs[k], LV_OBJ_FLAG_HIDDEN);
+            if (mark_objs[k] != nullptr) lv_obj_add_flag(mark_objs[k], LV_OBJ_FLAG_HIDDEN);
+          }
+
+      # --- Power ---
+      - lambda: |-
+          if (lv_scr_act() != id(power_page)->obj) return;
+          auto fmt_a = [](float a) -> std::string {
+            if (std::isnan(a)) return "--";
+            if (!ui1024::limit_valid(a)) return "no limit";
+            return str_sprintf("%.1f A", a);
+          };
+          // Limit rows: built once, then updated. Rows 0-5 charge, 6-10 discharge.
+          struct Row { const char *name; sensor::Sensor *s; bool effective; };
+          static const int N = 11;
+          Row rows[N] = {
+            {"Charge (in force)", id(charge_current_limit), true},
+            {"Hard limit", id(hard_charge_current_limit), false},
+            {"Working limit", id(working_charge_current_limit), false},
+            {"Temperature", id(temp_charge_current_limit), false},
+            {"Cell voltage", id(cell_voltage_charge_current_limit), false},
+            {"Cell delta", id(delta_charge_current_limit), false},
+            {"Discharge (in force)", id(discharge_current_limit), true},
+            {"Hard limit", id(hard_discharge_current_limit), false},
+            {"Working limit", id(working_discharge_current_limit), false},
+            {"Temperature", id(temp_discharge_current_limit), false},
+            {"Cell voltage", id(cell_voltage_discharge_current_limit), false},
+          };
+          static lv_obj_t *nm[N], *bg[N], *fill[N], *val[N];
+          static bool built = false;
+          if (!built) {
+            lv_obj_t *box = id(pw_limits_box);
+            for (int k = 0; k < N; k++) {
+              const int y = (k < 6 ? k * 36 : 228 + (k - 6) * 36);
+              nm[k] = lv_label_create(box);
+              lv_obj_set_pos(nm[k], 0, y + 4);
+              lv_obj_set_style_text_font(nm[k], rows[k].effective ? id(font_roboto_20) : id(font_roboto_18), LV_PART_MAIN);
+              lv_label_set_text(nm[k], rows[k].name);
+              bg[k] = lv_obj_create(box);
+              lv_obj_remove_style_all(bg[k]);
+              lv_obj_set_style_bg_opa(bg[k], LV_OPA_COVER, LV_PART_MAIN);
+              lv_obj_set_style_bg_color(bg[k], lv_color_hex(0x26302B), LV_PART_MAIN);
+              lv_obj_set_style_radius(bg[k], 4, LV_PART_MAIN);
+              lv_obj_set_pos(bg[k], 200, y + 8);
+              lv_obj_set_size(bg[k], 220, 16);
+              fill[k] = lv_obj_create(bg[k]);
+              lv_obj_remove_style_all(fill[k]);
+              lv_obj_set_style_bg_opa(fill[k], LV_OPA_COVER, LV_PART_MAIN);
+              lv_obj_set_style_radius(fill[k], 4, LV_PART_MAIN);
+              lv_obj_set_pos(fill[k], 0, 0);
+              lv_obj_set_size(fill[k], 0, 16);
+              val[k] = lv_label_create(box);
+              lv_obj_set_width(val[k], 108);
+              lv_obj_set_style_text_align(val[k], LV_TEXT_ALIGN_RIGHT, LV_PART_MAIN);
+              lv_obj_set_pos(val[k], 428, y + 4);
+              lv_obj_set_style_text_font(val[k], rows[k].effective ? id(font_roboto_20) : id(font_roboto_18), LV_PART_MAIN);
+            }
+            built = true;
+          }
+          for (int g = 0; g < 2; g++) {
+            const int a = g == 0 ? 0 : 6, b = g == 0 ? 6 : 11;
+            float scale = 0.0f;
+            for (int k = a; k < b; k++)
+              if (ui1024::limit_valid(rows[k].s->state)) scale = std::max(scale, rows[k].s->state);
+            float comp[5];
+            for (int k = a + 1; k < b; k++) comp[k - a - 1] = rows[k].s->state;
+            const int low = ui1024::lowest_limit(comp, b - a - 1);
+            for (int k = a; k < b; k++) {
+              const float x = rows[k].s->state;
+              const bool force = rows[k].effective || (k - a - 1) == low;
+              lv_label_set_text(val[k], fmt_a(x).c_str());
+              int w = (ui1024::limit_valid(x) && scale > 0.0f) ? (int) lroundf(x / scale * 220.0f) : (std::isnan(x) ? 0 : 220);
+              lv_obj_set_width(fill[k], std::clamp(w, 0, 220));
+              uint32_t c = force ? 0x5EE3A8 : 0x51605A;
+              if (!ui1024::limit_valid(x)) c = 0x2A3530;
+              lv_obj_set_style_bg_color(fill[k], lv_color_hex(c), LV_PART_MAIN);
+              lv_obj_set_style_text_color(nm[k], lv_color_hex(force ? 0xF0F0F0 : 0xA9B4AF), LV_PART_MAIN);
+              lv_obj_set_style_text_color(val[k], lv_color_hex(force ? 0xF0F0F0 : 0xA9B4AF), LV_PART_MAIN);
+            }
+          }
+
+          auto f = [](float x, const char *fmt) -> std::string { return std::isnan(x) ? std::string("--") : str_sprintf(fmt, x); };
+          std::string inv = f(id(inverter_can_soc).state, "%.0f %%") + "\n" +
+                            f(id(inverter_can_capacity_full).state, "%.0f") + " / " + f(id(inverter_can_capacity_remaining).state, "%.0f Ah") + "\n" +
+                            f(id(inverter_can_voltage_limit_max).state, "%.1f") + " / " + f(id(inverter_can_voltage_limit_min).state, "%.1f V") + "\n" +
+                            fmt_a(id(charge_current_limit).state) + " / " + fmt_a(id(discharge_current_limit).state);
+          lv_label_set_text(id(pw_inv_vals), inv.c_str());
+          std::string vol = f(id(voltage_mV).state, "%.2f V") + "\n" + f(id(output_voltage_mV).state, "%.2f V") + "\n" +
+                            f(id(voltage_bmb_sum).state, "%.2f V") + "\n" +
+                            f(id(pos_contactor_voltage).state, "%.1f") + " / " + f(id(neg_contactor_voltage).state, "%.1f V");
+          lv_label_set_text(id(pw_volt_vals), vol.c_str());
+          std::string sc = f(id(soc).state, "%.1f") + " / " + f(id(soc_voltage_based).state, "%.1f") + " / " + f(id(soc_basic_count).state, "%.1f %%") + "\n" +
+                           f(id(capacity_mC).state, "%.1f") + " / " + f(id(charge_raw).state, "%.1f Ah") + "\n" +
+                           f(id(energy_charged_daily).state, "%.2f") + " / " + f(id(energy_discharged_daily).state, "%.2f kWh") + "\n" +
+                           f(id(energy_net_daily).state, "%+.2f kWh");
+          lv_label_set_text(id(pw_soc_vals), sc.c_str());
+
+      # --- Health ---
+      - lambda: |-
+          if (lv_scr_act() != id(health_page)->obj) return;
+          auto f = [](float x, const char *fmt) -> std::string { return std::isnan(x) ? std::string("--") : str_sprintf(fmt, x); };
+          const float riso = id(iso_resistance).state;
+          lv_label_set_text(id(hl_riso), std::isnan(riso) ? "--" : str_sprintf("%.2f MΩ", riso).c_str());
+          std::string iso = f(id(pack_pos_chassis).state, "%.1f V") + "\n" + f(id(pack_neg_chassis).state, "%.1f V") + "\n" +
+                            (std::isnan(id(iso_check_age).state) ? std::string("--") : ui1024::fmt_duration(id(iso_check_age).state) + " ago");
+          lv_label_set_text(id(hl_iso_vals), iso.c_str());
+
+          auto rail = [&](float x, float lo, float hi) -> std::string {
+            if (std::isnan(x)) return "--";
+            const char *st = (x < lo) ? "  LOW" : (x > hi) ? "  HIGH" : "";
+            return str_sprintf("%.2f V%s", x, st);
+          };
+          std::string sup = rail(id(supply_3v3).state, 3.1f, 3.5f) + "\n" + rail(id(supply_5v).state, 4.6f, 5.4f) + "\n" +
+                            rail(id(supply_12v).state, 10.8f, 13.8f) + "\n" + f(id(supply_ctr).state, "%.2f V");
+          lv_label_set_text(id(hl_sup_vals), sup.c_str());
+          std::string st = (id(system_state_text).has_state() ? id(system_state_text).state : std::string("--")) + "\n" +
+                           (id(contactor_state_text).has_state() ? id(contactor_state_text).state : std::string("--")) + "\n" +
+                           f(id(system_req).state, "%.0f") + "\n" +
+                           f(id(pos_contactor_voltage).state, "%.1f") + " / " + f(id(neg_contactor_voltage).state, "%.1f V");
+          lv_label_set_text(id(hl_state_vals), st.c_str());
+          std::string tp = f(id(module_temperature_min).state, "%.1f") + " / " + f(id(module_temperature_max).state, "%.1f °C") + "\n" +
+                           f(id(bms_chip_temp).state, "%.1f °C") + "\n" + f(id(shunt_die_temp).state, "%.1f °C") + "\n" +
+                           f(id(shunt_ntc_temp).state, "%.1f °C") + "\n" + f(id(hmi_internal_temp).state, "%.1f °C");
+          lv_label_set_text(id(hl_temp_vals), tp.c_str());
+          std::string ma = f(id(module_temperature_1).state, "%.1f °C") + "\n" + f(id(module_temperature_2).state, "%.1f °C") + "\n" +
+                           f(id(module_temperature_3).state, "%.1f °C") + "\n" + f(id(module_temperature_4).state, "%.1f °C");
+          std::string mb = f(id(module_temperature_5).state, "%.1f °C") + "\n" + f(id(module_temperature_6).state, "%.1f °C") + "\n" +
+                           f(id(module_temperature_7).state, "%.1f °C") + "\n" + f(id(module_temperature_8).state, "%.1f °C");
+          lv_label_set_text(id(hl_mod_a), ma.c_str());
+          lv_label_set_text(id(hl_mod_b), mb.c_str());
+
+      # --- Events: rebuild the tiles when any event state changes ---
+      - lambda: |-
+          if (lv_scr_act() != id(events_page)->obj) return;
+          const auto &evs = id(hub).get_event_sensors();
+          std::string sig;
+          for (auto *s : evs) {
+            sig += (s && s->has_state()) ? s->state : std::string("?");
+            sig += '|';
+          }
+          static std::string last_sig;
+          static uint32_t last_build = 0;
+          if (sig == last_sig && last_build != 0) return;
+          last_sig = sig;
+          last_build = millis();
+
+          lv_obj_t *list = id(ev_list);
+          lv_obj_clean(list);
+          auto header = [&](const char *text) {
+            lv_obj_t *h = lv_label_create(list);
+            lv_obj_set_width(h, LV_PCT(100));
+            lv_obj_set_style_pad_top(h, 6, LV_PART_MAIN);
+            lv_obj_set_style_text_font(h, id(font_roboto_20), LV_PART_MAIN);
+            lv_obj_set_style_text_color(h, lv_color_hex(0x8FA39A), LV_PART_MAIN);
+            lv_label_set_text(h, text);
+          };
+          // Tap a tile: details pop-up (user data = event type)
+          auto on_tap = [](lv_event_t *e) {
+            const int t = (int) (intptr_t) lv_event_get_user_data(e);
+            const auto &all = id(hub).get_event_sensors();
+            if (t < 0 || t >= (int) all.size() || all[t] == nullptr) return;
+            auto *s = all[t];
+            const char *name = s->get_name().c_str();
+            int lvl, cnt;
+            ui1024::parse_event_state(s->has_state() ? s->state : std::string(""), lvl, cnt);
+            const int grp = ui1024::name_group(name);
+            lv_label_set_text(id(event_popup_title), ui1024::short_name(name));
+            std::string body = std::string(ui1024::event_help(t)) + "\n\n" +
+                               "Severity: " + ui1024::level_name(grp) + "    BMS name: " + esphome::hmi_bms::HMIBMS::event_type_name(t) + "\n" +
+                               "Now: " + (lvl > 0 ? ui1024::level_name(lvl) : "inactive") + "    Times active: " + str_sprintf("%d", cnt);
+            lv_label_set_text(id(event_popup_text), body.c_str());
+            uint32_t bc = lvl > 0 ? ui1024::level_color(lvl) : (cnt > 0 ? ui1024::COLOR_PREVIOUS : 0x555555);
+            lv_obj_set_style_border_color(id(event_popup_box), lv_color_hex(bc), LV_PART_MAIN);
+            lv_obj_clear_flag(id(event_popup), LV_OBJ_FLAG_HIDDEN);
+          };
+          auto tile = [&](int t, int w, int h, uint32_t bgc, uint32_t txc, const std::string &line2, bool small) {
+            lv_obj_t *b = lv_obj_create(list);
+            lv_obj_remove_style_all(b);
+            lv_obj_set_size(b, w, h);
+            lv_obj_set_style_bg_opa(b, LV_OPA_COVER, LV_PART_MAIN);
+            lv_obj_set_style_bg_color(b, lv_color_hex(bgc), LV_PART_MAIN);
+            lv_obj_set_style_radius(b, 8, LV_PART_MAIN);
+            lv_obj_set_style_pad_all(b, 6, LV_PART_MAIN);
+            lv_obj_clear_flag(b, LV_OBJ_FLAG_SCROLLABLE);
+            lv_obj_add_flag(b, LV_OBJ_FLAG_CLICKABLE);
+            lv_obj_add_event_cb(b, on_tap, LV_EVENT_CLICKED, (void *) (intptr_t) t);
+            lv_obj_t *l = lv_label_create(b);
+            lv_obj_set_width(l, w - 12);
+            lv_label_set_long_mode(l, LV_LABEL_LONG_DOT);
+            lv_obj_set_style_text_font(l, small ? id(font_roboto_16) : id(font_roboto_18), LV_PART_MAIN);
+            lv_obj_set_style_text_color(l, lv_color_hex(txc), LV_PART_MAIN);
+            std::string text = std::string(ui1024::short_name(evs[t]->get_name().c_str()));
+            if (!line2.empty()) text += "\n" + line2;
+            lv_label_set_text(l, text.c_str());
+          };
+
+          // Sort: active by level (worst first), previously active by count
+          std::vector<int> active, prev;
+          std::vector<int> ev_lvl(evs.size(), 0), ev_cnt(evs.size(), 0);
+          for (size_t t = 0; t < evs.size(); t++) {
+            if (!evs[t] || !evs[t]->has_state()) continue;
+            ui1024::parse_event_state(evs[t]->state, ev_lvl[t], ev_cnt[t]);
+            if (ev_lvl[t] > 0) active.push_back(t);
+            else if (ev_cnt[t] > 0) prev.push_back(t);
+          }
+          std::sort(active.begin(), active.end(), [&](int a, int b) { return ev_lvl[a] != ev_lvl[b] ? ev_lvl[a] > ev_lvl[b] : ev_cnt[a] > ev_cnt[b]; });
+          std::sort(prev.begin(), prev.end(), [&](int a, int b) { return ev_cnt[a] > ev_cnt[b]; });
+
+          header(str_sprintf("ACTIVE EVENTS (%d)", (int) active.size()).c_str());
+          if (active.empty()) {
+            lv_obj_t *n = lv_label_create(list);
+            lv_obj_set_width(n, LV_PCT(100));
+            lv_obj_set_style_text_font(n, id(font_roboto_20), LV_PART_MAIN);
+            lv_obj_set_style_text_color(n, lv_color_hex(0x5EE3A8), LV_PART_MAIN);
+            lv_label_set_text(n, "None");
+          }
+          for (int t : active)
+            tile(t, 238, 66, ui1024::level_color(ev_lvl[t]), ui1024::level_text_color(ev_lvl[t]),
+                 str_sprintf("%s  (%d)", ui1024::level_name(ev_lvl[t]), ev_cnt[t]), false);
+
+          header(str_sprintf("PREVIOUSLY ACTIVE (%d)", (int) prev.size()).c_str());
+          if (prev.empty()) {
+            lv_obj_t *n = lv_label_create(list);
+            lv_obj_set_width(n, LV_PCT(100));
+            lv_obj_set_style_text_font(n, id(font_roboto_20), LV_PART_MAIN);
+            lv_obj_set_style_text_color(n, lv_color_hex(0xA9B4AF), LV_PART_MAIN);
+            lv_label_set_text(n, "None");
+          }
+          for (int t : prev)
+            tile(t, 238, 66, ui1024::COLOR_PREVIOUS, 0xFFFFFF, str_sprintf("%d times", ev_cnt[t]), false);
+
+          static const int groups[] = {ui1024::LVL_FATAL, ui1024::LVL_CRITICAL, ui1024::LVL_WARNING, ui1024::LVL_INFO};
+          static const char *const gnames[] = {"ALL EVENT TYPES: FATAL", "CRITICAL", "WARNING", "INFO"};
+          for (int g = 0; g < 4; g++) {
+            header(gnames[g]);
+            for (size_t t = 0; t < evs.size(); t++) {
+              if (!evs[t] || ui1024::name_group(evs[t]->get_name().c_str()) != groups[g]) continue;
+              uint32_t bgc = ev_lvl[t] > 0 ? ui1024::level_color(ev_lvl[t]) : (ev_cnt[t] > 0 ? ui1024::COLOR_PREVIOUS : 0x1E2622);
+              uint32_t txc = ev_lvl[t] > 0 ? ui1024::level_text_color(ev_lvl[t]) : (ev_cnt[t] > 0 ? 0xFFFFFF : 0xA9B4AF);
+              tile(t, 190, 44, bgc, txc, "", true);
+            }
+          }
+
+      # --- Settings: rows built once, values refreshed ---
+      - lambda: |-
+          if (lv_scr_act() != id(settings_page)->obj) return;
+          static lv_obj_t *vlbl[ui1024::SETTINGS_COUNT] = {nullptr};
+          static lv_obj_t *vbtn[ui1024::SETTINGS_COUNT] = {nullptr};
+          static bool built = false;
+          if (!built) {
+            lv_obj_t *cards[] = {id(set_card_lim), id(set_card_soc), id(set_card_bal), id(set_card_bc)};
+            auto on_tap = [](lv_event_t *e) {
+              id(open_setting_pad).execute((int) (intptr_t) lv_event_get_user_data(e));
+            };
+            for (int k = 0; k < ui1024::SETTINGS_COUNT; k++) {
+              const auto &d = ui1024::SETTINGS[k];
+              lv_obj_t *row = lv_obj_create(cards[d.card]);
+              lv_obj_remove_style_all(row);
+              lv_obj_set_size(row, LV_PCT(100), 52);
+              lv_obj_clear_flag(row, LV_OBJ_FLAG_SCROLLABLE);
+              lv_obj_t *nm = lv_label_create(row);
+              lv_obj_align(nm, LV_ALIGN_LEFT_MID, 0, 0);
+              lv_obj_set_width(nm, 270);
+              lv_label_set_long_mode(nm, LV_LABEL_LONG_DOT);
+              lv_obj_set_style_text_font(nm, id(font_roboto_20), LV_PART_MAIN);
+              lv_obj_set_style_text_color(nm, lv_color_hex(0xA9B4AF), LV_PART_MAIN);
+              lv_label_set_text(nm, d.title);
+              lv_obj_t *b = lv_button_create(row);
+              lv_obj_set_style_bg_color(b, lv_color_hex(0x22302A), LV_PART_MAIN);
+              lv_obj_set_style_border_width(b, 1, LV_PART_MAIN);
+              lv_obj_set_style_border_color(b, lv_color_hex(0x3A4A43), LV_PART_MAIN);
+              lv_obj_set_style_radius(b, 8, LV_PART_MAIN);
+              lv_obj_set_style_shadow_width(b, 0, LV_PART_MAIN);
+              lv_obj_set_size(b, 180, 50);
+              lv_obj_align(b, LV_ALIGN_RIGHT_MID, 0, 0);
+              lv_obj_add_event_cb(b, on_tap, LV_EVENT_CLICKED, (void *) (intptr_t) d.reg);
+              lv_obj_t *v = lv_label_create(b);
+              lv_obj_center(v);
+              lv_obj_set_style_text_font(v, id(font_roboto_24), LV_PART_MAIN);
+              lv_label_set_text(v, "--");
+              vlbl[k] = v;
+              vbtn[k] = b;
+            }
+            built = true;
+          }
+          const bool unlocked = id(hub).is_settings_unlocked();
+          lv_label_set_text(id(set_lock_lbl), unlocked ? "LOCK" : "UNLOCK");
+          lv_obj_set_style_bg_color(id(set_lock_btn), lv_color_hex(unlocked ? 0x2E7D32 : 0x8B1A1A), LV_PART_MAIN);
+          if (id(settings_write_status).has_state()) lv_label_set_text(id(label_settings_status), id(settings_write_status).state.c_str());
+          for (int k = 0; k < ui1024::SETTINGS_COUNT; k++) {
+            const auto &d = ui1024::SETTINGS[k];
+            auto *n = (esphome::number::Number *) ui1024::setting_slot(d.reg);
+            float s = n ? n->state : NAN;
+            std::string t = std::isnan(s) ? std::string("--") : str_sprintf(d.fmt, s * d.mult) + (d.unit[0] ? std::string(" ") + d.unit : std::string(""));
+            lv_label_set_text(vlbl[k], t.c_str());
+            lv_obj_set_style_text_color(vlbl[k], lv_color_hex(unlocked ? 0xFFD54A : 0xF0F0F0), LV_PART_MAIN);
+            lv_obj_set_style_opa(vbtn[k], unlocked ? LV_OPA_COVER : LV_OPA_70, LV_PART_MAIN);
+          }
+
+      # --- Control ---
+      - lambda: |-
+          if (lv_scr_act() != id(control_page)->obj) return;
+          lv_label_set_text(id(ctl_state), id(system_state_text).has_state() ? id(system_state_text).state.c_str() : "--");
+          lv_label_set_text(id(ctl_contactor), id(contactor_state_text).has_state() ? id(contactor_state_text).state.c_str() : "--");
+          const float v = id(voltage_mV).state, i = id(current_mA).state, soc_v = id(soc).state;
+          std::string info = (std::isnan(soc_v) ? std::string("--") : str_sprintf("SoC %.0f%%", soc_v)) + "\n" +
+                             (std::isnan(v) ? std::string("--") : str_sprintf("%.1f V", v)) + "   " +
+                             (std::isnan(i) ? std::string("--") : str_sprintf("%+.1f A", i));
+          lv_label_set_text(id(ctl_info), info.c_str());
+          const bool unlocked = id(hub).is_settings_unlocked();
+          std::string st = id(settings_write_status).has_state() ? id(settings_write_status).state : std::string("");
+          if (!unlocked && (st.empty() || st == "Settings locked"))
+            st = "Each command asks for confirmation, then the PIN.";
+          lv_label_set_text(id(ctl_status), st.c_str());
+          lv_label_set_text(id(ctl_bc_status), id(balance_charge_status).has_state() ? id(balance_charge_status).state.c_str() : "--");
+
+      # --- System ---
+      - lambda: |-
+          // Brightness saved on the System page, applied once after boot
+          static bool bright_applied = false;
+          if (!bright_applied && millis() > 3000) {
+            bright_applied = true;
+            float b = std::clamp(id(hmi_brightness), 0.05f, 1.0f);
+            id(ui_bright) = b;
+            auto call = id(display_backlight).turn_on();
+            call.set_brightness(b);
+            call.perform();
+            lv_slider_set_value(id(sys_bright), (int) lroundf(b * 100.0f), LV_ANIM_OFF);
+            lv_label_set_text(id(sys_bright_lbl), str_sprintf("%.0f %%", b * 100.0f).c_str());
+          }
+          if (lv_scr_act() != id(system_page)->obj) return;
+          auto f = [](float x, const char *fmt) -> std::string { return std::isnan(x) ? std::string("--") : str_sprintf(fmt, x); };
+          auto ts = [](text_sensor::TextSensor *s) -> std::string { return (s && s->has_state() && !s->state.empty()) ? s->state : std::string("--"); };
+          std::string net = ts(id(wifi_ssid_sensor)) + "\n" + ts(id(wifi_ip_sensor)) + "\n" + f(id(wifi_rssi_sensor).state, "%.0f dBm") + "\n" + ts(id(wifi_bssid_sensor));
+          lv_label_set_text(id(sys_net_vals), net.c_str());
+          std::string about = ts(id(board_revision_ts)) + "\n" + ts(id(serial)) + "\n" + ts(id(bms_fw_ts)) + "\n" + ts(id(hmi_fw_ts)) + "\n" +
+                              ui1024::fmt_duration(id(uptime_pico_sec).state) + " / " + ui1024::fmt_duration(id(uptime_hmi_sec).state) + "\n" +
+                              f(id(heap_free_sensor).state / 1024.0f, "%.0f kB") + " / " + f(id(loop_time_sensor).state, "%.0f ms") + "\n" +
+                              f(id(hmi_internal_temp).state, "%.1f °C");
+          lv_label_set_text(id(sys_about_vals), about.c_str());
+
+      # --- Log ---
+      - lambda: |-
+          if (lv_scr_act() != id(bmslog_page)->obj) return;
+          auto f = [](float x, const char *fmt) -> std::string { return std::isnan(x) ? std::string("--") : str_sprintf(fmt, x); };
+          auto ts = [](text_sensor::TextSensor *s) -> std::string { return (s && s->has_state() && !s->state.empty()) ? s->state : std::string("--"); };
+          const bool log_on = id(log_enable).state;
+          lv_label_set_text(id(sys_log_btn_lbl), log_on ? "Log: ON" : "Log: OFF");
+          lv_obj_set_style_bg_color(id(sys_log_btn), lv_color_hex(log_on ? 0x2E7D32 : 0x22302A), LV_PART_MAIN);
+          lv_label_set_text(id(sys_log_state), id(sys_show_raw) ? "raw registers" : f(id(log_update_rate).state, "update every %.0f s").c_str());
+
+          static uint32_t last_text = 0;
+          if (millis() - last_text < 1000) return;
+          last_text = millis();
+          std::string out;
+          if (id(sys_show_raw)) {
+            auto line = [&](const char *name, const std::string &v) { out += str_sprintf("%-28s %s\n", name, v.c_str()); };
+            line("1  Serial", ts(id(serial)));
+            line("3  SoC", f(id(soc).state, "%.2f %%"));
+            line("4  Current", f(id(current_mA).state, "%.3f A"));
+            line("5  Charge", f(id(charge_raw).state, "%.3f Ah"));
+            line("6  Battery voltage", f(id(voltage_mV).state, "%.3f V"));
+            line("7  Output voltage", f(id(output_voltage_mV).state, "%.3f V"));
+            line("8  Pos contactor", f(id(pos_contactor_voltage).state, "%.3f V"));
+            line("9  Neg contactor", f(id(neg_contactor_voltage).state, "%.3f V"));
+            line("10 Temp min", f(id(module_temperature_min).state, "%.1f C"));
+            line("11 Temp max", f(id(module_temperature_max).state, "%.1f C"));
+            line("12 Cell min", f(id(cell_min).state, "%.3f V"));
+            line("13 Cell max", f(id(cell_max).state, "%.3f V"));
+            line("14 System request", f(id(system_req).state, "%.0f"));
+            line("15 System state", ts(id(system_state_text)));
+            line("16 Contactor state", ts(id(contactor_state_text)));
+            line("17 SoC voltage based", f(id(soc_voltage_based).state, "%.2f %%"));
+            line("18 SoC basic count", f(id(soc_basic_count).state, "%.2f %%"));
+            line("20 Capacity", f(id(capacity_mC).state, "%.2f Ah"));
+            line("21 3V3", f(id(supply_3v3).state, "%.3f V"));
+            line("22 5V", f(id(supply_5v).state, "%.3f V"));
+            line("23 12V", f(id(supply_12v).state, "%.3f V"));
+            line("24 Contactor supply", f(id(supply_ctr).state, "%.3f V"));
+            line("37 Inverter SoC", f(id(inverter_can_soc).state, "%.1f %%"));
+            line("45 Charge limit", f(id(charge_current_limit).state, "%.1f A"));
+            line("46 Discharge limit", f(id(discharge_current_limit).state, "%.1f A"));
+          } else {
+            static text_sensor::TextSensor *log_sensors[] = {
+              id(log_line_01), id(log_line_02), id(log_line_03), id(log_line_04), id(log_line_05),
+              id(log_line_06), id(log_line_07), id(log_line_08), id(log_line_09), id(log_line_10),
+              id(log_line_11), id(log_line_12), id(log_line_13), id(log_line_14), id(log_line_15),
+              id(log_line_16), id(log_line_17), id(log_line_18), id(log_line_19), id(log_line_20),
+              id(log_line_21), id(log_line_22), id(log_line_23), id(log_line_24), id(log_line_25),
+              id(log_line_26), id(log_line_27), id(log_line_28), id(log_line_29), id(log_line_30),
+              id(log_line_31), id(log_line_32), id(log_line_33), id(log_line_34), id(log_line_35),
+              id(log_line_36), id(log_line_37), id(log_line_38), id(log_line_39), id(log_line_40),
+              id(log_line_41), id(log_line_42), id(log_line_43), id(log_line_44), id(log_line_45),
+              id(log_line_46), id(log_line_47), id(log_line_48), id(log_line_49), id(log_line_50)};
+            for (auto *s : log_sensors)
+              if (s->has_state() && !s->state.empty()) { out += s->state; out += "\n"; }
+            if (out.empty()) out = log_on ? "Waiting for log lines..." : "The BMS log is off. Tap Log: OFF to start it.";
+          }
+          lv_label_set_text(id(sys_log_text), out.c_str());

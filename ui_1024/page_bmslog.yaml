@@ -1,0 +1,63 @@
+# 1024x600 UI: Log. The BMS console log (50 lines, on/off) or the raw register dump.
+# Filled from scripts.yaml once a second.
+
+lvgl:
+  pages:
+    - id: bmslog_page
+      on_load:
+        - script.execute: {id: nav_set, tab: 8}
+      on_swipe_left:
+        - lvgl.page.show: system_page
+      on_swipe_right:
+        - lvgl.page.show: settings_page
+      widgets:
+        - label: {text: "BMS LOG", x: 16, y: 18, text_font: font_roboto_20, text_color: 0x8FA39A}
+        - label:
+            id: sys_log_state
+            text: "--"
+            x: 130
+            y: 20
+            text_font: font_roboto_18
+            text_color: 0xA9B4AF
+        - button:
+            id: sys_log_btn
+            styles: st_cmd_btn
+            x: 636
+            y: 6
+            width: 180
+            height: 48
+            widgets: [{label: {id: sys_log_btn_lbl, text: "Log: OFF", align: CENTER, text_font: font_roboto_20}}]
+            on_click:
+              - switch.toggle: log_enable
+        - button:
+            styles: st_cmd_btn
+            x: 828
+            y: 6
+            width: 180
+            height: 48
+            widgets: [{label: {id: sys_raw_btn_lbl, text: "Raw registers", align: CENTER, text_font: font_roboto_20}}]
+            on_click:
+              - lambda: |-
+                  id(sys_show_raw) = !id(sys_show_raw);
+                  lv_label_set_text(id(sys_raw_btn_lbl), id(sys_show_raw) ? "BMS log" : "Raw registers");
+        - obj:
+            id: sys_log_box
+            x: 16
+            y: 62
+            width: 992
+            height: 496
+            radius: 8
+            pad_all: 10
+            border_width: 1
+            border_color: 0x26302B
+            bg_color: 0x050606
+            scrollable: true
+            scroll_dir: VER
+            widgets:
+              - label:
+                  id: sys_log_text
+                  text: " "
+                  width: 970
+                  long_mode: WRAP
+                  text_font: font_roboto_mono_16
+                  text_color: 0xC8D2CD

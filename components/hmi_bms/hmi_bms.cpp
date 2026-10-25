@@ -83,6 +83,11 @@ static const char* EVENT_TYPES[] = {
     "BMB_MODULE_ID_CONFLICT"
 };
 
+const char *HMIBMS::event_type_name(int type) {
+  if (type < 0 || type >= (int) (sizeof(EVENT_TYPES) / sizeof(EVENT_TYPES[0]))) return "UNKNOWN";
+  return EVENT_TYPES[type];
+}
+
 #define MAX_EVENT_TYPE_ID 69
 
 // "2026-10-22 00:39 UTC", or "" for 0
@@ -629,6 +634,7 @@ void HMIBMS::loop() {
         uint16_t computed_crc = this->crc16_modbus_(this->rx_buffer_.data(), payload_len + 2);
         
         if (received_crc == computed_crc || this->bypass_crc_) {
+          this->last_rx_ms_ = millis();
           if (received_crc != computed_crc) {
             ESP_LOGV(TAG, "CRC mismatch (bypassed): 0x%04X != 0x%04X (len=%d)", received_crc, computed_crc, payload_len);
           } else {
