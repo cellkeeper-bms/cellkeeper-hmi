@@ -5,11 +5,11 @@ lvgl:
   pages:
     - id: cells_page
       on_load:
-        - script.execute: {id: nav_set, tab: 3}
+        - script.execute: {id: nav_set, tab: 4}
       on_swipe_left:
         - lvgl.page.show: power_page
       on_swipe_right:
-        - lvgl.page.show: control_page
+        - lvgl.page.show: events_page
       widgets:
         - obj:
             styles: st_card

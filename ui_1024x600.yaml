@@ -1,5 +1,5 @@
 # 1024x600 (7") LVGL UI. Pages, overlays and their update code are in ui_1024/.
-# Tabs: Main | Main v2 | Control | Cells | Power | Health | Events | Settings | Log | System.
+# Tabs: Main | Main v2 | Control | Events | Cells | Power | Health | Config | Log | System.
 # It brings its own scripts (pad, PIN, confirm), so devices using it don't include
 # bms_ui_scripts.yaml (that stays for the 800x480 UI).
 
