@@ -1,5 +1,6 @@
 # 1024x600 UI: Main v2, the re-imagined main page (boot page). Events banner, SoC ring,
-# power with "limited by", cell and module strips, and today / inverter / balance charge.
+# power with "limited by", cell voltage and temperature min / max, and today / inverter /
+# balance charge.
 # Updated from scripts.yaml.
 
 lvgl:
@@ -209,7 +210,7 @@ lvgl:
                   text_font: font_roboto_20
                   text_color: 0xA9B4AF
 
-        # Cells and module temperatures, tap for Cells
+        # Cell voltage and temperature min / max, tap for Cells
         - obj:
             styles: st_card
             x: 16
@@ -220,46 +221,22 @@ lvgl:
             on_click:
               - lvgl.page.show: cells_page
             widgets:
+              - label: {text: "CELL VOLTAGE MIN / MAX", x: 0, y: 0, text_font: font_roboto_16, text_color: 0x8FA39A}
               - label:
                   id: mv2_cells_lbl
-                  text: "Cells --"
+                  text: "--"
                   x: 0
-                  y: 0
-                  text_font: font_roboto_18
-                  text_color: 0xA9B4AF
-              - obj:
-                  id: mv2_cell_strip
-                  x: 0
-                  y: 26
-                  width: 600
-                  height: 30
-                  radius: 0
-                  pad_all: 0
-                  border_width: 0
-                  bg_opa: TRANSP
-                  scrollable: false
-                  clickable: false
-                  event_bubble: true
+                  y: 22
+                  text_font: font_roboto_32
+                  text_color: 0xF0F0F0
+              - label: {text: "CELL TEMPERATURE MIN / MAX", x: 496, y: 0, text_font: font_roboto_16, text_color: 0x8FA39A}
               - label:
                   id: mv2_temps_lbl
-                  text: "Modules --"
-                  x: 624
-                  y: 0
-                  text_font: font_roboto_18
-                  text_color: 0xA9B4AF
-              - obj:
-                  id: mv2_temp_strip
-                  x: 624
-                  y: 26
-                  width: 344
-                  height: 30
-                  radius: 0
-                  pad_all: 0
-                  border_width: 0
-                  bg_opa: TRANSP
-                  scrollable: false
-                  clickable: false
-                  event_bubble: true
+                  text: "--"
+                  x: 496
+                  y: 22
+                  text_font: font_roboto_32
+                  text_color: 0xF0F0F0
 
         # Bottom cards
         - obj:
