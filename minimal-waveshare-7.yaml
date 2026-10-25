@@ -1,6 +1,6 @@
 esphome:
-  name: minimal-waveshare-7
-  friendly_name: Minimal Waveshare 7
+  name: ck0
+  friendly_name: CK0
   min_version: "2025.4.2"
 
 

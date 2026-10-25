@@ -1,7 +1,7 @@
 esphome:
   name: ck0 # This is the name of the node. It should always be unique in your ESPHome network. May only contain lowercase characters, digits and hyphens. It also gets prefixed to entity names.
   # if you change this name after already adding to HA - to make entities names all update - you need to delete the device in HA and then re-add it > device settigns 3 dots > recreate entitiy IDs - it should keep data
-  friendly_name: CellKeeper0 # This name is sent to the frontend and used by Home Assistant as the integration and device name. It also gets prefixed to entity names when needed.
+  friendly_name: CK0 # Sent to Home Assistant as the device name; with "CK0" the entity IDs start with ck0_
   min_version: 2025.11.0 
   project:
     name: "CellKeeper.ESP32-S3-Touch-LCD-7"
