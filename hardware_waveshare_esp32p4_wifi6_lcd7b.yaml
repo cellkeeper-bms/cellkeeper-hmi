@@ -1,0 +1,121 @@
+# Hardware config for Waveshare ESP32-P4-WIFI6-Touch-LCD-7B (ESP32-P4, 1024x600 MIPI DSI, ESP32-C6 Wi-Fi)
+# https://www.waveshare.com/esp32-p4-wifi6-touch-lcd-7b.htm
+# Schematic: https://files.waveshare.com/wiki/ESP32-P4-WIFI6-Touch-LCD-7B/ESP32-P4-WIFI6-Touch-LCD-7B.pdf
+# Includes the UI layout for this display size.
+#
+# BMS link on the 4-pin PH2.0 UART header H8: 1 VCC, 2 GND, 3 GPIO37 (TX), 4 GPIO38 (RX).
+# Those are UART0, shared with the board's USB-to-UART chip, so the logger stays on USB JTAG
+# and nothing should be plugged into the "UART" Type-C port while the BMS is connected.
+# Header VCC is 3.3 V by default (pad H3).
+
+substitutions:
+  # The panel's controller can't rotate in hardware; LVGL rotates the whole UI instead.
+  # 180 suits the board standing on its stand; 0 flips it.
+  hmi_rotation: "180"
+
+packages:
+  ui_layout: !include ui_1024x600.yaml
+
+esp32:
+  board: esp32-p4-evboard
+  variant: esp32p4
+  flash_size: 32MB
+  cpu_frequency: 360MHz
+  framework:
+    type: esp-idf
+    advanced:
+      # ESPHome requires this for OTA on 32 MB flash
+      enable_idf_experimental_features: true
+    sdkconfig_options:
+      CONFIG_SPIRAM_XIP_FROM_PSRAM: y
+
+esp_ldo:
+  - channel: 3
+    id: dsi_phy_enable
+    voltage: 2.5V
+
+psram:
+  mode: hex
+  speed: 200MHz
+
+esp32_hosted:
+  variant: ESP32C6
+  reset_pin: GPIO54
+  clk_pin: GPIO18
+  cmd_pin: GPIO19
+  d0_pin: GPIO14
+  d1_pin: GPIO15
+  d2_pin: GPIO16
+  d3_pin: GPIO17
+  active_high: true
+
+logger:
+  baud_rate: 115200
+  hardware_uart: USB_SERIAL_JTAG
+  level: DEBUG
+  logs:
+    sensor: INFO
+
+uart:
+  - id: uart_bus
+    tx_pin: GPIO37
+    rx_pin:
+      number: GPIO38
+      mode:
+        input: true
+        pullup: false
+    baud_rate: 460800
+    rx_buffer_size: 4096
+
+i2c:
+  - id: bus_a
+    sda: GPIO7
+    scl: GPIO8
+    scan: true
+    frequency: 400kHz
+
+display:
+  - platform: mipi_dsi
+    model: WAVESHARE-ESP32-P4-WIFI6-TOUCH-LCD-7B
+    id: my_display
+    reset_pin:
+      number: GPIO33
+    update_interval: never
+    auto_clear_enabled: false
+
+touchscreen:
+  - platform: gt911
+    id: my_touchscreen
+    i2c_id: bus_a
+    reset_pin: GPIO23
+    update_interval: 50ms
+    transform:
+      mirror_x: true
+      mirror_y: true
+
+lvgl:
+  rotation: ${hmi_rotation}
+
+output:
+  - id: gpio_backlight_pwm
+    platform: ledc
+    pin: GPIO32
+    inverted: true
+    frequency: 1000Hz
+
+light:
+  - platform: monochromatic
+    output: gpio_backlight_pwm
+    name: Display Backlight
+    icon: mdi:lightbulb-on
+    id: display_backlight
+    restore_mode: ALWAYS_ON
+    default_transition_length: 0s
+    gamma_correct: 1.0
+
+switch:
+  - platform: gpio
+    pin: GPIO53
+    name: "Audio Amplifier"
+    id: audio_amplifier
+    restore_mode: ALWAYS_OFF
