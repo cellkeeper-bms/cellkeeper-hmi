@@ -7,8 +7,10 @@ lvgl:
       on_load:
         - script.execute: {id: nav_set, tab: 8}
       on_swipe_left:
+        - lambda: lv_indev_wait_release(lv_indev_active());  # one swipe, one page
         - lvgl.page.show: system_page
       on_swipe_right:
+        - lambda: lv_indev_wait_release(lv_indev_active());  # one swipe, one page
         - lvgl.page.show: settings_page
       widgets:
         - label: {text: "BMS LOG", x: 16, y: 18, text_font: font_roboto_20, text_color: 0x8FA39A}

@@ -7,8 +7,10 @@ lvgl:
       on_load:
         - script.execute: {id: nav_set, tab: 6}
       on_swipe_left:
+        - lambda: lv_indev_wait_release(lv_indev_active());  # one swipe, one page
         - lvgl.page.show: settings_page
       on_swipe_right:
+        - lambda: lv_indev_wait_release(lv_indev_active());  # one swipe, one page
         - lvgl.page.show: power_page
       widgets:
         - obj:
