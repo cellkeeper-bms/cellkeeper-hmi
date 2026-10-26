@@ -99,6 +99,18 @@ script:
             if (lbl) lv_obj_set_style_text_color(lbl, lv_color_hex(on ? 0x5EE3A8 : 0xA9B4AF), LV_PART_MAIN);
           }
 
+  # Wakes the dimmed screen: brightness back, wake layer away
+  - id: ui_wake
+    mode: single
+    then:
+      - lambda: |-
+          lv_obj_add_flag(id(wake_layer), LV_OBJ_FLAG_HIDDEN);
+          if (!id(ui_dimmed)) return;
+          id(ui_dimmed) = false;
+          auto call = id(display_backlight).turn_on();
+          call.set_brightness(id(ui_bright));
+          call.perform();
+
   # Opens the numeric pad for a setting (see ui1024::SETTINGS), in display units, with its range.
   - id: open_setting_pad
     mode: single
@@ -384,11 +396,9 @@ interval:
     then:
       # --- Every page: backlight wake, Events tab, events banner, stale data ---
       - lambda: |-
+          // Fallback wake (the wake layer normally takes the first touch)
           if (id(ui_dimmed) && lv_display_get_inactive_time(nullptr) < 1000) {
-            id(ui_dimmed) = false;
-            auto call = id(display_backlight).turn_on();
-            call.set_brightness(id(ui_bright));
-            call.perform();
+            id(ui_wake).execute();
           }
 
           // Events: worst active level and how many are at it
