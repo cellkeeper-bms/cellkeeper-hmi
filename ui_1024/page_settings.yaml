@@ -63,7 +63,7 @@ lvgl:
                         x: 240
                         y: 8
                         text_font: font_roboto_20
-                        text_color: 0xF0F0F0
+                        text_color: 0xFFFFFF
                     - label:
                         text: "Tap a value to change it. Values show what the BMS has confirmed."
                         x: 240

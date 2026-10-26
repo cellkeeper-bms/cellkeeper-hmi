@@ -63,7 +63,7 @@ lvgl:
                   y: 28
                   text_align: RIGHT
                   text_font: font_roboto_18
-                  text_color: 0xF0F0F0
+                  text_color: 0xFFFFFF
 
         - obj:
             styles: st_card
@@ -87,7 +87,7 @@ lvgl:
                   y: 28
                   text_align: RIGHT
                   text_font: font_roboto_18
-                  text_color: 0xF0F0F0
+                  text_color: 0xFFFFFF
 
         - obj:
             styles: st_card
@@ -111,4 +111,4 @@ lvgl:
                   y: 28
                   text_align: RIGHT
                   text_font: font_roboto_18
-                  text_color: 0xF0F0F0
+                  text_color: 0xFFFFFF

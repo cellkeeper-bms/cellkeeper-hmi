@@ -37,7 +37,7 @@ lvgl:
                   x: 420
                   y: 24
                   text_font: font_roboto_48
-                  text_color: 0xF0F0F0
+                  text_color: 0xFFFFFF
               - label:
                   id: ctl_info
                   text: " "
@@ -145,7 +145,7 @@ lvgl:
                   width: 560
                   long_mode: WRAP
                   text_font: font_roboto_24
-                  text_color: 0xF0F0F0
+                  text_color: 0xFFFFFF
               - label:
                   text: "Schedule and offsets are on the Settings page."
                   x: 0

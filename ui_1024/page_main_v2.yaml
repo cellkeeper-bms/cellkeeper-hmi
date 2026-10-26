@@ -78,7 +78,7 @@ lvgl:
                   align: CENTER
                   y: -8
                   text_font: font_roboto_60
-                  text_color: 0xF0F0F0
+                  text_color: 0xFFFFFF
               - label:
                   id: mv2_soc_sub
                   text: "SoC"
@@ -123,7 +123,7 @@ lvgl:
                   x: 0
                   y: 26
                   text_font: font_roboto_60
-                  text_color: 0xF0F0F0
+                  text_color: 0xFFFFFF
               - label:
                   id: mv2_dir
                   text: " "
@@ -230,7 +230,7 @@ lvgl:
                   x: 0
                   y: 22
                   text_font: font_roboto_32
-                  text_color: 0xF0F0F0
+                  text_color: 0xFFFFFF
               - label: {text: "CELL TEMPERATURE MIN / MAX", x: 496, y: 0, text_font: font_roboto_16, text_color: 0x8FA39A}
               - label:
                   id: mv2_temps_lbl
@@ -238,7 +238,7 @@ lvgl:
                   x: 496
                   y: 22
                   text_font: font_roboto_32
-                  text_color: 0xF0F0F0
+                  text_color: 0xFFFFFF
 
         # Bottom cards
         - obj:
@@ -258,7 +258,7 @@ lvgl:
                   x: 0
                   y: 22
                   text_font: font_roboto_24
-                  text_color: 0xF0F0F0
+                  text_color: 0xFFFFFF
               - label:
                   id: mv2_today_net
                   text: " "
@@ -283,7 +283,7 @@ lvgl:
                   x: 0
                   y: 22
                   text_font: font_roboto_24
-                  text_color: 0xF0F0F0
+                  text_color: 0xFFFFFF
               - label:
                   id: mv2_inv_sub
                   text: " "
@@ -310,4 +310,4 @@ lvgl:
                   width: 296
                   long_mode: WRAP
                   text_font: font_roboto_18
-                  text_color: 0xF0F0F0
+                  text_color: 0xFFFFFF

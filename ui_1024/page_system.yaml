@@ -29,7 +29,7 @@ lvgl:
                   align: TOP_RIGHT
                   y: 40
                   text_font: font_roboto_24
-                  text_color: 0xF0F0F0
+                  text_color: 0xFFFFFF
               - slider:
                   id: sys_bright
                   x: 12
@@ -38,12 +38,12 @@ lvgl:
                   height: 24
                   min_value: 5
                   max_value: 100
-                  value: 30
+                  value: 40
                   bg_color: 0x26302B
                   indicator:
                     bg_color: 0x5EE3A8
                   knob:
-                    bg_color: 0xF0F0F0
+                    bg_color: 0xFFFFFF
                     pad_all: 8
                   on_value:
                     - lambda: |-
@@ -94,7 +94,7 @@ lvgl:
                   y: 30
                   text_align: RIGHT
                   text_font: font_roboto_20
-                  text_color: 0xF0F0F0
+                  text_color: 0xFFFFFF
               - button:
                   styles: st_cmd_btn
                   x: 0
@@ -133,4 +133,4 @@ lvgl:
                   x: 330
                   y: 30
                   text_font: font_roboto_20
-                  text_color: 0xF0F0F0
+                  text_color: 0xFFFFFF

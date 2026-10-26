@@ -123,7 +123,7 @@ lvgl:
           lv_obj_add_flag(id(wifi_overlay), LV_OBJ_FLAG_HIDDEN);
           if (!id(ui_dimmed)) {
             auto &cv = id(display_backlight).current_values;
-            id(ui_bright) = cv.is_on() ? cv.get_brightness() : 0.3f;
+            id(ui_bright) = cv.is_on() ? cv.get_brightness() : 0.4f;
             id(ui_dimmed) = true;
             auto call = id(display_backlight).turn_on();
             call.set_brightness(${idle_brightness});

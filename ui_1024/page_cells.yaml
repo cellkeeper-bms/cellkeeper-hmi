@@ -28,12 +28,12 @@ lvgl:
               - label: {text: "CELLS",      x: 550, y: 0, text_font: font_roboto_16, text_color: 0x8FA39A}
               - label: {text: "BALANCING",  x: 650, y: 0, text_font: font_roboto_16, text_color: 0x8FA39A}
               - label: {text: "CYCLE LEFT", x: 820, y: 0, text_font: font_roboto_16, text_color: 0x8FA39A}
-              - label: {id: cells_min,   text: "--", x: 0,   y: 24, text_font: font_roboto_32, text_color: 0xF0F0F0}
-              - label: {id: cells_avg,   text: "--", x: 140, y: 24, text_font: font_roboto_32, text_color: 0xF0F0F0}
-              - label: {id: cells_max,   text: "--", x: 280, y: 24, text_font: font_roboto_32, text_color: 0xF0F0F0}
-              - label: {id: cells_delta, text: "--", x: 420, y: 24, text_font: font_roboto_32, text_color: 0xF0F0F0}
-              - label: {id: label_cell_count, text: "--", x: 550, y: 24, text_font: font_roboto_32, text_color: 0xF0F0F0}
-              - label: {id: cells_bal,   text: "--", x: 650, y: 24, text_font: font_roboto_32, text_color: 0xF0F0F0}
+              - label: {id: cells_min,   text: "--", x: 0,   y: 24, text_font: font_roboto_32, text_color: 0xFFFFFF}
+              - label: {id: cells_avg,   text: "--", x: 140, y: 24, text_font: font_roboto_32, text_color: 0xFFFFFF}
+              - label: {id: cells_max,   text: "--", x: 280, y: 24, text_font: font_roboto_32, text_color: 0xFFFFFF}
+              - label: {id: cells_delta, text: "--", x: 420, y: 24, text_font: font_roboto_32, text_color: 0xFFFFFF}
+              - label: {id: label_cell_count, text: "--", x: 550, y: 24, text_font: font_roboto_32, text_color: 0xFFFFFF}
+              - label: {id: cells_bal,   text: "--", x: 650, y: 24, text_font: font_roboto_32, text_color: 0xFFFFFF}
               - label: {id: label_balance_remaining, text: "--", x: 820, y: 24, text_font: font_roboto_32, text_color: 0xFDD835}
 
         - obj:
@@ -76,11 +76,11 @@ lvgl:
                     - 878, 336
 
               - label: {text: "MODULES", x: 0, y: 388, text_font: font_roboto_18, text_color: 0x8FA39A}
-              - label: {id: cells_mod_1, text: "--", x: 110, y: 382, text_font: font_roboto_24, text_color: 0xF0F0F0}
-              - label: {id: cells_mod_2, text: "--", x: 220, y: 382, text_font: font_roboto_24, text_color: 0xF0F0F0}
-              - label: {id: cells_mod_3, text: "--", x: 330, y: 382, text_font: font_roboto_24, text_color: 0xF0F0F0}
-              - label: {id: cells_mod_4, text: "--", x: 440, y: 382, text_font: font_roboto_24, text_color: 0xF0F0F0}
-              - label: {id: cells_mod_5, text: "--", x: 550, y: 382, text_font: font_roboto_24, text_color: 0xF0F0F0}
-              - label: {id: cells_mod_6, text: "--", x: 660, y: 382, text_font: font_roboto_24, text_color: 0xF0F0F0}
-              - label: {id: cells_mod_7, text: "--", x: 770, y: 382, text_font: font_roboto_24, text_color: 0xF0F0F0}
-              - label: {id: cells_mod_8, text: "--", x: 880, y: 382, text_font: font_roboto_24, text_color: 0xF0F0F0}
+              - label: {id: cells_mod_1, text: "--", x: 110, y: 382, text_font: font_roboto_24, text_color: 0xFFFFFF}
+              - label: {id: cells_mod_2, text: "--", x: 220, y: 382, text_font: font_roboto_24, text_color: 0xFFFFFF}
+              - label: {id: cells_mod_3, text: "--", x: 330, y: 382, text_font: font_roboto_24, text_color: 0xFFFFFF}
+              - label: {id: cells_mod_4, text: "--", x: 440, y: 382, text_font: font_roboto_24, text_color: 0xFFFFFF}
+              - label: {id: cells_mod_5, text: "--", x: 550, y: 382, text_font: font_roboto_24, text_color: 0xFFFFFF}
+              - label: {id: cells_mod_6, text: "--", x: 660, y: 382, text_font: font_roboto_24, text_color: 0xFFFFFF}
+              - label: {id: cells_mod_7, text: "--", x: 770, y: 382, text_font: font_roboto_24, text_color: 0xFFFFFF}
+              - label: {id: cells_mod_8, text: "--", x: 880, y: 382, text_font: font_roboto_24, text_color: 0xFFFFFF}
