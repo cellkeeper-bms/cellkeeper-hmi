@@ -9,8 +9,10 @@ lvgl:
       on_load:
         - script.execute: {id: nav_set, tab: 3}
       on_swipe_left:
+        - lambda: lv_indev_wait_release(lv_indev_active());  # one swipe, one page
         - lvgl.page.show: cells_page
       on_swipe_right:
+        - lambda: lv_indev_wait_release(lv_indev_active());  # one swipe, one page
         - lvgl.page.show: control_page
       widgets:
         - obj:
