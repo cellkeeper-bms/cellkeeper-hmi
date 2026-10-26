@@ -54,7 +54,7 @@ globals:
   - id: ui_bright
     type: float
     restore_value: no
-    initial_value: '0.3'
+    initial_value: '0.4'
   # Command waiting for confirm / PIN (see run_cmd)
   - id: confirm_cmd
     type: int
@@ -64,7 +64,7 @@ globals:
   - id: hmi_brightness
     type: float
     restore_value: yes
-    initial_value: '0.3'
+    initial_value: '0.4'
   # Wi-Fi setup: the network was saved, reboot to connect
   - id: wf_ok
     type: bool
@@ -813,7 +813,7 @@ interval:
             for (int k = 0; k < 8; k++) {
               float c = mt[k]->state;
               lv_label_set_text(ml[k], std::isnan(c) ? "--" : str_sprintf("%.1f°", c).c_str());
-              lv_obj_set_style_text_color(ml[k], lv_color_hex(std::isnan(c) || c < 35.0f ? 0xF0F0F0 : ui1024::temp_color(c)), LV_PART_MAIN);
+              lv_obj_set_style_text_color(ml[k], lv_color_hex(std::isnan(c) || c < 35.0f ? 0xFFFFFF : ui1024::temp_color(c)), LV_PART_MAIN);
             }
           }
           lv_label_set_text(id(cells_bc), id(balance_charge_status).has_state() ? ("Balance charge: " + id(balance_charge_status).state).c_str() : " ");
@@ -996,8 +996,8 @@ interval:
               uint32_t c = force ? 0x5EE3A8 : 0x51605A;
               if (!ui1024::limit_valid(x)) c = 0x2A3530;
               lv_obj_set_style_bg_color(fill[k], lv_color_hex(c), LV_PART_MAIN);
-              lv_obj_set_style_text_color(nm[k], lv_color_hex(force ? 0xF0F0F0 : 0xA9B4AF), LV_PART_MAIN);
-              lv_obj_set_style_text_color(val[k], lv_color_hex(force ? 0xF0F0F0 : 0xA9B4AF), LV_PART_MAIN);
+              lv_obj_set_style_text_color(nm[k], lv_color_hex(force ? 0xFFFFFF : 0xA9B4AF), LV_PART_MAIN);
+              lv_obj_set_style_text_color(val[k], lv_color_hex(force ? 0xFFFFFF : 0xA9B4AF), LV_PART_MAIN);
             }
           }
 
@@ -1215,7 +1215,7 @@ interval:
             float s = n ? n->state : NAN;
             std::string t = std::isnan(s) ? std::string("--") : str_sprintf(d.fmt, s * d.mult) + (d.unit[0] ? std::string(" ") + d.unit : std::string(""));
             lv_label_set_text(vlbl[k], t.c_str());
-            lv_obj_set_style_text_color(vlbl[k], lv_color_hex(unlocked ? 0xFFD54A : 0xF0F0F0), LV_PART_MAIN);
+            lv_obj_set_style_text_color(vlbl[k], lv_color_hex(unlocked ? 0xFFD54A : 0xFFFFFF), LV_PART_MAIN);
             lv_obj_set_style_opa(vbtn[k], unlocked ? LV_OPA_COVER : LV_OPA_70, LV_PART_MAIN);
           }
 

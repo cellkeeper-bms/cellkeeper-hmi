@@ -28,7 +28,7 @@ lvgl:
                   x: 0
                   y: 34
                   text_font: font_roboto_48
-                  text_color: 0xF0F0F0
+                  text_color: 0xFFFFFF
               - label:
                   id: hl_riso_sub
                   text: "resistance"
@@ -49,7 +49,7 @@ lvgl:
                   y: 130
                   text_align: RIGHT
                   text_font: font_roboto_18
-                  text_color: 0xF0F0F0
+                  text_color: 0xFFFFFF
               - label:
                   text: "Resistance is measured with the contactors open; while they are closed it shows the last open reading."
                   x: 0
@@ -89,7 +89,7 @@ lvgl:
                   y: 34
                   text_align: RIGHT
                   text_font: font_roboto_24
-                  text_color: 0xF0F0F0
+                  text_color: 0xFFFFFF
               - label: {text: "STATE", x: 0, y: 190, text_font: font_roboto_20, text_color: 0x8FA39A}
               - label:
                   text: "BMS\nContactors\nRequest\nContactor + / -"
@@ -104,7 +104,7 @@ lvgl:
                   y: 224
                   text_align: RIGHT
                   text_font: font_roboto_24
-                  text_color: 0xF0F0F0
+                  text_color: 0xFFFFFF
 
         - obj:
             styles: st_card
@@ -128,7 +128,7 @@ lvgl:
                   y: 34
                   text_align: RIGHT
                   text_font: font_roboto_24
-                  text_color: 0xF0F0F0
+                  text_color: 0xFFFFFF
               - label: {text: "MODULES", x: 0, y: 220, text_font: font_roboto_20, text_color: 0x8FA39A}
               - label:
                   text: "1\n2\n3\n4"
@@ -142,7 +142,7 @@ lvgl:
                   x: 30
                   y: 254
                   text_font: font_roboto_24
-                  text_color: 0xF0F0F0
+                  text_color: 0xFFFFFF
               - label:
                   text: "5\n6\n7\n8"
                   x: 150
@@ -155,4 +155,4 @@ lvgl:
                   x: 180
                   y: 254
                   text_font: font_roboto_24
-                  text_color: 0xF0F0F0
+                  text_color: 0xFFFFFF

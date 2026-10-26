@@ -14,7 +14,7 @@ esphome:
       - lvgl.resume: {}
       - light.turn_on:
           id: display_backlight
-          brightness: 30%
+          brightness: 40%
 
 packages:
   core: !include bms_core.yaml
