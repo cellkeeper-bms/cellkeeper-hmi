@@ -114,8 +114,14 @@ void HMIBMS::handle_read_events_response_(const uint8_t *data, size_t length) {
     const char *type_str = event_type_name(type);
     const char *level_str = (level < sizeof(EVENT_LEVELS) / sizeof(EVENT_LEVELS[0])) ? EVENT_LEVELS[level] : "??";
 
-    char state_buf[32];
-    snprintf(state_buf, sizeof(state_buf), "%s (%u)", level_str, rec.count);
+    // "WARNING (7)", and the data of its latest occurrence as hex when there is any:
+    // "WARNING (7) d=FA0FFFF2D4C" (the BMS's events.h says how each event's data is laid out)
+    char state_buf[48];
+    if (rec.data != 0) {
+      snprintf(state_buf, sizeof(state_buf), "%s (%u) d=%llX", level_str, rec.count, (unsigned long long) rec.data);
+    } else {
+      snprintf(state_buf, sizeof(state_buf), "%s (%u)", level_str, rec.count);
+    }
     if (type < this->error_sensors_.size() && this->error_sensors_[type] != nullptr) {
       auto *error_sensor = this->error_sensors_[type];
       if (!error_sensor->has_state() || error_sensor->state != state_buf) {

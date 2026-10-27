@@ -80,6 +80,24 @@ CONF_PACK_NEG_TO_CHASSIS = "pack_neg_to_chassis"
 CONF_ISOLATION_CHECK_AGE = "isolation_check_age"
 CONF_BOARD_STRAP_COUNTS = "board_strap_counts"
 CONF_BMS_CHIP_TEMPERATURE = "bms_chip_temperature"
+CONF_EKF_CAPACITY = "ekf_capacity"
+CONF_SOC_FANCY_COUNT = "soc_fancy_count"
+CONF_OVERCURRENT_CHARGE_BUFFER = "overcurrent_charge_buffer"
+CONF_OVERCURRENT_DISCHARGE_BUFFER = "overcurrent_discharge_buffer"
+CONF_SOFT_CHARGE_BUFFER = "soft_charge_buffer"
+CONF_BALANCING_STATE = "balancing_state"
+CONF_CALIBRATION_STATE = "calibration_state"
+# The BMS's serial and CAN counters since it started (registers 101-108)
+COUNTERS = {
+    "uart0_packets_received": 101,
+    "uart0_packets_sent": 102,
+    "uart0_crc_errors": 103,
+    "uart1_packets_received": 104,
+    "uart1_packets_sent": 105,
+    "uart1_crc_errors": 106,
+    "can_frames_sent": 107,
+    "can_frames_received": 108,
+}
 CONF_SHUNT_DIE_TEMPERATURE = "shunt_die_temperature"
 CONF_SHUNT_NTC_TEMPERATURE = "shunt_ntc_temperature"
 CONF_ISOLATION_RESISTANCE = "isolation_resistance"
@@ -261,6 +279,32 @@ CONFIG_SCHEMA = cv.Schema({
             state_class=STATE_CLASS_MEASUREMENT,
         )
         for key in (CONF_BMS_CHIP_TEMPERATURE, CONF_SHUNT_DIE_TEMPERATURE, CONF_SHUNT_NTC_TEMPERATURE)
+    },
+    cv.Optional(CONF_EKF_CAPACITY): sensor.sensor_schema(
+        unit_of_measurement="Ah",
+        accuracy_decimals=2,
+        state_class=STATE_CLASS_MEASUREMENT,
+    ),
+    cv.Optional(CONF_SOC_FANCY_COUNT): sensor.sensor_schema(
+        unit_of_measurement=UNIT_PERCENT,
+        accuracy_decimals=2,
+        state_class=STATE_CLASS_MEASUREMENT,
+    ),
+    **{
+        cv.Optional(key): sensor.sensor_schema(
+            unit_of_measurement=UNIT_PERCENT,
+            accuracy_decimals=1,
+            state_class=STATE_CLASS_MEASUREMENT,
+        )
+        for key in (CONF_OVERCURRENT_CHARGE_BUFFER, CONF_OVERCURRENT_DISCHARGE_BUFFER, CONF_SOFT_CHARGE_BUFFER)
+    },
+    **{
+        cv.Optional(key): sensor.sensor_schema(accuracy_decimals=0)
+        for key in (CONF_BALANCING_STATE, CONF_CALIBRATION_STATE)
+    },
+    **{
+        cv.Optional(key): sensor.sensor_schema(accuracy_decimals=0, state_class="total_increasing")
+        for key in COUNTERS
     },
     cv.Optional(CONF_ISOLATION_CHECK_AGE): sensor.sensor_schema(
         unit_of_measurement="s",
@@ -518,6 +562,15 @@ REGISTER_SENSORS = {
     CONF_ISOLATION_CHECK_AGE: (65, T_FLOAT, 1.0, POLL_SLOW),
     CONF_BOARD_STRAP_COUNTS: (67, T_FLOAT, 1.0, POLL_SLOW),
     CONF_BMS_CHIP_TEMPERATURE: (70, T_FLOAT, 1.0, POLL_SLOW),
+    # Health and diagnostics (registers 96-110; older BMS firmware doesn't answer)
+    CONF_EKF_CAPACITY: (96, T_FLOAT, 1.0, POLL_SLOW),
+    CONF_SOC_FANCY_COUNT: (97, T_UINT16, 0.01, POLL_SLOW),
+    CONF_OVERCURRENT_CHARGE_BUFFER: (98, T_FLOAT, 1.0, POLL_SLOW),
+    CONF_OVERCURRENT_DISCHARGE_BUFFER: (99, T_FLOAT, 1.0, POLL_SLOW),
+    CONF_SOFT_CHARGE_BUFFER: (100, T_FLOAT, 1.0, POLL_SLOW),
+    **{key: (reg, T_UINT32, 1.0, POLL_SLOW) for key, reg in COUNTERS.items()},
+    CONF_BALANCING_STATE: (109, T_UINT8, 1.0, POLL_SLOW),
+    CONF_CALIBRATION_STATE: (110, T_UINT8, 1.0, POLL_SLOW),
 }
 REG_MODULE_TEMPS_START = 0x200  # float degC, one per module (BMB)
 

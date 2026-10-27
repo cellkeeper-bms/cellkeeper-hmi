@@ -176,6 +176,20 @@ enum HMIRegister {
   HMI_REG_BUILD_HASH = 68,                              // uint32: firmware commit's first 7 hex digits; bit 31 = uncommitted changes; 0 = unknown
   HMI_REG_BUILD_TIME = 69,                              // uint32: firmware build time, Unix seconds UTC; 0 = unknown
   HMI_REG_MCU_TEMPERATURE = 70,                         // float (C), the BMS controller chip's own sensor
+  // Health and diagnostics (from 96; the BMS's upstream uses 71-80)
+  HMI_REG_EKF_CAPACITY = 96,                            // float (Ah), the EKF's capacity estimate
+  HMI_REG_SOC_FANCY_COUNT = 97,                         // uint16 (0.01%)
+  HMI_REG_OVERCURRENT_CHARGE_BUFFER = 98,               // float (%), 100 = trips
+  HMI_REG_OVERCURRENT_DISCHARGE_BUFFER = 99,            // float (%)
+  HMI_REG_SOFT_CHARGE_BUFFER = 100,                     // float (%), + charge, - discharge
+  HMI_REG_UART0_PACKETS_RECEIVED = 101,                 // uint32 counters since the BMS started (101-108)
+  HMI_REG_CAN_FRAMES_RECEIVED = 108,
+  HMI_REG_BALANCING_STATE = 109,                        // uint8
+  HMI_REG_CALIBRATION_STATE = 110,                      // uint8
+  HMI_REG_PACK_TYPE = 111,                              // int8, -1 = none
+  HMI_REG_MODULE_IDS_VALID_MASK = 112,                  // uint8
+  HMI_REG_MODULE_ID_START = 113,                        // uint16 each, BMB slots 0-7 (absent until read)
+  HMI_REG_MODULE_ID_END = 120,
   HMI_REG_CELL_VOLTAGES_START = 0x100,
   HMI_REG_CELL_VOLTAGES_END = 0x1FF,
   HMI_REG_MODULE_TEMPS_START = 0x200,
@@ -213,6 +227,8 @@ class HMIBMS : public PollingComponent, public uart::UARTDevice {
   void set_bms_firmware_text_sensor(text_sensor::TextSensor *s) { bms_firmware_text_sensor_ = s; }
   void set_hmi_firmware_text_sensor(text_sensor::TextSensor *s) { hmi_firmware_text_sensor_ = s; }
   void set_hmi_build(const std::string &build) { hmi_build_ = build; }
+  // The BMBs' module IDs and the pack type they classify as (registers 111-120)
+  void set_module_ids_text_sensor(text_sensor::TextSensor *s) { module_ids_text_sensor_ = s; }
   // Calculated here rather than read
   void set_temperature_delta_sensor(sensor::Sensor *s) { temperature_delta_sensor_ = s; }
   void set_cell_voltage_delta_sensor(sensor::Sensor *s) { cell_voltage_delta_sensor_ = s; }
@@ -316,6 +332,12 @@ class HMIBMS : public PollingComponent, public uart::UARTDevice {
   text_sensor::TextSensor *serial_text_sensor_{nullptr};
   text_sensor::TextSensor *board_revision_text_sensor_{nullptr};
   text_sensor::TextSensor *bms_firmware_text_sensor_{nullptr};
+  text_sensor::TextSensor *module_ids_text_sensor_{nullptr};
+  uint16_t module_ids_[8]{};
+  uint8_t module_ids_seen_{0};  // slots that answered this cycle
+  uint8_t module_ids_valid_{0};
+  int pack_type_{-2};           // -2 = not read yet
+  void publish_module_ids_();
   text_sensor::TextSensor *hmi_firmware_text_sensor_{nullptr};
   std::string hmi_build_{"unknown"};
   uint32_t bms_build_hash_{0};

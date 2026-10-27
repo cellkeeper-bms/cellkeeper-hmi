@@ -14,6 +14,7 @@ CONF_SERIAL = "serial"
 CONF_BOARD_REVISION = "board_revision"
 CONF_BMS_FIRMWARE = "bms_firmware"
 CONF_HMI_FIRMWARE = "hmi_firmware"
+CONF_MODULE_IDS = "module_ids"
 CONF_EVENT_HISTORY = "event_history"
 CONF_CELLS_BALANCING = "cells_balancing"
 CONF_CELLS_BALANCING_ACTIVE = "cells_balancing_active"
@@ -92,6 +93,7 @@ CONFIG_SCHEMA = cv.Schema({
     cv.Optional(CONF_BOARD_REVISION): text_sensor.text_sensor_schema(),
     cv.Optional(CONF_BMS_FIRMWARE): text_sensor.text_sensor_schema(),
     cv.Optional(CONF_HMI_FIRMWARE): text_sensor.text_sensor_schema(),
+    cv.Optional(CONF_MODULE_IDS): text_sensor.text_sensor_schema(),
     cv.Optional(CONF_EVENT_HISTORY): text_sensor.text_sensor_schema(),
     cv.Optional(CONF_CELLS_BALANCING): text_sensor.text_sensor_schema(),
     cv.Optional(CONF_CELLS_BALANCING_ACTIVE): text_sensor.text_sensor_schema(),
@@ -154,6 +156,9 @@ async def to_code(config):
         sens = await text_sensor.new_text_sensor(config[CONF_HMI_FIRMWARE])
         cg.add(parent.set_hmi_firmware_text_sensor(sens))
         cg.add(parent.set_hmi_build(hmi_build()))
+    if CONF_MODULE_IDS in config:
+        sens = await text_sensor.new_text_sensor(config[CONF_MODULE_IDS])
+        cg.add(parent.set_module_ids_text_sensor(sens))
     if CONF_EVENT_HISTORY in config:
         sens = await text_sensor.new_text_sensor(config[CONF_EVENT_HISTORY])
         cg.add(parent.set_event_history_text_sensor(sens))

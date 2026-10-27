@@ -51,6 +51,25 @@ void HMIBMS::publish_bms_firmware_() {
   }
 }
 
+// "023 023 · pack type 34": each answering BMB's module ID (as the BMS's pack type table has
+// them, without the check bits), "?" after one that failed its checks; "none" before any answer.
+void HMIBMS::publish_module_ids_() {
+  if (this->module_ids_text_sensor_ == nullptr) return;
+  std::string text;
+  for (int slot = 0; slot < 8; slot++) {
+    if (!(this->module_ids_seen_ & (1u << slot))) continue;
+    char id[12];
+    snprintf(id, sizeof(id), "%s%03X%s", text.empty() ? "" : " ", this->module_ids_[slot] & 0x07FF,
+             (this->module_ids_valid_ & (1u << slot)) ? "" : "?");
+    text += id;
+  }
+  if (text.empty()) text = "none";
+  if (this->pack_type_ >= 0) text += str_sprintf(" · pack type %d", this->pack_type_);
+  if (!this->module_ids_text_sensor_->has_state() || this->module_ids_text_sensor_->state != text) {
+    this->module_ids_text_sensor_->publish_state(text);
+  }
+}
+
 // Registers read for the text sensors and limits that aren't table entries themselves
 void HMIBMS::add_internal_registers_() {
   auto add = [this](uint16_t reg, uint8_t type, uint8_t group) {
@@ -63,6 +82,12 @@ void HMIBMS::add_internal_registers_() {
   if (this->bms_firmware_text_sensor_) {
     add(HMI_REG_BUILD_HASH, HMI_TYPE_UINT32, POLL_SLOW);
     add(HMI_REG_BUILD_TIME, HMI_TYPE_UINT32, POLL_SLOW);
+  }
+  // Module IDs and pack type (registers 111-120; older firmware doesn't answer)
+  if (this->module_ids_text_sensor_) {
+    add(HMI_REG_PACK_TYPE, HMI_TYPE_INT8, POLL_SLOW);
+    add(HMI_REG_MODULE_IDS_VALID_MASK, HMI_TYPE_UINT8, POLL_SLOW);
+    for (uint16_t reg = HMI_REG_MODULE_ID_START; reg <= HMI_REG_MODULE_ID_END; reg++) add(reg, HMI_TYPE_UINT16, POLL_SLOW);
   }
   // The user current limits are clamped to the hard limits, and show "no limit" as them
   if (this->max_charge_current_number_) add(HMI_REG_HARD_CHARGE_CURRENT_LIMIT_DA, HMI_TYPE_UINT16, POLL_LIMITS);
@@ -458,6 +483,15 @@ void HMIBMS::publish_register_(uint16_t reg, const uint8_t *value, uint8_t wire_
 bool HMIBMS::handle_special_register_(const protocol::RegisterValue &r) {
   const uint8_t *v = r.value;
   const size_t size = protocol::type_size(r.type);
+  if (r.id >= HMI_REG_MODULE_ID_START && r.id <= HMI_REG_MODULE_ID_END) {
+    if (size == 2) {
+      const int slot = r.id - HMI_REG_MODULE_ID_START;
+      this->module_ids_[slot] = protocol::get_u16(v);
+      this->module_ids_seen_ |= (uint8_t) (1u << slot);
+      this->publish_module_ids_();
+    }
+    return true;
+  }
   switch (r.id) {
     case HMI_REG_SERIAL:
       if (this->serial_text_sensor_ != nullptr && size == 8) {
@@ -492,6 +526,16 @@ bool HMIBMS::handle_special_register_(const protocol::RegisterValue &r) {
         }
         this->publish_bms_firmware_();
       }
+      return true;
+    case HMI_REG_PACK_TYPE:
+      // The first of the module ID registers in each read: the slots that answer follow it
+      if (size == 1) {
+        this->pack_type_ = (int8_t) v[0];
+        this->module_ids_seen_ = 0;
+      }
+      return true;
+    case HMI_REG_MODULE_IDS_VALID_MASK:
+      if (size == 1) this->module_ids_valid_ = v[0];
       return true;
     case HMI_REG_USER_CHARGE_CURRENT_LIMIT_DA:
     case HMI_REG_USER_DISCHARGE_CURRENT_LIMIT_DA: {

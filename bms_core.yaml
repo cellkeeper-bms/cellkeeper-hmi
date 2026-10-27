@@ -168,6 +168,66 @@ sensor:
       id: bms_chip_temp
       name: "BMS Chip Temperature"
       entity_category: diagnostic
+    # Health and diagnostics (BMS registers 96-110; older BMS firmware doesn't answer, so these
+    # stay unknown). The SOC estimate and buffers change slowly or rarely; the counters go up
+    # every second, so they're sent once a minute.
+    ekf_capacity:
+      name: "EKF Capacity"
+      icon: mdi:battery-heart-variant
+    soc_fancy_count:
+      name: "SOC Fancy Count"
+      icon: mdi:battery-sync
+      filters: [delta: 0.05]
+    overcurrent_charge_buffer:
+      name: "Overcurrent Charge Buffer"
+      icon: mdi:current-dc
+      filters: [delta: 1.0]
+    overcurrent_discharge_buffer:
+      name: "Overcurrent Discharge Buffer"
+      icon: mdi:current-dc
+      filters: [delta: 1.0]
+    soft_charge_buffer:
+      name: "Soft Charge Buffer"
+      icon: mdi:battery-alert-variant-outline
+      filters: [delta: 1.0]
+    balancing_state:
+      name: "Balancing State"
+      entity_category: diagnostic
+    calibration_state:
+      name: "Calibration State"
+      entity_category: diagnostic
+    uart0_packets_received:
+      name: "UART0 Packets Received"
+      entity_category: diagnostic
+      filters: [throttle: 60s]
+    uart0_packets_sent:
+      name: "UART0 Packets Sent"
+      entity_category: diagnostic
+      filters: [throttle: 60s]
+    uart0_crc_errors:
+      name: "UART0 CRC Errors"
+      entity_category: diagnostic
+      filters: [throttle: 60s]
+    uart1_packets_received:
+      name: "UART1 Packets Received"
+      entity_category: diagnostic
+      filters: [throttle: 60s]
+    uart1_packets_sent:
+      name: "UART1 Packets Sent"
+      entity_category: diagnostic
+      filters: [throttle: 60s]
+    uart1_crc_errors:
+      name: "UART1 CRC Errors"
+      entity_category: diagnostic
+      filters: [throttle: 60s]
+    can_frames_sent:
+      name: "CAN Frames Sent"
+      entity_category: diagnostic
+      filters: [throttle: 60s]
+    can_frames_received:
+      name: "CAN Frames Received"
+      entity_category: diagnostic
+      filters: [throttle: 60s]
     shunt_die_temperature:
       id: shunt_die_temp
       name: "Shunt Die Temperature"
@@ -787,6 +847,10 @@ text_sensor:
       id: hmi_fw_ts
       name: "HMI Firmware"
       icon: mdi:monitor-dashboard
+      entity_category: diagnostic
+    module_ids:
+      name: "Module IDs"
+      icon: mdi:identifier
       entity_category: diagnostic
     cells_balancing:
       id: cells_balancing
