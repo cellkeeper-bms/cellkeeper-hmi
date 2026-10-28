@@ -22,7 +22,6 @@ hmi_bms:
   id: hub
   uart_id: uart_bus
   update_interval: 100ms
-  bypass_crc: true
   address: 0x01
   log_sync_prefix: "[c  0]:"
 
