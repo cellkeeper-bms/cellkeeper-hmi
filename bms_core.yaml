@@ -1024,6 +1024,7 @@ text_sensor:
     error_restarting: { name: "Event Info Restarting" }
     error_link_voltage_mismatch: { name: "Event Warning Link Voltage Mismatch" }
     error_fuse_voltage_drop_high: { name: "Event Warning Fuse Voltage Drop High" }
+    error_bmb_pack_mismatch: { name: "Event Warning BMB Pack Mismatch" }
     error_isolation_asymmetry: { name: "Event Warning Isolation Asymmetry" }
     error_contactor_port_energized: { name: "Event Info Contactor Port Energized" }
     error_board_mismatch: { name: "Event Fatal Board Mismatch" }
