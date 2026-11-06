@@ -376,3 +376,22 @@ lvgl:
                 width: 1024
                 height: 304
                 text_font: montserrat_24
+
+      # ---------------- Wake layer (shown while dimmed; topmost) ----------------
+      # Takes the first touch after the idle dim, so it only wakes the screen: no button
+      # press, no page swipe. The rest of that touch is ignored until the finger lifts.
+      - obj:
+          id: wake_layer
+          x: 0
+          y: 0
+          width: 100%
+          height: 100%
+          hidden: true
+          scrollable: false
+          border_width: 0
+          radius: 0
+          pad_all: 0
+          bg_opa: TRANSP
+          on_press:
+            - lambda: lv_indev_wait_release(lv_indev_active());
+            - script.execute: ui_wake

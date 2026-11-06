@@ -116,11 +116,13 @@ lvgl:
     timeout: ${idle_timeout}
     then:
       - lambda: |-
-          // Close any pop-up, go back to Main v2 and dim until the next touch.
+          // Close any pop-up, go back to Main v2 and dim until the next touch. The wake
+          // layer takes that touch, so it only wakes the screen.
           lv_obj_add_flag(id(pad_overlay), LV_OBJ_FLAG_HIDDEN);
           lv_obj_add_flag(id(confirm_overlay), LV_OBJ_FLAG_HIDDEN);
           lv_obj_add_flag(id(event_popup), LV_OBJ_FLAG_HIDDEN);
           lv_obj_add_flag(id(wifi_overlay), LV_OBJ_FLAG_HIDDEN);
+          lv_obj_clear_flag(id(wake_layer), LV_OBJ_FLAG_HIDDEN);
           if (!id(ui_dimmed)) {
             auto &cv = id(display_backlight).current_values;
             id(ui_bright) = cv.is_on() ? cv.get_brightness() : 0.4f;
