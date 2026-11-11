@@ -5,6 +5,7 @@
 #include "../components/hmi_bms/hmi_map.h"
 
 #include <cstdint>
+#include <initializer_list>
 
 namespace sim {
 
@@ -68,6 +69,59 @@ inline void fill_history(Model &m, float soc_now, float hour_now, float capacity
   m.history_count = n;
 }
 
+inline void set_limits(Model &m, std::initializer_list<hmiui::LimitPart> charge,
+                       std::initializer_list<hmiui::LimitPart> discharge) {
+  m.charge_part_count = m.discharge_part_count = 0;
+  m.charge_limit = m.discharge_limit = INFINITY;
+  for (const auto &p : charge) {
+    m.charge_parts[m.charge_part_count++] = p;
+    if (p.amps < m.charge_limit) {
+      m.charge_limit = p.amps;
+      m.charge_limited_by = p.name;
+    }
+  }
+  for (const auto &p : discharge) {
+    m.discharge_parts[m.discharge_part_count++] = p;
+    if (p.amps < m.discharge_limit) {
+      m.discharge_limit = p.amps;
+      m.discharge_limited_by = p.name;
+    }
+  }
+}
+
+// The BMS settings, as the settings page lists them
+static const hmiui::Setting SETTINGS[] = {
+    {"Current", "Max charge current", 100.0f, 1, "A"},
+    {"Current", "Max discharge current", 120.0f, 1, "A"},
+    {"Cell voltage", "Working range, bottom", 3.300f, 3, "V"},
+    {"Cell voltage", "Working range, top", 4.050f, 3, "V"},
+    {"Cell voltage", "Soft limit, low", 3.000f, 3, "V"},
+    {"Cell voltage", "Soft limit, high", 4.200f, 3, "V"},
+    {"Sent to the inverter", "Voltage offset, lower", 0.0f, 1, "V"},
+    {"Sent to the inverter", "Voltage offset, upper", 0.0f, 1, "V"},
+    {"State of charge", "SoC scaling, bottom", 5.0f, 0, "%"},
+    {"State of charge", "SoC scaling, top", 98.0f, 0, "%"},
+    {"State of charge", "Set SoC now", 72.0f, 0, "%"},
+    {"State of charge", "Capacity", 228.0f, 0, "Ah"},
+    {"Balancing", "Balance above", 3.900f, 3, "V"},
+    {"Balancing", "Balance to within", 4.0f, 0, "mV"},
+    {"Balance charge", "Every", 7.0f, 0, "days"},
+    {"Balance charge", "Upper offset", 2.0f, 1, "V"},
+};
+
+static const char *const LOG_LINES[] = {
+    "[  6812.340] bmb: 96 cells, min 3.905 max 3.919, 4 modules ok",
+    "[  6812.341] limits: chg 80.0 A (working) dis 120.0 A (setting)",
+    "[  6813.340] soc: ekf 72.4 % count 72.1 % ocv 72.9 %",
+    "[  6813.842] inverter: can rx ok, cvl 398.4 V ccl 80.0 A dcl 120.0 A",
+    "[  6814.340] bmb: 96 cells, min 3.905 max 3.919, 4 modules ok",
+    "[  6814.341] balancing: 19 cells, cycle 35 s left",
+    "[  6815.340] contactors: CLOSED, supply 13.37 V",
+    "[  6815.341] isolation: last open check 76860 s ago, >= 100 Mohm",
+    "[  6816.340] bmb: 96 cells, min 3.905 max 3.920, 4 modules ok",
+    "[  6816.341] current: +22.41 A, shunt 30.6 C",
+};
+
 inline void healthy_pack(Model &m) {
   using namespace esphome::hmi_bms;
   m.link = hmiui::Link::OK;
@@ -82,10 +136,40 @@ inline void healthy_pack(Model &m) {
   for (int i = 0; i < 4; i++) m.module_temp[i] = temps[i];
   m.temp_min = 24.6f;
   m.temp_max = 25.8f;
-  m.charge_limit = 80.0f;
-  m.charge_limited_by = "working limit";
-  m.discharge_limit = 120.0f;
-  m.discharge_limited_by = "hard limit";
+  set_limits(m,
+             {{"hard limit", 150.0f}, {"temperature", 150.0f}, {"cell voltage", 150.0f}, {"top of working range", 80.0f},
+              {"cell spread", INFINITY}, {"max charge setting", 100.0f}},
+             {{"hard limit", 150.0f}, {"temperature", 150.0f}, {"cell voltage", 150.0f},
+              {"bottom of working range", 150.0f}, {"max discharge setting", 120.0f}});
+  m.contactor_state_text = "CLOSED";
+  m.link_voltage = 375.5f;
+  m.contactor_pos_v = 0.1f;
+  m.contactor_neg_v = 0.1f;
+  m.isolation_kohm = 100000.0f;
+  m.isolation_pos_v = 187.4f;
+  m.isolation_neg_v = -196.3f;
+  m.isolation_age_s = 76860;
+  m.bms_chip_temp = 32.8f;
+  m.shunt_temp = 30.6f;
+  m.shunt_ntc_temp = 28.4f;
+  m.hmi_chip_temp = 33.8f;
+  m.lifetime_in_kwh = 4312.0f;
+  m.lifetime_out_kwh = 4087.0f;
+  m.settings = SETTINGS;
+  m.setting_count = (int) (sizeof(SETTINGS) / sizeof(SETTINGS[0]));
+  m.log_lines = LOG_LINES;
+  m.log_count = (int) (sizeof(LOG_LINES) / sizeof(LOG_LINES[0]));
+  m.log_enabled = true;
+  m.bms_serial = "17631295745500622579";
+  m.bms_firmware = "9787788 · 2026-11-10 23:37 UTC";
+  m.hmi_firmware = "e572d88 · 2026-11-11 01:27 UTC";
+  m.board_revision = "Rev 1.1";
+  m.wifi_ssid = "LANZ";
+  m.ip = "192.168.111.222";
+  m.wifi_rssi = -49;
+  m.wifi_ap = "AE:9C:6C:C8:28:E7";
+  m.bms_uptime_s = 6816;
+  m.hmi_uptime_s = 174;
   m.capacity_ah = 228.0f;
   m.nameplate_ah = 230.0f;
   m.learned_ah = 219.4f;
@@ -93,6 +177,7 @@ inline void healthy_pack(Model &m) {
   m.today_out_kwh = 13.9f;
   m.inverter_soc = 72.0f;
   m.inverter_charge_v = 398.4f;
+  m.inverter_discharge_v = 288.0f;
   m.supervisor_state = 1;
   m.supervisor_reasons = "none";
   m.balance_charge_status = "Next: Sunday 10:00";
@@ -103,6 +188,9 @@ inline void healthy_pack(Model &m) {
   m.pack_name = "ck0";
   m.clock = "13:40";
   add_event(m, HMI_EVENT_BOOT_NORMAL, Level::INACTIVE, 1);
+  add_event(m, HMI_EVENT_INVERTER_DETECTED, Level::INFO, 1);
+  add_event(m, HMI_EVENT_OVERCURRENT_CHARGING, Level::INACTIVE, 2);
+  add_event(m, HMI_EVENT_CELL_VOLTAGE_GLITCH, Level::INACTIVE, 14);
 }
 
 inline Scenario charging() {
@@ -118,6 +206,7 @@ inline Scenario discharging() {
   Scenario s{"discharging", "evening load, 3.1 kW out, one warning active", {}};
   healthy_pack(s.model);
   s.model.soc = 41.0f;
+  s.model.inverter_soc = 41.0f;
   s.model.soc_change_1h = -6.8f;
   s.model.current = -8.3f;
   s.model.power = s.model.pack_voltage * s.model.current;
@@ -133,11 +222,25 @@ inline Scenario idle() {
   Scenario s{"idle", "contactors closed, nothing flowing, no active events", {}};
   healthy_pack(s.model);
   s.model.soc = 100.0f;
+  s.model.inverter_soc = 100.0f;
   s.model.soc_change_1h = 0.0f;
   s.model.current = 0.02f;
   s.model.power = 7.0f;
+  s.model.charge_parts[2].amps = 0.0f;  // cell voltage
   s.model.charge_limit = 0.0f;
   s.model.charge_limited_by = "cell voltage";
+  // Balancing at the top: the higher cells bleed, some more are waiting their turn
+  int bleeding = 0;
+  for (int i = 0; i < 96; i++) {
+    if (s.model.cell_mv[i] > 3916.0f && bleeding < 19) {
+      s.model.balancing_now[i] = true;
+      s.model.balance_s[i] = 35;
+      bleeding++;
+    } else if (s.model.cell_mv[i] > 3914.5f) {
+      s.model.balance_s[i] = 120;
+    }
+  }
+  s.model.balance_cycle_left_s = 35;
   s.model.clock = "15:05";
   fill_history(s.model, s.model.soc, 15.08f, 86.0f);
   return s;
@@ -154,10 +257,38 @@ inline Scenario desk_fault() {
   m.current = 0.03f;
   m.power = 0.0f;
   m.soc_change_1h = 3.2f;
-  m.charge_limit = 0.0f;
-  m.charge_limited_by = "temperature";
-  m.discharge_limit = 0.0f;
-  m.discharge_limited_by = "working limit";
+  set_limits(m,
+             {{"hard limit", 30.0f}, {"temperature", 0.0f}, {"cell voltage", 0.0f}, {"top of working range", 30.0f},
+              {"cell spread", INFINITY}, {"max charge setting", 30.0f}},
+             {{"hard limit", 30.0f}, {"temperature", 0.0f}, {"cell voltage", 0.0f}, {"bottom of working range", 0.0f},
+              {"max discharge setting", 30.0f}});
+  m.contactor_state_text = "OPEN";
+  m.link_voltage = 0.0f;
+  m.contactor_pos_v = 0.0f;
+  m.contactor_neg_v = 0.4f;
+  m.v3v3 = 3.28f;
+  m.v5 = 5.22f;
+  m.v12 = 13.18f;
+  m.v_contactor = 13.37f;
+  m.bms_chip_temp = 32.8f;
+  m.shunt_temp = 30.6f;
+  m.shunt_ntc_temp = -55.2f;
+  m.hmi_chip_temp = 33.8f;
+  m.supervisor_state = 0;
+  m.supervisor_reasons = "NO_SCAN, BMS_DISAGREE, SETTLING";
+  m.nameplate_ah = 1.0f;
+  m.settings = SETTINGS;
+  m.setting_count = (int) (sizeof(SETTINGS) / sizeof(SETTINGS[0]));
+  m.bms_serial = "17631295745500622579";
+  m.bms_firmware = "9787788-dirty · 2026-11-10 23:37 UTC";
+  m.hmi_firmware = "e572d88 · 2026-11-11 01:27 UTC";
+  m.board_revision = "Rev 1.1";
+  m.wifi_ssid = "LANZ";
+  m.ip = "10.60.7.94";
+  m.wifi_rssi = -49;
+  m.wifi_ap = "AE:9C:6C:C8:28:E7";
+  m.bms_uptime_s = 6820;
+  m.hmi_uptime_s = 174;
   m.today_in_kwh = 0.0f;
   m.today_out_kwh = 0.0f;
   m.balance_charge_status = "Off";
@@ -178,6 +309,13 @@ inline Scenario no_link() {
   s.model.pack_name = "ck0";
   s.model.clock = "13:40";
   s.model.link_silent_s = 42;
+  s.model.hmi_firmware = "e572d88 · 2026-11-11 01:27 UTC";
+  s.model.wifi_ssid = "LANZ";
+  s.model.ip = "192.168.111.222";
+  s.model.wifi_rssi = -49;
+  s.model.wifi_ap = "AE:9C:6C:C8:28:E7";
+  s.model.hmi_uptime_s = 174;
+  s.model.hmi_chip_temp = 33.8f;
   return s;
 }
 

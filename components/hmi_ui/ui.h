@@ -1,8 +1,5 @@
 // The LCD UI: draws a page from a Model onto a Canvas. Plain C++ (no ESPHome, no LVGL), so
-// the device and the PC simulator run the same code.
-//
-// State of this file: the design phase. Each page is one source file (page_*.cpp); the home
-// page exists in three candidate designs, chosen with `design`, until one is picked.
+// the device and the PC simulator run the same code. Each page is one source file (page_*.cpp).
 #pragma once
 
 #include "ui_canvas.h"
@@ -18,7 +15,7 @@ class Ui {
  public:
   Theme theme;
   Page page = Page::HOME;
-  char design = 'a';  // which candidate design to draw: 'a', 'b' or 'c'
+  int setup_section = 0;  // which part of the Setup page is open
 
   // Draws the whole frame for the current page
   void render(Canvas &c, const Model &m, uint32_t now_ms);

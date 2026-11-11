@@ -313,27 +313,6 @@ static int events_badge(Canvas &c, const Theme &t, const Model &m, int x, int y,
   return w;
 }
 
-void nav_bar(Canvas &c, const Theme &t, const Model &m, int selected) {
-  const int y = SCREEN_H - NAV_BAR_H;
-  c.fill(0, y, SCREEN_W, NAV_BAR_H, t.nav);
-  c.fill(0, y, SCREEN_W, 1, t.card_border);
-  for (int i = 0; i < TAB_COUNT; i++) {
-    const int x0 = i * SCREEN_W / TAB_COUNT, x1 = (i + 1) * SCREEN_W / TAB_COUNT;
-    const bool on = i == selected;
-    if (on) {
-      c.fill(x0, y, x1 - x0, NAV_BAR_H, t.nav_active);
-      c.fill(x0, y, x1 - x0, 3, t.good);
-    }
-    const Font &font = on ? FONT_M20 : FONT_R20;
-    const int badge = i == TAB_EVENTS ? events_badge(c, t, m, 0, 0, false) : 0;
-    const int wl = Canvas::text_width(font, TABS[i]);
-    const int total = wl + (badge > 0 ? 8 + badge : 0);
-    const int tx = (x0 + x1 - total) / 2;
-    c.text(font, tx, y + 19, TABS[i], on ? t.good : t.text_dim);
-    if (badge > 0) events_badge(c, t, m, tx + wl + 8, y + 18, true);
-  }
-}
-
 void nav_rail(Canvas &c, const Theme &t, const Model &m, int selected) {
   c.fill(0, 0, NAV_RAIL_W, SCREEN_H, t.nav);
   c.fill(NAV_RAIL_W - 1, 0, 1, SCREEN_H, t.card_border);
@@ -346,6 +325,63 @@ void nav_rail(Canvas &c, const Theme &t, const Model &m, int selected) {
     tab_icon(c, i, NAV_RAIL_W / 2.0f - 0.5f, y + 31.0f, color);
     c.text(on ? FONT_M16 : FONT_R16, NAV_RAIL_W / 2, y + 51, TABS[i], color, CENTER);
     if (i == TAB_EVENTS) events_badge(c, t, m, NAV_RAIL_W / 2 + 8, y + 8, true);
+  }
+}
+
+void top_line(Canvas &c, const Theme &t, const Model &m, const char *title, const char *subtitle) {
+  const bool linked = m.link == Link::OK;
+  const Event *list[MAX_EVENTS];
+  const int alarms = top_events(m, list, MAX_EVENTS, Level::WARNING);
+  if (alarms > 0) {
+    const Level worst = list[0]->level;
+    const Rgb on = level_text_color(worst);
+    c.round_rect(X0, 12, X1 - X0, 44, 10, level_color(t, worst));
+    warning_sign(c, X0 + 30.0f, 34.0f, 26.0f, on, level_color(t, worst));
+    int x = X0 + 56;
+    x += c.text(FONT_B20, x, 22, level_name(worst), on) + 14;
+    c.text(FONT_R20, x, 22, event_title(list[0]->type), on);
+    c.text(FONT_R20, X1 - 18, 22, alarms > 1 ? fmt("+%d more  ›", alarms - 1) : "Events  ›", on, RIGHT);
+    return;
+  }
+  int x = X0 + 4;
+  x += c.text(FONT_M24, x, 18, title, t.text) + 12;
+  c.text(FONT_R18, x, 24, subtitle, t.caption);
+  int rx = X1;
+  if (m.clock[0]) rx -= c.text(FONT_R20, rx, 22, m.clock, t.text_dim, RIGHT) + 16;
+  if (linked) {
+    const bool run = m.system_state == SystemState::OPERATING, fault = m.system_state == SystemState::FAULT;
+    pill(c, rx, 15, system_state_name(m.system_state), fault ? 0xFFFFFF : (run ? t.good : t.text_dim),
+         fault ? t.fatal : (run ? mix(t.background, t.good, 0.16f) : t.track), RIGHT, true);
+  } else {
+    pill(c, rx, 15, m.link == Link::CONNECTING ? "Connecting" : "No BMS link", 0x000000, t.warning, RIGHT, true);
+  }
+}
+
+void page_end(Canvas &c, const Theme &t, const Model &m, int selected, bool needs_bms) {
+  if (needs_bms && m.link != Link::OK) no_link_overlay(c, t, m, NAV_RAIL_W, 62, SCREEN_W - NAV_RAIL_W, SCREEN_H - 62);
+  nav_rail(c, t, m, selected);
+}
+
+void stat(Canvas &c, const Theme &t, int x, int y, const char *caption, const char *number, const char *unit, Rgb color) {
+  c.text(FONT_R14, x, y, caption, t.caption);
+  num_unit(c, x, y + 46, FONT_M24, number, FONT_R18, unit, color, t.caption);
+}
+
+void row(Canvas &c, const Theme &t, int x, int y, int w, const char *label, const char *val, Rgb color) {
+  c.text(FONT_R18, x, y, label, t.text_dim);
+  c.text(FONT_M20, x + w, y - 1, val, color ? color : t.text, RIGHT);
+}
+
+void button(Canvas &c, const Theme &t, int x, int y, int w, int h, const char *label, const char *note, Rgb fill,
+            Rgb text) {
+  const Rgb face = fill ? fill : 0x222A2E;
+  c.round_rect(x, y, w, h, 10, face);
+  c.round_frame(x, y, w, h, 10, 1, mix(face, 0xFFFFFF, 0.14f));
+  const Font &font = h >= 100 ? FONT_M32 : FONT_M20;
+  const int th = font.line_height() + (note[0] ? 22 : 0);
+  c.text(font, x + w / 2, y + (h - th) / 2, label, text ? text : t.text, CENTER);
+  if (note[0]) {
+    c.text(FONT_R16, x + w / 2, y + (h - th) / 2 + font.line_height() + 3, note, mix(face, 0xFFFFFF, 0.7f), CENTER);
   }
 }
 

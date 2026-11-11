@@ -80,15 +80,31 @@ void no_link_overlay(Canvas &c, const Theme &t, const Model &m, int x, int y, in
 
 // ---- navigation ----
 
-static const int NAV_BAR_H = 60;
 static const int NAV_RAIL_W = 88;
-void nav_bar(Canvas &c, const Theme &t, const Model &m, int selected);   // along the bottom
-void nav_rail(Canvas &c, const Theme &t, const Model &m, int selected);  // down the left side
+// Where a page draws: right of the rail, under the top line
+static const int X0 = NAV_RAIL_W + 16, X1 = SCREEN_W - 16, Y0 = 66, Y1 = SCREEN_H - 16;
 
-// ---- pages ----
-// Three candidate designs for the home page (design phase; one stays)
-void draw_home_a(Canvas &c, const Theme &t, const Model &m);
-void draw_home_b(Canvas &c, const Theme &t, const Model &m);
-void draw_home_c(Canvas &c, const Theme &t, const Model &m);
+void nav_rail(Canvas &c, const Theme &t, const Model &m, int selected);  // down the left side
+// The line above every page: its title and the BMS state, or the worst active alarm
+void top_line(Canvas &c, const Theme &t, const Model &m, const char *title, const char *subtitle = "");
+// What every page ends with: the no-link box when the BMS is silent, and the rail
+void page_end(Canvas &c, const Theme &t, const Model &m, int selected, bool needs_bms = true);
+
+// A caption with a number and unit under it
+void stat(Canvas &c, const Theme &t, int x, int y, const char *caption, const char *number, const char *unit, Rgb color);
+// A label on the left and a value on the right of one row
+void row(Canvas &c, const Theme &t, int x, int y, int w, const char *label, const char *val, Rgb color = 0);
+// A touch button
+void button(Canvas &c, const Theme &t, int x, int y, int w, int h, const char *label, const char *note = "",
+            Rgb fill = 0, Rgb text = 0);
+
+// ---- pages: one source file each ----
+void draw_home(Canvas &c, const Theme &t, const Model &m);
+void draw_cells(Canvas &c, const Theme &t, const Model &m);
+void draw_power(Canvas &c, const Theme &t, const Model &m);
+void draw_health(Canvas &c, const Theme &t, const Model &m);
+void draw_events(Canvas &c, const Theme &t, const Model &m);
+void draw_control(Canvas &c, const Theme &t, const Model &m);
+void draw_setup(Canvas &c, const Theme &t, const Model &m, int section);
 
 }  // namespace hmiui

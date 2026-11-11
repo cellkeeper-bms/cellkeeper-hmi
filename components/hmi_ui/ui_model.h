@@ -34,12 +34,31 @@ struct Event {
   uint64_t data;     // of its latest occurrence
 };
 
+// One of the things that limit the current, and what it allows
+struct LimitPart {
+  const char *name;  // "hard limit", "temperature", "cell voltage"...
+  float amps;        // INFINITY = not limiting
+};
+static const int MAX_LIMIT_PARTS = 6;
+
+// A BMS setting as the settings page lists it
+struct Setting {
+  const char *group;
+  const char *name;
+  float value;       // as the BMS confirmed it
+  uint8_t decimals;
+  const char *unit;
+};
+
 struct Model {
   Link link = Link::NO_DATA;
   uint32_t link_silent_s = 0;       // how long nothing has been heard from the BMS
   SystemState system_state = SystemState::UNKNOWN;
   uint8_t contactor_state = 0;      // the firmware's contactors state number
   bool contactors_closed = false;
+  const char *contactor_state_text = "";  // the firmware's name for the contactor state
+  float link_voltage = NAN;         // V, between the contactors
+  float contactor_pos_v = NAN, contactor_neg_v = NAN;  // V across each contactor
 
   // Pack
   float soc = NAN;                  // %
@@ -59,6 +78,7 @@ struct Model {
   float cell_mv[MAX_CELLS];         // mV, NAN = no cell in this slot
   uint16_t balance_s[MAX_CELLS];    // balancing time left, seconds
   bool balancing_now[MAX_CELLS];
+  uint32_t balance_cycle_left_s = 0;  // until the balancing cycle ends
   float cell_min = NAN, cell_max = NAN, cell_avg = NAN;  // V
   int module_count = 0;
   float module_temp[MAX_MODULES];   // degrees C
@@ -68,6 +88,8 @@ struct Model {
   float charge_limit = NAN, discharge_limit = NAN;
   const char *charge_limited_by = "";     // "temperature", "cell voltage", "working limit"...
   const char *discharge_limited_by = "";
+  int charge_part_count = 0, discharge_part_count = 0;
+  LimitPart charge_parts[MAX_LIMIT_PARTS], discharge_parts[MAX_LIMIT_PARTS];
 
   // Capacity and energy
   float capacity_ah = NAN, nameplate_ah = NAN, learned_ah = NAN;
@@ -87,7 +109,24 @@ struct Model {
 
   // Supplies and temperatures of the electronics
   float v3v3 = NAN, v5 = NAN, v12 = NAN, v_contactor = NAN;
-  float bms_chip_temp = NAN, shunt_temp = NAN, hmi_chip_temp = NAN;
+  float bms_chip_temp = NAN, shunt_temp = NAN, shunt_ntc_temp = NAN, hmi_chip_temp = NAN;
+
+  // Isolation between the pack and the chassis, measured with the contactors open
+  float isolation_kohm = NAN;
+  float isolation_pos_v = NAN, isolation_neg_v = NAN;  // pack + and pack - to chassis
+  uint32_t isolation_age_s = 0;     // since the last open-contactor measurement
+
+  // The link between this display and the BMS
+  uint32_t link_crc_errors = 0, link_timeouts = 0;
+
+  // Settings (as the BMS confirmed them) and the BMS log
+  int setting_count = 0;
+  const Setting *settings = nullptr;
+  bool settings_unlocked = false;
+  int log_count = 0;
+  const char *const *log_lines = nullptr;
+  bool log_enabled = false;
+  uint8_t brightness = 68;          // %
 
   // Identity
   const char *pack_name = "";
@@ -101,6 +140,8 @@ struct Model {
   uint32_t bms_uptime_s = 0, hmi_uptime_s = 0;
 
   const char *balance_charge_status = "";
+  const char *bms_serial = "";
+  const char *wifi_ap = "";
 
   Model() {
     for (auto &v : cell_mv) v = NAN;

@@ -22,6 +22,7 @@ struct Theme {
   Rgb cell = 0x3C8FD8;        // a cell's bar
   Rgb cell_low = 0x35C9B5;    // the lowest cell
   Rgb cell_high = 0xF0609A;   // the highest cell
+  Rgb balance = 0xB79CFF;     // a cell that is being balanced
   Rgb info = 0x6E8496;
   Rgb warning = 0xFFC107;
   Rgb critical = 0xFF6D3A;

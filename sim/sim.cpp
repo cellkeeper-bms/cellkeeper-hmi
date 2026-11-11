@@ -39,14 +39,32 @@ int main(int argc, char **argv) {
 
   const sim::Scenario scenarios[] = {sim::charging(), sim::discharging(), sim::idle(), sim::desk_fault(),
                                      sim::no_link()};
+  // What to draw: the page, the name its files get, and for Setup which section
+  struct View {
+    Page page;
+    const char *name;
+    int section;
+  };
+  static const View VIEWS[] = {
+      {Page::HOME, "home", 0},
+      {Page::CELLS, "cells", 0},
+      {Page::POWER, "power", 0},
+      {Page::HEALTH, "health", 0},
+      {Page::EVENTS, "events", 0},
+      {Page::CONTROL, "control", 0},
+      {Page::SETUP, "setup-settings", 0},
+      {Page::SETUP, "setup-display", 1},
+      {Page::SETUP, "setup-log", 2},
+      {Page::SETUP, "setup-about", 3},
+  };
   int written = 0;
   for (const auto &s : scenarios) {
-    for (const char design : {'a', 'b', 'c'}) {
+    for (const auto &v : VIEWS) {
       Ui ui;
-      ui.page = Page::HOME;
-      ui.design = design;
+      ui.page = v.page;
+      ui.setup_section = v.section;
       ui.render(canvas, s.model, 0);
-      const std::string path = out + "/" + s.name + "-home-" + design + ".ppm";
+      const std::string path = out + "/" + v.name + "-" + s.name + ".ppm";
       if (!write_ppm(path, canvas)) {
         fprintf(stderr, "cannot write %s\n", path.c_str());
         return 1;
