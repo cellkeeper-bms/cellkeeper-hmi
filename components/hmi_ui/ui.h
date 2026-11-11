@@ -17,9 +17,9 @@ class Ui {
   UiState state;
 
   // One frame. Give it the touch panel as it is now; it lets the page and its widgets react
-  // and sends what they ask for to `actions`. It draws only if the frame would look different
-  // from the last one it drew, and returns whether it did. Cheap to call when nothing changed,
-  // so call it often.
+  // and sends what they ask for to `actions`. It draws again only the bands of rows that would
+  // look different from the last frame it drew (they are listed in `redrawn`), and returns
+  // whether there were any. Cheap to call when nothing changed, so call it often.
   bool frame(Canvas &c, const Model &m, const Input &input, Actions &actions, uint32_t now_ms, HitTrace *trace = nullptr);
   // Makes the next frame() draw whatever it finds (the canvas was used for something else)
   void redraw() { drawn_ = false; }
@@ -31,6 +31,14 @@ class Ui {
   // The display was touched without the UI being shown the touch (it woke a dimmed screen)
   void poke(uint32_t now_ms) { last_touch_ms_ = now_ms; }
 
+  // The rows the last frame() drew again: redrawn_count runs of rows
+  struct Rows {
+    int y0, y1;  // rows y0 .. y1 - 1
+  };
+  static const int MAX_RUNS = 6;
+  Rows redrawn[MAX_RUNS];
+  int redrawn_count = 0;
+
   static const uint32_t IDLE_MS = 5 * 60 * 1000;
 
  protected:
@@ -38,8 +46,8 @@ class Ui {
   bool was_down_ = false, dragging_ = false;
   int last_x_ = 0, last_y_ = 0, press_x_ = 0, press_y_ = 0;
   uint32_t last_touch_ms_ = 0;
-  bool drawn_ = false;      // a frame has been drawn
-  uint32_t drawn_sum_ = 0;  // what that frame was, summed up
+  bool drawn_ = false;                         // a frame has been drawn
+  uint32_t drawn_sums_[Canvas::MAX_BANDS] = {};  // what that frame was, summed up band by band
 };
 
 }  // namespace hmiui

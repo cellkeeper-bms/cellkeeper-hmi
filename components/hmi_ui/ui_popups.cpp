@@ -152,6 +152,13 @@ static void confirm(Frame &f) {
 
 static void pin_pad(Frame &f) {
   Popup &p = f.s.popup;
+  UiState &s = f.s;
+  // After too many wrong PINs none is taken for a while; then the count starts again
+  if (s.pin_locked && f.now_ms - s.pin_locked_at_ms >= UiState::PIN_LOCK_MS) {
+    s.pin_locked = false;
+    s.pin_wrong = 0;
+  }
+  const bool locked = s.pin_locked;
   int x, y;
   const int w = 520, h = 552;
   box(f, w, h, x, y);
@@ -170,26 +177,42 @@ static void pin_pad(Frame &f) {
       f.c.ring(cx, cy, 7.0f, 9.0f, 0, 360, f.t.hint);
     }
   }
-  if (p.wrong) f.c.text(FONT_R18, x + w / 2, y + 126, "Wrong PIN. Try again.", f.t.warning, CENTER);
+  if (locked) {
+    const uint32_t left = (UiState::PIN_LOCK_MS - (f.now_ms - s.pin_locked_at_ms) + 999) / 1000;
+    f.c.text(FONT_R18, x + w / 2, y + 126,
+             fmt("Too many wrong PINs. Try again in %u min %02u s.", (unsigned) (left / 60), (unsigned) (left % 60)), f.t.warning,
+             CENTER);
+  } else if (p.wrong) {
+    const int left = UiState::PIN_TRIES - s.pin_wrong;
+    f.c.text(FONT_R18, x + w / 2, y + 126, fmt("Wrong PIN. %d %s left.", left, left == 1 ? "try" : "tries"), f.t.warning, CENTER);
+  }
   const int kw = 148, kh = 80, gap = 10, kx = x + (w - 3 * kw - 2 * gap) / 2, ky = y + 162;
   static const char *const DIGITS[] = {"1", "2", "3", "4", "5", "6", "7", "8", "9"};
+  // While locked the keys are there but dim, and take nothing
+  const Rgb face = locked ? mix(KEY, BOX, 0.65f) : KEY;
   for (int i = 0; i < 9; i++) {
-    if (key(f, kx + (i % 3) * (kw + gap), ky + (i / 3) * (kh + gap), kw, kh, DIGITS[i])) {
+    if (key(f, kx + (i % 3) * (kw + gap), ky + (i / 3) * (kh + gap), kw, kh, DIGITS[i], FONT_M32, face) && !locked) {
       append(p.entry, PIN_MAX, DIGITS[i][0]);
       p.wrong = false;
     }
   }
   if (backspace_key(f, kx, ky + 3 * (kh + gap), kw, kh)) erase_last(p.entry);
-  if (key(f, kx + kw + gap, ky + 3 * (kh + gap), kw, kh, "0")) {
+  if (key(f, kx + kw + gap, ky + 3 * (kh + gap), kw, kh, "0", FONT_M32, face) && !locked) {
     append(p.entry, PIN_MAX, '0');
     p.wrong = false;
   }
-  if (key(f, kx + 2 * (kw + gap), ky + 3 * (kh + gap), kw, kh, "OK", FONT_M24, n >= 4 ? GO : KEY) && n > 0) {
+  if (key(f, kx + 2 * (kw + gap), ky + 3 * (kh + gap), kw, kh, "OK", FONT_M24, locked ? face : (n >= 4 ? GO : KEY)) && n > 0 &&
+      !locked) {
     if (!f.act.pin_ok(p.entry)) {
       p.entry[0] = 0;
       p.wrong = true;
+      if (++s.pin_wrong >= UiState::PIN_TRIES) {
+        s.pin_locked = true;
+        s.pin_locked_at_ms = f.now_ms;
+      }
       return;
     }
+    s.pin_wrong = 0;
     // Copied first: closing the pop-up clears it
     const Popup::After after = p.after;
     const Command command = p.command;

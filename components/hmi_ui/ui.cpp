@@ -1,5 +1,6 @@
 #include "ui.h"
 
+#include <algorithm>
 #include <cstdlib>
 
 namespace hmiui {
@@ -46,8 +47,12 @@ bool Ui::frame(Canvas &c, const Model &m, const Input &input, Actions &actions, 
   if (input.down || released) {
     last_touch_ms_ = now_ms;
   } else if (this->idle(now_ms) && (state.page != Page::HOME || state.popup.kind != Overlay::NONE)) {
-    // Left alone: back to Home, with nothing half-entered left open
+    // Left alone: back to Home, with nothing half-entered left open. Wrong PINs still count.
+    const UiState before = state;
     state = UiState();
+    state.pin_wrong = before.pin_wrong;
+    state.pin_locked = before.pin_locked;
+    state.pin_locked_at_ms = before.pin_locked_at_ms;
   }
 
   // First a dry run: the widgets see the touch and react, and what the frame would look like
@@ -66,7 +71,7 @@ bool Ui::frame(Canvas &c, const Model &m, const Input &input, Actions &actions, 
   if (trace != nullptr) trace->count = 0;
   c.begin_dry();
   this->draw_(f);
-  uint32_t sum = c.end_dry();
+  const uint32_t *sums = c.end_dry();
   // The frame as it is after the touch was dealt with: the touch itself is no longer in it
   auto settled = [&](HitTrace *record) {
     Frame after{c, theme, m, state, actions, now_ms};
@@ -84,14 +89,30 @@ bool Ui::frame(Canvas &c, const Model &m, const Input &input, Actions &actions, 
     // Something was tapped or moved: the frame to show is the one after it
     c.begin_dry();
     settled(trace);
-    sum = c.end_dry();
+    sums = c.end_dry();
   }
   was_down_ = input.down;
-  if (drawn_ && sum == drawn_sum_) return false;
-  settled(nullptr);
+
+  // Which bands would look different: runs of them, a run taking in a gap of one band
+  const int bands = c.bands();
+  redrawn_count = 0;
+  for (int band = 0; band < bands; band++) {
+    if (drawn_ && sums[band] == drawn_sums_[band]) continue;
+    const int y0 = band * Canvas::BAND_ROWS, y1 = std::min(c.height(), y0 + Canvas::BAND_ROWS);
+    if (redrawn_count > 0 && (y0 - redrawn[redrawn_count - 1].y1 <= Canvas::BAND_ROWS || redrawn_count == MAX_RUNS)) {
+      redrawn[redrawn_count - 1].y1 = y1;
+    } else {
+      redrawn[redrawn_count++] = {y0, y1};
+    }
+    drawn_sums_[band] = sums[band];
+  }
   drawn_ = true;
-  drawn_sum_ = sum;
-  return true;
+  for (int i = 0; i < redrawn_count; i++) {
+    c.set_window(redrawn[i].y0, redrawn[i].y1);
+    settled(nullptr);
+  }
+  c.clear_window();
+  return redrawn_count > 0;
 }
 
 }  // namespace hmiui

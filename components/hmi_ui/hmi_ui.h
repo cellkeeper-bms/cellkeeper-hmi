@@ -70,7 +70,7 @@ class HmiUi : public Component, public touchscreen::TouchListener, public hmiui:
 
  protected:
   void draw_frame_(uint32_t now);
-  void push_();
+  void send_rows_(int y0, int y1);
 
   display::Display *display_{nullptr};
   touchscreen::Touchscreen *touchscreen_{nullptr};
@@ -81,9 +81,7 @@ class HmiUi : public Component, public touchscreen::TouchListener, public hmiui:
 
   hmiui::Ui ui_;
   hmiui::Model model_;
-  // The frame, and one number per row of what the display shows, to find the rows that changed
   uint16_t *frame_{nullptr};
-  uint32_t row_sums_[hmiui::SCREEN_H]{};
   bool paused_{false};
 
   // The touch panel as the next frame will see it. A finger that came down and went up again

@@ -39,17 +39,24 @@ class Canvas {
  public:
   Canvas(uint16_t *pixels, int width, int height) : px_(pixels), w_(width), h_(height) { this->reset_clip(); }
 
-  // A dry run: until end_dry() nothing is drawn. What would have been drawn is summed up in
-  // one number instead, so that a frame can be compared with the one before it without
-  // drawing either. Drawing a frame costs tens of milliseconds; a dry run costs one or two.
-  void begin_dry() {
-    dry_ = true;
-    sum_ = 2166136261u;
-  }
-  uint32_t end_dry() {
+  // A dry run: until end_dry() nothing is drawn. What would have been drawn is summed up
+  // instead, one number for each band of BAND_ROWS rows, so that a frame can be compared with
+  // the one before it, band by band, without drawing either. Drawing a frame costs tens of
+  // milliseconds; a dry run costs less than one.
+  static const int BAND_ROWS = 16;
+  static const int MAX_BANDS = 64;
+  int bands() const { return (h_ + BAND_ROWS - 1) / BAND_ROWS; }
+  void begin_dry();
+  // Returns the band sums (bands() of them), valid until the next dry run
+  const uint32_t *end_dry() {
     dry_ = false;
-    return sum_;
+    return band_sums_;
   }
+
+  // Keeps all drawing, clear() and clips included, to the rows y0 .. y1 - 1, so that part of
+  // a frame can be drawn again without touching the rest
+  void set_window(int y0, int y1);
+  void clear_window() { this->set_window(0, h_); }
 
   int width() const { return w_; }
   int height() const { return h_; }
@@ -80,8 +87,9 @@ class Canvas {
 
  protected:
   void blend_(int x, int y, uint32_t r, uint32_t g, uint32_t b, uint32_t alpha /* 0..255 */);
-  // In a dry run: adds one drawing call with its arguments to the sum, and says "don't draw"
-  void sum_up_(uint32_t v) { sum_ = (sum_ ^ v) * 16777619u; }
+  // In a dry run: adds one drawing call, with its arguments and the clip it is drawn under,
+  // to the sum of every band its rows y0 .. y1 - 1 reach, and says "don't draw"
+  static uint32_t sum_up_(uint32_t sum, uint32_t v) { return (sum ^ v) * 16777619u; }
   static uint32_t bits_(int v) { return (uint32_t) v; }
   static uint32_t bits_(uint32_t v) { return v; }
   static uint32_t bits_(bool v) { return v ? 1u : 0u; }
@@ -90,14 +98,17 @@ class Canvas {
     memcpy(&u, &v, sizeof(u));
     return u;
   }
-  template<typename... Args> bool dry_call_(uint32_t what, Args... args) {
+  void add_to_bands_(int y0, int y1, uint32_t call);
+  template<typename... Args> bool dry_call_(int y0, int y1, uint32_t what, Args... args) {
     if (!dry_) return false;
-    this->sum_up_(what);
-    (this->sum_up_(bits_(args)), ...);
+    uint32_t call = sum_up_(2166136261u, what);
+    ((call = sum_up_(call, bits_(args))), ...);
+    this->add_to_bands_(y0, y1, call);
     return true;
   }
   bool dry_ = false;
-  uint32_t sum_ = 0;
+  uint32_t band_sums_[MAX_BANDS];
+  int win_y0_ = 0, win_y1_ = 0;  // the window; 0, 0 = the whole frame
   uint16_t *px_;
   int w_, h_;
   int cx0_, cy0_, cx1_, cy1_;  // clip, x1/y1 exclusive

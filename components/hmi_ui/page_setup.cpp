@@ -150,7 +150,7 @@ static void registers_view(Frame &f) {
     const int x = X0 + 26 + (i / rows) * colw, y = y0 + (i % rows) * 21;
     c.text(FONT_MONO14, x, y, fmt("%04X", r.id), t.caption);
     c.text(FONT_MONO14, x + 48, y, r.name, t.text_dim);
-    c.text(FONT_MONO14, x + colw - 30, y, r.value, t.text, RIGHT);
+    c.text(FONT_MONO14, x + colw - 24, y, r.value, t.text, RIGHT);
   }
   scroll_end(f, f.s.registers_scroll, X0 + 12, ty + 2, w - 24, th - 4, rows * 21 + 16);
 }

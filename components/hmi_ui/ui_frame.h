@@ -96,6 +96,13 @@ struct UiState {
   int events_view = 0;         // Events: 0 what is active, 1 every event type, 2 the fault logic chart
   bool raw_registers = false;  // Setup, Log: the registers instead of the log
   Popup popup;
+  // Wrong PINs in a row. After PIN_TRIES of them no PIN is taken for PIN_LOCK_MS. Kept when
+  // the UI goes back to Home by itself; a restart of the display clears it.
+  static const int PIN_TRIES = 10;
+  static const uint32_t PIN_LOCK_MS = 10 * 60 * 1000;
+  int pin_wrong = 0;
+  bool pin_locked = false;
+  uint32_t pin_locked_at_ms = 0;
   Scroll events_scroll, types_scroll, settings_scroll, log_scroll, registers_scroll;
   bool log_follow = true;      // the log shows its newest lines until it is scrolled back
 };

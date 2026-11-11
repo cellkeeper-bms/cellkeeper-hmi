@@ -8,8 +8,6 @@
 
 #include "hmi_ui.h"
 
-#include "ui_present.h"
-
 #include "esphome/core/application.h"
 #include "esphome/core/hal.h"
 #include "esphome/core/helpers.h"
@@ -145,16 +143,13 @@ void HmiUi::draw_frame_(uint32_t now) {
   hmiui::Canvas canvas(this->frame_, SCREEN_W, SCREEN_H);
   // While the panel may still be starting, every frame is drawn and sent whole
   const bool starting = now - this->started_ms_ < 3000;
-  if (starting) {
-    this->ui_.redraw();
-    memset(this->row_sums_, 0, sizeof(this->row_sums_));
-  }
+  if (starting) this->ui_.redraw();
   const bool drew = this->ui_.frame(canvas, this->model_, this->input_, *this, now);
   const uint32_t t2 = micros();
   this->frames_looked_++;
   this->fill_us_ = t1 - t0;
   if (drew) {
-    this->push_();
+    for (int i = 0; i < this->ui_.redrawn_count; i++) this->send_rows_(this->ui_.redrawn[i].y0, this->ui_.redrawn[i].y1);
     const uint32_t t3 = micros();
     this->draw_us_ = t2 - t1;
     this->push_us_ = t3 - t2;
@@ -179,16 +174,11 @@ void HmiUi::draw_frame_(uint32_t now) {
   }
 }
 
-void HmiUi::push_() {
-  hmiui::Band bands[12];
-  const int count = hmiui::changed_bands(this->frame_, this->row_sums_, SCREEN_W, SCREEN_H, bands, 12);
-  for (int i = 0; i < count; i++) {
-    const int y0 = bands[i].y0, rows = bands[i].y1 - bands[i].y0;
-    // The frame is RGB565 in this chip's byte order, which is what the panel's buffer holds
-    this->display_->draw_pixels_at(0, y0, SCREEN_W, rows, (const uint8_t *) (this->frame_ + (size_t) y0 * SCREEN_W),
-                                   display::COLOR_ORDER_RGB, display::COLOR_BITNESS_565, false, 0, 0, 0);
-    this->rows_sent_ += rows;
-  }
+void HmiUi::send_rows_(int y0, int y1) {
+  // The frame is RGB565 in this chip's byte order, which is what the panel's buffer holds
+  this->display_->draw_pixels_at(0, y0, SCREEN_W, y1 - y0, (const uint8_t *) (this->frame_ + (size_t) y0 * SCREEN_W),
+                                 display::COLOR_ORDER_RGB, display::COLOR_BITNESS_565, false, 0, 0, 0);
+  this->rows_sent_ += y1 - y0;
 }
 
 void HmiUi::show_message(const char *title, const char *text) {
@@ -198,7 +188,7 @@ void HmiUi::show_message(const char *title, const char *text) {
   canvas.clear(this->ui_.theme.background);
   canvas.text(hmiui::FONT_M32, SCREEN_W / 2, SCREEN_H / 2 - 44, title, this->ui_.theme.text, hmiui::CENTER);
   canvas.text(hmiui::FONT_R20, SCREEN_W / 2, SCREEN_H / 2 + 8, text, this->ui_.theme.text_dim, hmiui::CENTER);
-  this->push_();
+  this->send_rows_(0, SCREEN_H);
 }
 
 void HmiUi::resume() {

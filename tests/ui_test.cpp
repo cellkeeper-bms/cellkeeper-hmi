@@ -576,42 +576,115 @@ static void test_a_frame_is_drawn_only_when_it_changes() {
   CHECK(d.ui.frame(d.canvas, d.model, none, d.actions, d.now));
 }
 
-// The dry run must leave nothing behind and draw nothing
+// The dry run must draw nothing, and sum up the same calls to the same numbers
+static void some_drawing(Canvas &canvas, const char *text) {
+  canvas.clear(0xFFFFFF);
+  canvas.fill(0, 0, 100, 100, 0xFF0000);
+  canvas.round_rect(10, 10, 80, 80, 8, 0x00FF00);
+  canvas.ring(100, 100, 20, 30, 0, 270, 0x0000FF, true);
+  canvas.line(0, 0, 200, 200, 4, 0xFFFFFF);
+  canvas.triangle(5, 5, 50, 5, 25, 40, 0xFFFFFF);
+  canvas.text(FONT_M24, 20, 300, text, 0xFFFFFF);
+}
+
 static void test_the_dry_run_draws_nothing() {
   std::vector<uint16_t> pixels((size_t) SCREEN_W * SCREEN_H, 0x1234);
   Canvas canvas(pixels.data(), SCREEN_W, SCREEN_H);
   canvas.begin_dry();
-  canvas.clear(0xFFFFFF);
-  canvas.fill(0, 0, 100, 100, 0xFF0000);
-  canvas.round_rect(10, 10, 80, 80, 8, 0x00FF00);
-  canvas.ring(100, 100, 20, 30, 0, 270, 0x0000FF, true);
-  canvas.line(0, 0, 200, 200, 4, 0xFFFFFF);
-  canvas.triangle(5, 5, 50, 5, 25, 40, 0xFFFFFF);
-  const int width = canvas.text(FONT_M24, 20, 20, "12.5 V", 0xFFFFFF);
-  const uint32_t sum = canvas.end_dry();
+  some_drawing(canvas, "12.5 V");
+  const std::vector<uint32_t> first(canvas.end_dry(), canvas.end_dry() + canvas.bands());
   bool untouched = true;
-  for (const uint16_t p : pixels) untouched = untouched && p == 0x1234;
+  for (const uint16_t px : pixels) untouched = untouched && px == 0x1234;
   CHECK(untouched);
-  CHECK(width == Canvas::text_width(FONT_M24, "12.5 V"));
-  // The same calls give the same number; one different argument gives another
   canvas.begin_dry();
-  canvas.clear(0xFFFFFF);
-  canvas.fill(0, 0, 100, 100, 0xFF0000);
-  canvas.round_rect(10, 10, 80, 80, 8, 0x00FF00);
-  canvas.ring(100, 100, 20, 30, 0, 270, 0x0000FF, true);
-  canvas.line(0, 0, 200, 200, 4, 0xFFFFFF);
-  canvas.triangle(5, 5, 50, 5, 25, 40, 0xFFFFFF);
-  canvas.text(FONT_M24, 20, 20, "12.5 V", 0xFFFFFF);
-  CHECK(canvas.end_dry() == sum);
+  CHECK(canvas.text(FONT_M24, 20, 20, "12.5 V", 0xFFFFFF) == Canvas::text_width(FONT_M24, "12.5 V"));
+  canvas.end_dry();
+  // The same calls give the same numbers
   canvas.begin_dry();
-  canvas.clear(0xFFFFFF);
-  canvas.fill(0, 0, 100, 100, 0xFF0000);
-  canvas.round_rect(10, 10, 80, 80, 8, 0x00FF00);
-  canvas.ring(100, 100, 20, 30, 0, 270, 0x0000FF, true);
-  canvas.line(0, 0, 200, 200, 4, 0xFFFFFF);
-  canvas.triangle(5, 5, 50, 5, 25, 40, 0xFFFFFF);
-  canvas.text(FONT_M24, 20, 20, "12.6 V", 0xFFFFFF);
-  CHECK(canvas.end_dry() != sum);
+  some_drawing(canvas, "12.5 V");
+  const std::vector<uint32_t> again(canvas.end_dry(), canvas.end_dry() + canvas.bands());
+  CHECK(first == again);
+  // Another text changes the bands the text is in, and no other
+  canvas.begin_dry();
+  some_drawing(canvas, "12.6 V");
+  const uint32_t *other = canvas.end_dry();
+  int changed = 0;
+  for (int band = 0; band < canvas.bands(); band++) {
+    if (other[band] == first[band]) continue;
+    changed++;
+    CHECK(band >= (300 - 2) / Canvas::BAND_ROWS && band <= (300 + FONT_M24.line_height() + 2) / Canvas::BAND_ROWS);
+  }
+  CHECK(changed >= 1);
+}
+
+// Drawing only the bands that changed must leave exactly the frame a full draw gives
+static bool same_as_a_full_draw(Driver &d) {
+  Driver fresh(d.model);
+  fresh.ui.state = d.ui.state;
+  fresh.now = d.now;
+  fresh.ui.redraw();
+  fresh.draw();
+  return d.pixels == fresh.pixels;
+}
+
+static void test_drawing_in_bands_matches_a_full_draw() {
+  const sim::Scenario all[] = {sim::charging(), sim::idle(), sim::lfp(), sim::fault_with_cells(), sim::desk_fault(), sim::no_link()};
+  for (const auto &s : all) {
+    for (int p = 0; p < (int) Page::COUNT; p++) {
+      Driver d = on_page(s, (Page) p);
+      // Values change
+      d.model.current += 3.7f;
+      d.model.power = d.model.pack_voltage * d.model.current;
+      d.model.soc -= 4.0f;
+      d.model.v5 -= 0.3f;
+      d.model.cell_mv[7] += 30.0f;
+      d.model.clock = "23:59";
+      d.model.balance_charge_status = "Balance charging, 2h05m left";
+      d.draw();
+      CHECK(same_as_a_full_draw(d));
+      // An alarm appears and takes the top line
+      sim::add_event(d.model, esphome::hmi_bms::HMI_EVENT_CELL_VOLTAGE_HIGH, Level::WARNING, 3);
+      d.draw();
+      CHECK(same_as_a_full_draw(d));
+      // The link goes
+      d.model.link = Link::NO_DATA;
+      d.draw();
+      CHECK(same_as_a_full_draw(d));
+    }
+  }
+  // Pop-ups opening, being typed in and closing
+  Driver d = on_page(sim::charging(), Page::CONTROL);
+  d.tap("Stop, open the contactors");
+  CHECK(same_as_a_full_draw(d));
+  d.tap("Open the contactors");
+  d.type("12");
+  CHECK(same_as_a_full_draw(d));
+  d.tap("Close");
+  CHECK(same_as_a_full_draw(d));
+  // Pages, sections, a scrolled list
+  d.tap("Setup");
+  CHECK(same_as_a_full_draw(d));
+  d.drag(500, 520, 500, 300);
+  CHECK(d.ui.state.settings_scroll.offset > 0);
+  CHECK(same_as_a_full_draw(d));
+  d.tap("Display and Wi-Fi");
+  CHECK(same_as_a_full_draw(d));
+  d.tap("Events");
+  d.tap("All event types");
+  CHECK(same_as_a_full_draw(d));
+  d.tap("Home");
+  CHECK(same_as_a_full_draw(d));
+  // A press on a button draws few rows again, not the frame
+  Driver c = on_page(sim::charging(), Page::CONTROL);
+  const Hit *start = c.trace.find("Start now");
+  CHECK(start != nullptr);
+  if (start != nullptr) {
+    c.step(true, start->x + 10, start->y + 10);
+    int rows = 0;
+    for (int i = 0; i < c.ui.redrawn_count; i++) rows += c.ui.redrawn[i].y1 - c.ui.redrawn[i].y0;
+    CHECK(rows > 0 && rows <= start->h + 2 * Canvas::BAND_ROWS);
+    c.step(false, 0, 0);
+  }
 }
 
 static void test_changed_bands_by_row_sums() {
@@ -635,6 +708,68 @@ static void test_changed_bands_by_row_sums() {
   frame[(size_t) 5 * w + 2] = 0;
   frame[(size_t) 5 * w + 3] = 7;
   CHECK(changed_bands(frame.data(), sums.data(), w, h, bands, 4) == 1);
+}
+
+// ---- too many wrong PINs ----
+
+static void wrong_pins(Driver &d, int times) {
+  for (int i = 0; i < times; i++) {
+    d.type("0000");
+    d.tap("OK");
+  }
+}
+
+static void test_pin_lockout() {
+  Driver d = on_page(sim::charging(), Page::CONTROL);
+  d.tap("Stop, open the contactors");
+  d.tap("Open the contactors");
+  wrong_pins(d, 9);
+  CHECK(!d.ui.state.pin_locked);
+  CHECK(d.ui.state.pin_wrong == 9);
+  wrong_pins(d, 1);  // the tenth
+  CHECK(d.ui.state.pin_locked);
+  CHECK(d.actions.count("pin wrong") == 10);
+  // Locked: the right PIN is not even looked at
+  d.type("1234");
+  d.tap("OK");
+  CHECK(d.actions.count("pin ok") == 0);
+  CHECK(d.actions.count("command") == 0);
+  CHECK(d.ui.state.popup.entry[0] == 0);
+  // Closing the box, opening another, or the UI going back to Home does not help
+  d.tap("Close");
+  d.tap("Setup");
+  d.tap("Unlock");
+  d.type("1234");
+  d.tap("OK");
+  CHECK(d.actions.count("pin ok") == 0);
+  d.now += Ui::IDLE_MS + 1000;
+  d.draw();
+  CHECK(d.ui.state.page == Page::HOME);
+  CHECK(d.ui.state.pin_locked);
+  // Ten minutes after the tenth wrong PIN it takes PINs again, with a fresh count
+  d.now += UiState::PIN_LOCK_MS;
+  d.tap("Setup");
+  d.tap("Unlock");
+  d.type("1234");
+  d.tap("OK");
+  CHECK(d.actions.did("unlock settings"));
+  CHECK(!d.ui.state.pin_locked);
+  CHECK(d.ui.state.pin_wrong == 0);
+}
+
+static void test_a_right_pin_clears_the_count() {
+  Driver d = on_page(sim::charging(), Page::CONTROL);
+  d.tap("Stop");
+  d.tap("Stop the balance charge");
+  wrong_pins(d, 9);
+  d.type("1234");
+  d.tap("OK");
+  CHECK(d.actions.did("command BALANCE_CHARGE_STOP"));
+  CHECK(d.ui.state.pin_wrong == 0);
+  d.tap("Stop");
+  d.tap("Stop the balance charge");
+  wrong_pins(d, 9);
+  CHECK(!d.ui.state.pin_locked);  // nine again, not eighteen
 }
 
 int main() {
@@ -666,7 +801,10 @@ int main() {
   test_a_tap_changes_few_rows();
   test_a_frame_is_drawn_only_when_it_changes();
   test_the_dry_run_draws_nothing();
+  test_drawing_in_bands_matches_a_full_draw();
   test_changed_bands_by_row_sums();
+  test_pin_lockout();
+  test_a_right_pin_clears_the_count();
   test_everything_draws();
   printf("ui tests: %d checks, %d failed\n", checks, failures);
   return failures ? 1 : 0;

@@ -14,29 +14,50 @@ namespace hmiui {
 
 static inline float clamp01(float v) { return v < 0.0f ? 0.0f : (v > 1.0f ? 1.0f : v); }
 
+void Canvas::begin_dry() {
+  dry_ = true;
+  for (auto &sum : band_sums_) sum = 2166136261u;
+}
+
+void Canvas::add_to_bands_(int y0, int y1, uint32_t call) {
+  // What a call draws depends on the clip it is drawn under
+  call = sum_up_(sum_up_(sum_up_(sum_up_(call, (uint32_t) cx0_), (uint32_t) cy0_), (uint32_t) cx1_), (uint32_t) cy1_);
+  y0 = std::max(y0, cy0_);
+  y1 = std::min(y1, cy1_);
+  if (y0 >= y1) return;
+  for (int band = y0 / BAND_ROWS; band <= (y1 - 1) / BAND_ROWS && band < MAX_BANDS; band++) {
+    band_sums_[band] = sum_up_(band_sums_[band], call);
+  }
+}
+
+void Canvas::set_window(int y0, int y1) {
+  win_y0_ = std::max(0, y0);
+  win_y1_ = std::min(h_, y1);
+  this->reset_clip();
+}
+
 void Canvas::set_clip(int x, int y, int w, int h) {
-  this->dry_call_(1, x, y, w, h);
+  const int top = win_y1_ > win_y0_ ? win_y0_ : 0, bottom = win_y1_ > win_y0_ ? win_y1_ : h_;
   cx0_ = std::max(0, x);
-  cy0_ = std::max(0, y);
+  cy0_ = std::max(top, y);
   cx1_ = std::min(w_, x + w);
-  cy1_ = std::min(h_, y + h);
+  cy1_ = std::min(bottom, y + h);
 }
 
 void Canvas::reset_clip() {
-  this->dry_call_(2);
   cx0_ = 0;
-  cy0_ = 0;
+  cy0_ = win_y1_ > win_y0_ ? win_y0_ : 0;
   cx1_ = w_;
-  cy1_ = h_;
+  cy1_ = win_y1_ > win_y0_ ? win_y1_ : h_;
 }
 
 void Canvas::clear(Rgb c) {
-  if (this->dry_call_(3, c)) return;
-  std::fill(px_, px_ + (size_t) w_ * h_, to565(c));
+  // Within the window and the clip, as everything else is
+  this->fill(0, 0, w_, h_, c);
 }
 
 void Canvas::fill(int x, int y, int w, int h, Rgb c) {
-  if (this->dry_call_(4, x, y, w, h, c)) return;
+  if (this->dry_call_(y, y + h, 4, x, y, w, h, c)) return;
   const int x0 = std::max(cx0_, x), y0 = std::max(cy0_, y);
   const int x1 = std::min(cx1_, x + w), y1 = std::min(cy1_, y + h);
   if (x0 >= x1 || y0 >= y1) return;
@@ -61,7 +82,7 @@ inline void Canvas::blend_(int x, int y, uint32_t r, uint32_t g, uint32_t b, uin
 }
 
 void Canvas::fill_blend(int x, int y, int w, int h, Rgb c, uint8_t alpha) {
-  if (this->dry_call_(5, x, y, w, h, c, (int) alpha)) return;
+  if (this->dry_call_(y, y + h, 5, x, y, w, h, c, (int) alpha)) return;
   const uint32_t r = (c >> 16) & 0xFF, g = (c >> 8) & 0xFF, b = c & 0xFF;
   for (int yy = std::max(cy0_, y); yy < std::min(cy1_, y + h); yy++) {
     for (int xx = std::max(cx0_, x); xx < std::min(cx1_, x + w); xx++) this->blend_(xx, yy, r, g, b, alpha);
@@ -78,7 +99,7 @@ static inline float round_cover(float px, float py, float w, float h, float radi
 }
 
 void Canvas::round_rect(int x, int y, int w, int h, int radius, Rgb c) {
-  if (this->dry_call_(6, x, y, w, h, radius, c)) return;
+  if (this->dry_call_(y, y + h, 6, x, y, w, h, radius, c)) return;
   radius = std::max(0, std::min(radius, std::min(w, h) / 2));
   if (radius == 0) {
     this->fill(x, y, w, h, c);
@@ -102,7 +123,7 @@ void Canvas::round_rect(int x, int y, int w, int h, int radius, Rgb c) {
 }
 
 void Canvas::round_frame(int x, int y, int w, int h, int radius, int thickness, Rgb c) {
-  if (this->dry_call_(7, x, y, w, h, radius, thickness, c)) return;
+  if (this->dry_call_(y, y + h, 7, x, y, w, h, radius, thickness, c)) return;
   radius = std::max(0, std::min(radius, std::min(w, h) / 2));
   const int t = thickness;
   const int corner = std::max(radius, t);
@@ -131,7 +152,7 @@ void Canvas::round_frame(int x, int y, int w, int h, int radius, int thickness, 
 }
 
 void Canvas::disc(float cx, float cy, float radius, Rgb c) {
-  if (this->dry_call_(8, cx, cy, radius, c)) return;
+  if (this->dry_call_((int) std::floor(cy - radius) - 1, (int) std::ceil(cy + radius) + 2, 8, cx, cy, radius, c)) return;
   const uint32_t r = (c >> 16) & 0xFF, g = (c >> 8) & 0xFF, b = c & 0xFF;
   for (int y = (int) std::floor(cy - radius - 1); y <= (int) std::ceil(cy + radius + 1); y++) {
     for (int x = (int) std::floor(cx - radius - 1); x <= (int) std::ceil(cx + radius + 1); x++) {
@@ -143,7 +164,9 @@ void Canvas::disc(float cx, float cy, float radius, Rgb c) {
 }
 
 void Canvas::ring(float cx, float cy, float r_in, float r_out, float a0, float a1, Rgb c, bool round_caps) {
-  if (this->dry_call_(9, cx, cy, r_in, r_out, a0, a1, c, round_caps)) return;
+  if (this->dry_call_((int) std::floor(cy - r_out) - 1, (int) std::ceil(cy + r_out) + 2, 9, cx, cy, r_in, r_out, a0, a1, c, round_caps)) {
+    return;
+  }
   const float span = a1 - a0;
   if (span <= 0.0f || r_out <= r_in) return;
   const bool full = span >= 360.0f;
@@ -175,7 +198,10 @@ void Canvas::ring(float cx, float cy, float r_in, float r_out, float a0, float a
 }
 
 void Canvas::line(float x0, float y0, float x1, float y1, float width, Rgb c) {
-  if (this->dry_call_(10, x0, y0, x1, y1, width, c)) return;
+  if (this->dry_call_((int) std::floor(std::min(y0, y1) - width / 2.0f) - 1, (int) std::ceil(std::max(y0, y1) + width / 2.0f) + 2, 10, x0,
+                      y0, x1, y1, width, c)) {
+    return;
+  }
   const uint32_t r = (c >> 16) & 0xFF, g = (c >> 8) & 0xFF, b = c & 0xFF;
   const float half = width / 2.0f;
   const float vx = x1 - x0, vy = y1 - y0;
@@ -194,7 +220,10 @@ void Canvas::line(float x0, float y0, float x1, float y1, float width, Rgb c) {
 }
 
 void Canvas::triangle(float x0, float y0, float x1, float y1, float x2, float y2, Rgb c) {
-  if (this->dry_call_(11, x0, y0, x1, y1, x2, y2, c)) return;
+  if (this->dry_call_((int) std::floor(std::min({y0, y1, y2})) - 1, (int) std::ceil(std::max({y0, y1, y2})) + 2, 11, x0, y0, x1, y1, x2,
+                      y2, c)) {
+    return;
+  }
   const uint32_t r = (c >> 16) & 0xFF, g = (c >> 8) & 0xFF, b = c & 0xFF;
   const float xs[3] = {x0, x1, x2}, ys[3] = {y0, y1, y2};
   // Which way round the corners go, so "inside" has the same sign for every edge
@@ -248,8 +277,11 @@ int Canvas::text_width(const Font &font, const char *utf8) {
 
 int Canvas::text(const Font &font, int x, int y, const char *utf8, Rgb c, Align align) {
   const int width = text_width(font, utf8);
-  if (this->dry_call_(12, (int) font.size, (int) font.count, x, y, c, (int) align)) {
-    for (const char *p = utf8; *p; p++) this->sum_up_((uint8_t) *p);
+  if (dry_) {
+    // The text itself is part of what is drawn
+    uint32_t letters = 2166136261u;
+    for (const char *p = utf8; *p; p++) letters = sum_up_(letters, (uint8_t) *p);
+    this->dry_call_(y - 2, y + font.line_height() + 2, 12, (int) font.size, (int) font.count, x, y, c, (int) align, letters);
     return width;
   }
   int pen = align == LEFT ? x : (align == CENTER ? x - width / 2 : x - width);

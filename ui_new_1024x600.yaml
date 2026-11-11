@@ -210,6 +210,51 @@ hmi_ui:
     m.settings_unlocked = id(hub).is_settings_unlocked();
     m.log_enabled = id(hub).is_log_enabled();
     m.brightness = (uint8_t) (clamp(id(hmi_brightness), 0.05f, 1.0f) * 100.0f + 0.5f);
+    {
+      static text_sensor::TextSensor *const lines[] = {
+          id(log_line_01), id(log_line_02), id(log_line_03), id(log_line_04), id(log_line_05), id(log_line_06),
+          id(log_line_07), id(log_line_08), id(log_line_09), id(log_line_10), id(log_line_11), id(log_line_12),
+          id(log_line_13), id(log_line_14), id(log_line_15), id(log_line_16), id(log_line_17), id(log_line_18),
+          id(log_line_19), id(log_line_20), id(log_line_21), id(log_line_22), id(log_line_23), id(log_line_24),
+          id(log_line_25), id(log_line_26), id(log_line_27), id(log_line_28), id(log_line_29), id(log_line_30),
+          id(log_line_31), id(log_line_32), id(log_line_33), id(log_line_34), id(log_line_35), id(log_line_36),
+          id(log_line_37), id(log_line_38), id(log_line_39), id(log_line_40), id(log_line_41), id(log_line_42),
+          id(log_line_43), id(log_line_44), id(log_line_45), id(log_line_46), id(log_line_47), id(log_line_48),
+          id(log_line_49), id(log_line_50)};
+      ui_glue::fill_log(m, lines, 50);
+    }
+
+    // ---- the last 24 hours, the networks in range ----
+    ui_glue::fill_history(m, m.soc, m.power, millis());
+    ui_glue::fill_networks(m, wifi::global_wifi_component->get_scan_result(), millis());
+
+    // ---- the raw register view: number, the firmware's name, what its entity holds ----
+    {
+      using namespace esphome::hmi_bms;
+      ui_glue::add_register(m, HMI_REG_SERIAL, "SERIAL", id(serial).state);
+      ui_glue::add_register(m, HMI_REG_SYSTEM_STATE, "SYSTEM_STATE", id(system_state).state, "%.0f");
+      ui_glue::add_register(m, HMI_REG_CONTACTORS_STATE, "CONTACTORS_STATE", id(contactor_state).state, "%.0f");
+      ui_glue::add_register(m, HMI_REG_BATTERY_VOLTAGE, "BATTERY_VOLTAGE", id(voltage_mV).state, "%.3f V");
+      ui_glue::add_register(m, HMI_REG_OUTPUT_VOLTAGE, "OUTPUT_VOLTAGE", id(output_voltage_mV).state, "%.3f V");
+      ui_glue::add_register(m, HMI_REG_POS_CONTACTOR_VOLTAGE, "POS_CONTACTOR_VOLTAGE", id(pos_contactor_voltage).state, "%.3f V");
+      ui_glue::add_register(m, HMI_REG_NEG_CONTACTOR_VOLTAGE, "NEG_CONTACTOR_VOLTAGE", id(neg_contactor_voltage).state, "%.3f V");
+      ui_glue::add_register(m, HMI_REG_CURRENT, "CURRENT", id(current_mA).state, "%.3f A");
+      ui_glue::add_register(m, HMI_REG_SOC, "SOC", id(soc).state, "%.2f %%");
+      ui_glue::add_register(m, HMI_REG_CELL_VOLTAGE_MIN, "CELL_VOLTAGE_MIN", id(cell_min).state, "%.3f V");
+      ui_glue::add_register(m, HMI_REG_CELL_VOLTAGE_MAX, "CELL_VOLTAGE_MAX", id(cell_max).state, "%.3f V");
+      ui_glue::add_register(m, HMI_REG_TEMPERATURE_MIN, "TEMPERATURE_MIN", id(module_temperature_min).state, "%.1f C");
+      ui_glue::add_register(m, HMI_REG_TEMPERATURE_MAX, "TEMPERATURE_MAX", id(module_temperature_max).state, "%.1f C");
+      ui_glue::add_register(m, HMI_REG_SUPPLY_VOLTAGE_3V3, "SUPPLY_VOLTAGE_3V3", id(supply_3v3).state, "%.3f V");
+      ui_glue::add_register(m, HMI_REG_SUPPLY_VOLTAGE_5V, "SUPPLY_VOLTAGE_5V", id(supply_5v).state, "%.3f V");
+      ui_glue::add_register(m, HMI_REG_SUPPLY_VOLTAGE_12V, "SUPPLY_VOLTAGE_12V", id(supply_12v).state, "%.3f V");
+      ui_glue::add_register(m, HMI_REG_SUPPLY_VOLTAGE_CTR, "SUPPLY_VOLTAGE_CTR", id(supply_ctr).state, "%.3f V");
+      ui_glue::add_register(m, HMI_REG_NAMEPLATE_CAPACITY, "NAMEPLATE_CAPACITY", id(nameplate_capacity).state, "%.1f Ah");
+      ui_glue::add_register(m, HMI_REG_CHARGE_CURRENT_LIMIT_DA, "CHARGE_CURRENT_LIMIT_DA", id(charge_current_limit).state, "%.1f A");
+      ui_glue::add_register(m, HMI_REG_DISCHARGE_CURRENT_LIMIT_DA, "DISCHARGE_CURRENT_LIMIT_DA", id(discharge_current_limit).state, "%.1f A");
+      ui_glue::add_register(m, HMI_REG_TEMP_CHARGE_CURRENT_LIMIT_DA, "TEMP_CHARGE_CURRENT_LIMIT_DA", id(temp_charge_current_limit).state, "%.1f A");
+      ui_glue::add_register(m, HMI_REG_TEMP_DISCHARGE_CURRENT_LIMIT_DA, "TEMP_DISCHARGE_CURRENT_LIMIT_DA", id(temp_discharge_current_limit).state, "%.1f A");
+      ui_glue::add_register(m, HMI_REG_CELL_VOLTAGE_CHARGE_CURRENT_LIMIT_DA, "CELL_VOLTAGE_CHARGE_CURRENT_LIMIT_DA", id(cell_voltage_charge_current_limit).state, "%.1f A");
+    }
 
   on_command:
     - lambda: |-
@@ -231,7 +276,8 @@ hmi_ui:
             wifi::global_wifi_component->clear_sta();
             App.safe_reboot();
             break;
-          default: break;  // WIFI_SCAN: the list is not filled yet
+          case Command::WIFI_SCAN: wifi::global_wifi_component->start_scanning(); break;
+          default: break;
         }
   on_write_setting:
     - lambda: |-
