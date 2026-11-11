@@ -2,6 +2,7 @@
 // check what the UI shows and what it asks the device to do.
 //
 //   sh tests/run_tests.sh
+#include "../components/hmi_ui/ui_present.h"
 #include "../sim/harness.h"
 #include "../sim/scenarios.h"
 
@@ -491,6 +492,53 @@ static void test_home_fault_list() {
   CHECK(d.ui.state.page == Page::EVENTS);
 }
 
+// ---- what is sent to the display ----
+
+static void test_changed_bands() {
+  const int w = 16, h = 100;
+  std::vector<uint16_t> shown((size_t) w * h, 0), drawn((size_t) w * h, 0);
+  Band bands[4];
+  CHECK(changed_bands(drawn.data(), shown.data(), w, h, bands, 4) == 0);
+  auto touch = [&](int y) { drawn[(size_t) y * w + 3] = 0xFFFF; };
+  touch(10);
+  touch(11);
+  touch(15);  // close to the rows above: one band
+  touch(60);  // far away: its own band
+  CHECK(changed_bands(drawn.data(), shown.data(), w, h, bands, 4) == 2);
+  CHECK(bands[0].y0 == 10 && bands[0].y1 == 16);
+  CHECK(bands[1].y0 == 60 && bands[1].y1 == 61);
+  // More separate changes than there is room for: the last band takes the rest
+  touch(0);
+  touch(30);
+  touch(99);
+  CHECK(changed_bands(drawn.data(), shown.data(), w, h, bands, 3) == 3);
+  CHECK(bands[0].y0 == 0 && bands[0].y1 == 16);  // row 0 is close enough to rows 10 to 15
+  CHECK(bands[1].y0 == 30 && bands[1].y1 == 31);
+  CHECK(bands[2].y0 == 60 && bands[2].y1 == 100);
+  // Every changed row is inside a band
+  const int n = changed_bands(drawn.data(), shown.data(), w, h, bands, 4);
+  for (int y = 0; y < h; y++) {
+    bool differs = false, covered = false;
+    for (int x = 0; x < w; x++) differs = differs || drawn[(size_t) y * w + x] != shown[(size_t) y * w + x];
+    for (int i = 0; i < n; i++) covered = covered || (y >= bands[i].y0 && y < bands[i].y1);
+    CHECK(!differs || covered);
+  }
+}
+
+// A real pair of frames: a tap changes little of the screen
+static void test_a_tap_changes_few_rows() {
+  Driver d = on_page(sim::charging(), Page::CONTROL);
+  const std::vector<uint16_t> before = d.pixels;
+  d.model.balance_charge_status = "Running, 12 min left";
+  d.draw();
+  Band bands[8];
+  const int n = changed_bands(d.pixels.data(), before.data(), SCREEN_W, SCREEN_H, bands, 8);
+  int rows = 0;
+  for (int i = 0; i < n; i++) rows += bands[i].y1 - bands[i].y0;
+  CHECK(n >= 1);
+  CHECK(rows < 60);
+}
+
 int main() {
   test_stop_goes_confirm_pin_send();
   test_wrong_pin_sends_nothing();
@@ -516,6 +564,8 @@ int main() {
   test_registers_scroll();
   test_every_event_type_tells_more();
   test_home_fault_list();
+  test_changed_bands();
+  test_a_tap_changes_few_rows();
   test_everything_draws();
   printf("ui tests: %d checks, %d failed\n", checks, failures);
   return failures ? 1 : 0;
