@@ -122,6 +122,7 @@ void HMIBMS::update() {
     sw.latest_type = -1;
     sw.latest_level = 0;
     sw.latest_count = 0;
+    sw.latest_timestamp = 0;
     this->request_events_(0);
   }
 

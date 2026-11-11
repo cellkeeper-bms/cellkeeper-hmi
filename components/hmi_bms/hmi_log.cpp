@@ -109,12 +109,25 @@ void HMIBMS::handle_read_log_response_(const uint8_t *data, size_t length) {
         this->log_line_index_ = 0;
         this->log_line_pending_.clear();
         this->log_line_pending_.resize(this->log_line_sensors_.size());
+        this->last_log_sync_ms_ = millis() | 1;
       }
       // Buffer the line for next snapshot
       if (this->log_line_index_ < this->log_line_pending_.size()) {
         this->log_line_pending_[this->log_line_index_] = line;
       }
       this->log_line_index_++;
+
+      // A firmware that doesn't print a status block regularly (no sync line for 30 s, or
+      // ever): the line sensors show the latest lines instead, oldest first
+      const bool synced = this->last_log_sync_ms_ != 0 && millis() - this->last_log_sync_ms_ < 30000;
+      if (!synced && !this->log_line_sensors_.empty()) {
+        this->log_tail_.push_back(line);
+        while (this->log_tail_.size() > this->log_line_sensors_.size()) this->log_tail_.pop_front();
+        this->log_line_snapshot_.assign(this->log_tail_.begin(), this->log_tail_.end());
+        this->log_line_snapshot_dirty_ = true;
+      } else if (synced) {
+        this->log_tail_.clear();
+      }
     }
     
     // Remove processed line from buffer (including the \n at pos)

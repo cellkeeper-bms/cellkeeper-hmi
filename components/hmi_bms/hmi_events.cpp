@@ -67,11 +67,14 @@ void HMIBMS::handle_read_events_response_(const uint8_t *data, size_t length) {
       if (type < sw.seen.size()) sw.seen[type] = true;
     }
 
-    // The first event of the sweep is the latest
-    if (sw.latest_type < 0) {
+    // The latest event is the one with the newest timestamp (the BMS lists them by type, not
+    // by time); of several raised at the same moment, the most severe
+    if (sw.latest_type < 0 || rec.timestamp > sw.latest_timestamp ||
+        (rec.timestamp == sw.latest_timestamp && level > sw.latest_level)) {
       sw.latest_type = type;
       sw.latest_level = level;
       sw.latest_count = rec.count;
+      sw.latest_timestamp = rec.timestamp;
     }
     if (level > sw.highest_level) sw.highest_level = level;
     if (level < 5) {

@@ -303,6 +303,8 @@ class HMIBMS : public PollingComponent, public uart::UARTDevice {
   std::vector<int32_t> balancing_time_prev_;
   std::vector<uint32_t> balancing_active_until_ms_;
   text_sensor::TextSensor *log_text_sensor_{nullptr};
+  std::deque<std::string> log_tail_;  // the latest lines, for the line sensors when no status block comes
+  uint32_t last_log_sync_ms_{0};      // when a status block last started; 0 = never
   std::vector<text_sensor::TextSensor *> log_line_sensors_;
   uint16_t log_line_index_{0};
   std::vector<std::string> log_line_pending_;
@@ -344,6 +346,7 @@ class HMIBMS : public PollingComponent, public uart::UARTDevice {
     int latest_type{-1};
     int latest_level{0};
     int latest_count{0};
+    uint64_t latest_timestamp{0};
   } event_sweep_;
 
   struct SensorUpdate {
