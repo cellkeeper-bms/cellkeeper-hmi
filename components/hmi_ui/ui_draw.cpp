@@ -245,46 +245,45 @@ void no_link_overlay(Canvas &c, const Theme &t, const Model &m, int x, int y, in
 
 // ---- navigation ----
 
-static const char *const TABS[] = {"Home", "Cells", "Power", "Health", "Events", "Control", "Setup"};
-static const int TAB_COUNT = 7;
-static const int TAB_EVENTS = 4;
+static const char *const TABS[] = {"Home", "Control", "Power", "Cells", "Health", "Events", "Setup"};
+static const int TAB_COUNT = (int) Page::COUNT;
 
 // The icons of the rail, each drawn in a box of about 28 px around (cx, cy)
-static void tab_icon(Canvas &c, int tab, float cx, float cy, Rgb color) {
+static void tab_icon(Canvas &c, Page tab, float cx, float cy, Rgb color) {
   const float w = 2.6f;
   switch (tab) {
-    case 0:  // a house
+    case Page::HOME:  // a house
       c.line(cx - 13, cy - 1, cx, cy - 12, w, color);
       c.line(cx, cy - 12, cx + 13, cy - 1, w, color);
       c.line(cx - 9, cy - 3, cx - 9, cy + 11, w, color);
       c.line(cx + 9, cy - 3, cx + 9, cy + 11, w, color);
       c.line(cx - 9, cy + 11, cx + 9, cy + 11, w, color);
       break;
-    case 1:  // cell bars
+    case Page::CELLS:  // cell bars
       c.round_rect((int) cx - 13, (int) cy - 3, 5, 15, 2, color);
       c.round_rect((int) cx - 6, (int) cy - 11, 5, 23, 2, color);
       c.round_rect((int) cx + 1, (int) cy - 6, 5, 18, 2, color);
       c.round_rect((int) cx + 8, (int) cy - 9, 5, 21, 2, color);
       break;
-    case 2:  // a bolt
+    case Page::POWER:  // a bolt
       c.triangle(cx + 4, cy - 14, cx - 9, cy + 3, cx + 2, cy + 3, color);
       c.triangle(cx - 4, cy + 14, cx + 9, cy - 3, cx - 2, cy - 3, color);
       break;
-    case 3:  // a pulse line
+    case Page::HEALTH:  // a pulse line
       c.line(cx - 14, cy, cx - 7, cy, w, color);
       c.line(cx - 7, cy, cx - 3, cy - 10, w, color);
       c.line(cx - 3, cy - 10, cx + 3, cy + 10, w, color);
       c.line(cx + 3, cy + 10, cx + 7, cy, w, color);
       c.line(cx + 7, cy, cx + 14, cy, w, color);
       break;
-    case 4:  // a warning triangle, outlined
+    case Page::EVENTS:  // a warning triangle, outlined
       c.line(cx, cy - 12, cx - 13, cy + 10, w, color);
       c.line(cx - 13, cy + 10, cx + 13, cy + 10, w, color);
       c.line(cx + 13, cy + 10, cx, cy - 12, w, color);
       c.line(cx, cy - 4, cx, cy + 3, w, color);
       c.disc(cx, cy + 6.5f, 1.6f, color);
       break;
-    case 5:  // the power symbol
+    case Page::CONTROL:  // the power symbol
       c.ring(cx, cy + 1, 8.5f, 11.0f, 305, 595, color, true);
       c.line(cx, cy - 13, cx, cy - 2, w, color);
       break;
@@ -313,18 +312,18 @@ static int events_badge(Canvas &c, const Theme &t, const Model &m, int x, int y,
   return w;
 }
 
-void nav_rail(Canvas &c, const Theme &t, const Model &m, int selected) {
+void nav_rail(Canvas &c, const Theme &t, const Model &m, Page selected) {
   c.fill(0, 0, NAV_RAIL_W, SCREEN_H, t.nav);
   c.fill(NAV_RAIL_W - 1, 0, 1, SCREEN_H, t.card_border);
   const int step = 82, top = (SCREEN_H - TAB_COUNT * step) / 2;
   for (int i = 0; i < TAB_COUNT; i++) {
     const int y = top + i * step;
-    const bool on = i == selected;
+    const bool on = i == (int) selected;
     if (on) c.round_rect(7, y + 3, NAV_RAIL_W - 15, step - 6, 12, t.nav_active);
     const Rgb color = on ? t.good : t.text_dim;
-    tab_icon(c, i, NAV_RAIL_W / 2.0f - 0.5f, y + 31.0f, color);
+    tab_icon(c, (Page) i, NAV_RAIL_W / 2.0f - 0.5f, y + 31.0f, color);
     c.text(on ? FONT_M16 : FONT_R16, NAV_RAIL_W / 2, y + 51, TABS[i], color, CENTER);
-    if (i == TAB_EVENTS) events_badge(c, t, m, NAV_RAIL_W / 2 + 8, y + 8, true);
+    if (i == (int) Page::EVENTS) events_badge(c, t, m, NAV_RAIL_W / 2 + 8, y + 8, true);
   }
 }
 
@@ -357,7 +356,7 @@ void top_line(Canvas &c, const Theme &t, const Model &m, const char *title, cons
   }
 }
 
-void page_end(Canvas &c, const Theme &t, const Model &m, int selected, bool needs_bms) {
+void page_end(Canvas &c, const Theme &t, const Model &m, Page selected, bool needs_bms) {
   if (needs_bms && m.link != Link::OK) no_link_overlay(c, t, m, NAV_RAIL_W, 62, SCREEN_W - NAV_RAIL_W, SCREEN_H - 62);
   nav_rail(c, t, m, selected);
 }

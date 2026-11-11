@@ -45,7 +45,7 @@ void draw_control(Canvas &c, const Theme &t, const Model &m) {
   button(c, t, X1 - 16 - 2 * 180 - gap, by + 60, 180, 96, "Start now");
   button(c, t, X1 - 16 - 180, by + 60, 180, 96, "Stop");
 
-  page_end(c, t, m, 5);
+  page_end(c, t, m, Page::CONTROL);
 }
 
 }  // namespace hmiui

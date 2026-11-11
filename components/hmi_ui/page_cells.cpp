@@ -49,7 +49,7 @@ void draw_cells(Canvas &c, const Theme &t, const Model &m) {
     c.text(FONT_R24, X0 + w / 2, cy + ch / 2 - 30, "No cell readings", t.hint, CENTER);
     c.text(FONT_R18, X0 + w / 2, cy + ch / 2 + 6, "The cell boards are not answering. See Events for the cause.", t.hint,
            CENTER);
-    page_end(c, t, m, 1);
+    page_end(c, t, m, Page::CELLS);
     return;
   }
   const int px = X0 + 66, pw = X1 - 16 - px, py = cy + 20, ph = ch - 20 - 108;
@@ -116,7 +116,7 @@ void draw_cells(Canvas &c, const Theme &t, const Model &m) {
   key(t.balance, "balancing now", false);
   key(mix(t.card, t.balance, 0.4f), "waiting to balance", false);
 
-  page_end(c, t, m, 1);
+  page_end(c, t, m, Page::CELLS);
 }
 
 }  // namespace hmiui

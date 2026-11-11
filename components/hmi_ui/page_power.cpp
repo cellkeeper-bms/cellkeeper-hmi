@@ -138,7 +138,7 @@ void draw_power(Canvas &c, const Theme &t, const Model &m) {
   row(c, t, cx + 16, by + 152, bw - 32, "Lifetime in", value(m.lifetime_in_kwh, "%.0f kWh"));
   row(c, t, cx + 16, by + 188, bw - 32, "Lifetime out", value(m.lifetime_out_kwh, "%.0f kWh"));
 
-  page_end(c, t, m, 2);
+  page_end(c, t, m, Page::POWER);
 }
 
 }  // namespace hmiui

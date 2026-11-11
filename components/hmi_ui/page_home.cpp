@@ -194,7 +194,7 @@ void draw_home(Canvas &c, const Theme &t, const Model &m) {
     c.text(FONT_R18, rx0 + rw / 2, cy + ch / 2 - 10, "No readings", t.hint, CENTER);
   }
 
-  page_end(c, t, m, 0);
+  page_end(c, t, m, Page::HOME);
 }
 
 }  // namespace hmiui

@@ -9,8 +9,6 @@
 
 namespace hmiui {
 
-enum class Page : uint8_t { HOME, CELLS, POWER, HEALTH, EVENTS, CONTROL, SETUP, COUNT };
-
 class Ui {
  public:
   Theme theme;

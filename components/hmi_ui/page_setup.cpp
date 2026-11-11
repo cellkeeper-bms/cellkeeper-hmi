@@ -172,7 +172,7 @@ void draw_setup(Canvas &c, const Theme &t, const Model &m, int section) {
     default: about_section(c, t, m); break;
   }
   // The BMS settings and its log need the BMS; the display's own pages don't
-  page_end(c, t, m, 6, section == 0 || section == 2);
+  page_end(c, t, m, Page::SETUP, section == 0 || section == 2);
 }
 
 }  // namespace hmiui

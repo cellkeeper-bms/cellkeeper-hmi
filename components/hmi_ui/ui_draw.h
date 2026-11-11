@@ -80,15 +80,18 @@ void no_link_overlay(Canvas &c, const Theme &t, const Model &m, int x, int y, in
 
 // ---- navigation ----
 
+// The pages, in the order the rail lists them
+enum class Page : uint8_t { HOME, CONTROL, POWER, CELLS, HEALTH, EVENTS, SETUP, COUNT };
+
 static const int NAV_RAIL_W = 88;
 // Where a page draws: right of the rail, under the top line
 static const int X0 = NAV_RAIL_W + 16, X1 = SCREEN_W - 16, Y0 = 66, Y1 = SCREEN_H - 16;
 
-void nav_rail(Canvas &c, const Theme &t, const Model &m, int selected);  // down the left side
+void nav_rail(Canvas &c, const Theme &t, const Model &m, Page selected);  // down the left side
 // The line above every page: its title and the BMS state, or the worst active alarm
 void top_line(Canvas &c, const Theme &t, const Model &m, const char *title, const char *subtitle = "");
 // What every page ends with: the no-link box when the BMS is silent, and the rail
-void page_end(Canvas &c, const Theme &t, const Model &m, int selected, bool needs_bms = true);
+void page_end(Canvas &c, const Theme &t, const Model &m, Page selected, bool needs_bms = true);
 
 // A caption with a number and unit under it
 void stat(Canvas &c, const Theme &t, int x, int y, const char *caption, const char *number, const char *unit, Rgb color);

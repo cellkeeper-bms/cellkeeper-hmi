@@ -59,7 +59,7 @@ void draw_events(Canvas &c, const Theme &t, const Model &m) {
   c.text(FONT_R14, rx + 16, Y1 - 92, "Counts are since the BMS started.", t.hint);
   button(c, t, rx + 16, Y1 - 68, rw - 32, 52, "All event types");
 
-  page_end(c, t, m, 4);
+  page_end(c, t, m, Page::EVENTS);
 }
 
 }  // namespace hmiui

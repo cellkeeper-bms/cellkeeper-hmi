@@ -110,7 +110,7 @@ void draw_health(Canvas &c, const Theme &t, const Model &m) {
   row(c, t, rx + 16, by + 188, rw - 32, "Running for: BMS / display",
       fmt("%s / %s", m.bms_uptime_s ? uptime_text(m.bms_uptime_s) : "--", uptime_text(m.hmi_uptime_s)));
 
-  page_end(c, t, m, 3);
+  page_end(c, t, m, Page::HEALTH);
 }
 
 }  // namespace hmiui
