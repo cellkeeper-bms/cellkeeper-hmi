@@ -70,6 +70,33 @@ static void sent_to_inverter(Canvas &c, const Theme &t, const Model &m, int y) {
   limit(xa + 712, "DISCHARGE LIMIT", m.discharge_limit, m.discharge_limited_by, t.out);
 }
 
+// The current between its limits, as the Home Assistant pack card shows it: zero in the middle,
+// discharge to the left and charge to the right on one scale, the allowed band lit, and a mark
+// where the current is now
+static void limits_bar(Canvas &c, const Theme &t, const Model &m, int x, int y, int w) {
+  const float chg = m.charge_limit, dis = m.discharge_limit;
+  if (std::isnan(chg) || std::isnan(dis)) return;
+  const float current = std::isnan(m.current) ? 0.0f : m.current;
+  float scale = std::max(1.0f, std::fabs(current));
+  if (!std::isinf(chg)) scale = std::max(scale, chg);
+  if (!std::isinf(dis)) scale = std::max(scale, dis);
+  const int half = w / 2, mid = x + half;
+  auto at = [&](float amps) { return mid + (int) (clampf(amps / scale, -1, 1) * half); };
+  c.round_rect(x, y, w, 10, 5, t.track);
+  const int left = std::isinf(dis) ? x : at(-dis), right = std::isinf(chg) ? x + w : at(chg);
+  if (right - left >= 10) c.round_rect(left, y, right - left, 10, 5, 0x55615C);
+  const Flow flow = flow_of(m);
+  const int now = at(current);
+  if (std::abs(now - mid) >= 3) c.fill(std::min(mid, now), y, std::abs(now - mid), 10, flow_color(t, flow));
+  c.fill(mid - 1, y - 5, 2, 20, t.text_dim);
+  c.disc((float) now, y + 5.0f, 9.0f, t.text);
+  c.disc((float) now, y + 5.0f, 5.0f, flow == Flow::IDLE || flow == Flow::UNKNOWN ? t.caption : flow_color(t, flow));
+  // The limits, written at the ends of the allowed band
+  c.text(FONT_R14, std::max(left, x), y + 17, std::isinf(dis) ? "no limit" : fmt("%.0f A out", (double) dis), t.caption);
+  c.text(FONT_R14, std::min(right, x + w), y + 17, std::isinf(chg) ? "no limit" : fmt("%.0f A in", (double) chg), t.caption, RIGHT);
+  c.text(FONT_R14, mid, y + 17, "0", t.hint, CENTER);
+}
+
 void draw_home(Frame &f) {
   Canvas &c = f.c;
   const Theme &t = f.t;
@@ -138,8 +165,9 @@ void draw_home(Frame &f) {
     const char *eta = time_to_text(m);
     const char *line = std::isnan(m.current) ? "" : (eta[0] ? fmt("%+.1f A   ·   %s", (double) m.current, eta)
                                                              : fmt("%+.1f A", (double) m.current));
-    c.text(FONT_R20, mid, 228, line, t.text_dim, CENTER);
+    c.text(FONT_R20, mid, f.s.home_limits_bar ? 218 : 228, line, t.text_dim, CENTER);
   }
+  if (f.s.home_limits_bar && linked) limits_bar(c, t, m, xa + 14, 254, xb - xa - 28);
   sent_to_inverter(c, t, m, 298);
 
   // ---- cells, or what is wrong when there are none ----

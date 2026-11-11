@@ -75,7 +75,8 @@ int main(int argc, char **argv) {
     int events_view;
   };
   static const View VIEWS[] = {
-      {Page::HOME, "home", 0, 0},           {Page::CONTROL, "control", 0, 0},     {Page::POWER, "power", 0, 0},
+      {Page::HOME, "home", 0, 0},           {Page::HOME, "home-limits-bar", 0, 0}, {Page::CONTROL, "control", 0, 0},
+      {Page::POWER, "power", 0, 0},
       {Page::CELLS, "cells", 0, 0},         {Page::HEALTH, "health", 0, 0},       {Page::EVENTS, "events", 0, 0},
       {Page::EVENTS, "events-logic", 0, 2}, {Page::EVENTS, "events-all-types", 0, 1},
       {Page::SETUP, "setup-settings", 0, 0}, {Page::SETUP, "setup-display", 1, 0}, {Page::SETUP, "setup-log", 2, 0},
@@ -87,6 +88,7 @@ int main(int argc, char **argv) {
       d.ui.state.page = v.page;
       d.ui.state.setup_section = v.section;
       d.ui.state.events_view = v.events_view;
+      d.ui.state.home_limits_bar = std::string(v.name) == "home-limits-bar";
       d.draw();
       save(std::string(v.name) + "-" + s.name, d.canvas);
     }

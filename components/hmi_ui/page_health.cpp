@@ -17,17 +17,19 @@ static const char *uptime_text(uint32_t s) {
   return fmt("%u:%02u:%02u", (unsigned) (s / 3600), (unsigned) (s % 3600 / 60), (unsigned) (s % 60));
 }
 
-// A supply rail: its voltage, and a mark for where it sits in the range it should be in
+// A supply rail: its voltage, and where it sits between the limits the BMS checks it against.
+// The bar runs from the low limit to the high limit and the numbers at its ends are those
+// limits, so the scale can be read. A value past a limit sits at that end, in the alarm colour.
 static void rail(Canvas &c, const Theme &t, int x, int y, int w, const char *name, float v, float lo, float hi) {
   const bool known = !std::isnan(v), ok = known && v >= lo && v <= hi;
   row(c, t, x, y, w, name, value(v, "%.2f V"), known && !ok ? t.warning : 0);
-  c.round_rect(x, y + 28, w, 4, 2, t.track);
+  const int label_w = 38, bx = x + label_w, bw = w - 2 * label_w, by = y + 31;
+  c.text(FONT_R14, x, by - 7, fmt("%.1f", (double) lo), t.caption);
+  c.text(FONT_R14, x + w, by - 7, fmt("%.1f", (double) hi), t.caption, RIGHT);
+  c.round_rect(bx, by, bw, 4, 2, mix(t.card, t.good, 0.45f));
   if (!known) return;
-  // The bar spans the allowed range plus a quarter on each side
-  const float a = lo - (hi - lo) * 0.25f, b = hi + (hi - lo) * 0.25f;
-  c.round_rect(x + w / 6, y + 28, w * 4 / 6, 4, 2, mix(t.card, t.good, 0.45f));
-  const int at = x + (int) (clampf((v - a) / (b - a), 0, 1) * w);
-  c.round_rect(at - 3, y + 23, 6, 14, 3, ok ? t.good : t.warning);
+  const int at = bx + (int) (clampf((v - lo) / (hi - lo), 0, 1) * bw);
+  c.round_rect(at - 3, by - 5, 6, 14, 3, ok ? t.good : t.warning);
 }
 
 void draw_health(Frame &f) {
@@ -63,10 +65,13 @@ void draw_health(Frame &f) {
   // ---- supplies ----
   card(c, t, x2, Y0, cw, top_h);
   c.text(FONT_R14, x2 + 16, Y0 + 12, "SUPPLIES", t.caption);
-  rail(c, t, x2 + 16, Y0 + 42, cw - 32, "3.3 V rail", m.v3v3, 3.15f, 3.45f);
-  rail(c, t, x2 + 16, Y0 + 94, cw - 32, "5 V rail", m.v5, 4.75f, 5.40f);
-  rail(c, t, x2 + 16, Y0 + 146, cw - 32, "12 V rail", m.v12, 11.0f, 14.5f);
-  rail(c, t, x2 + 16, Y0 + 198, cw - 32, "Contactor supply", m.v_contactor, 11.0f, 14.5f);
+  c.text(FONT_R14, x2 + cw - 16, Y0 + 12, "between their limits, V", t.hint, RIGHT);
+  // The firmware's limits (bms/config/limits.h, SUPPLY_VOLTAGE_*): outside them it raises the
+  // rail's low or high event. For the contactor supply the low end is the soft limit.
+  rail(c, t, x2 + 16, Y0 + 42, cw - 32, "3.3 V rail", m.v3v3, 3.2f, 3.6f);
+  rail(c, t, x2 + 16, Y0 + 94, cw - 32, "5 V rail", m.v5, 4.4f, 5.6f);
+  rail(c, t, x2 + 16, Y0 + 146, cw - 32, "12 V rail", m.v12, 11.0f, 16.0f);
+  rail(c, t, x2 + 16, Y0 + 198, cw - 32, "Contactor supply", m.v_contactor, 12.0f, 16.0f);
 
   // ---- temperatures ----
   card(c, t, x3, Y0, w3, top_h);
