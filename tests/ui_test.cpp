@@ -539,6 +539,104 @@ static void test_a_tap_changes_few_rows() {
   CHECK(rows < 60);
 }
 
+// ---- drawing only when the frame would change ----
+
+static void test_a_frame_is_drawn_only_when_it_changes() {
+  Driver d = on_page(sim::charging(), Page::HOME);
+  Input none;
+  CHECK(!d.ui.frame(d.canvas, d.model, none, d.actions, d.now));  // nothing changed since on_page drew it
+  const std::vector<uint16_t> before = d.pixels;
+  d.model.current += 0.1f;
+  CHECK(d.ui.frame(d.canvas, d.model, none, d.actions, d.now));
+  CHECK(d.pixels != before);
+  CHECK(!d.ui.frame(d.canvas, d.model, none, d.actions, d.now));
+  // A value the page does not show changes nothing
+  d.model.v3v3 += 0.01f;
+  CHECK(!d.ui.frame(d.canvas, d.model, none, d.actions, d.now));
+  // A text that changes in place (same pointer) is noticed
+  static char status[32] = "Off";
+  d.ui.state.page = Page::CONTROL;
+  d.model.balance_charge_status = status;
+  CHECK(d.ui.frame(d.canvas, d.model, none, d.actions, d.now));
+  snprintf(status, sizeof(status), "Running");
+  CHECK(d.ui.frame(d.canvas, d.model, none, d.actions, d.now, &d.trace));
+  // A finger coming down on a button changes how it looks
+  const Hit *stop = d.trace.find("Stop");
+  CHECK(stop != nullptr);
+  if (stop != nullptr) {
+    Input finger;
+    finger.down = true;
+    finger.x = stop->x + 10;
+    finger.y = stop->y + 10;
+    CHECK(d.ui.frame(d.canvas, d.model, finger, d.actions, d.now));
+    CHECK(!d.ui.frame(d.canvas, d.model, finger, d.actions, d.now));  // held still: the same frame
+  }
+  // After redraw() it draws again whatever it finds
+  d.ui.redraw();
+  CHECK(d.ui.frame(d.canvas, d.model, none, d.actions, d.now));
+}
+
+// The dry run must leave nothing behind and draw nothing
+static void test_the_dry_run_draws_nothing() {
+  std::vector<uint16_t> pixels((size_t) SCREEN_W * SCREEN_H, 0x1234);
+  Canvas canvas(pixels.data(), SCREEN_W, SCREEN_H);
+  canvas.begin_dry();
+  canvas.clear(0xFFFFFF);
+  canvas.fill(0, 0, 100, 100, 0xFF0000);
+  canvas.round_rect(10, 10, 80, 80, 8, 0x00FF00);
+  canvas.ring(100, 100, 20, 30, 0, 270, 0x0000FF, true);
+  canvas.line(0, 0, 200, 200, 4, 0xFFFFFF);
+  canvas.triangle(5, 5, 50, 5, 25, 40, 0xFFFFFF);
+  const int width = canvas.text(FONT_M24, 20, 20, "12.5 V", 0xFFFFFF);
+  const uint32_t sum = canvas.end_dry();
+  bool untouched = true;
+  for (const uint16_t p : pixels) untouched = untouched && p == 0x1234;
+  CHECK(untouched);
+  CHECK(width == Canvas::text_width(FONT_M24, "12.5 V"));
+  // The same calls give the same number; one different argument gives another
+  canvas.begin_dry();
+  canvas.clear(0xFFFFFF);
+  canvas.fill(0, 0, 100, 100, 0xFF0000);
+  canvas.round_rect(10, 10, 80, 80, 8, 0x00FF00);
+  canvas.ring(100, 100, 20, 30, 0, 270, 0x0000FF, true);
+  canvas.line(0, 0, 200, 200, 4, 0xFFFFFF);
+  canvas.triangle(5, 5, 50, 5, 25, 40, 0xFFFFFF);
+  canvas.text(FONT_M24, 20, 20, "12.5 V", 0xFFFFFF);
+  CHECK(canvas.end_dry() == sum);
+  canvas.begin_dry();
+  canvas.clear(0xFFFFFF);
+  canvas.fill(0, 0, 100, 100, 0xFF0000);
+  canvas.round_rect(10, 10, 80, 80, 8, 0x00FF00);
+  canvas.ring(100, 100, 20, 30, 0, 270, 0x0000FF, true);
+  canvas.line(0, 0, 200, 200, 4, 0xFFFFFF);
+  canvas.triangle(5, 5, 50, 5, 25, 40, 0xFFFFFF);
+  canvas.text(FONT_M24, 20, 20, "12.6 V", 0xFFFFFF);
+  CHECK(canvas.end_dry() != sum);
+}
+
+static void test_changed_bands_by_row_sums() {
+  const int w = 15, h = 60;  // an odd width: the last pixel of a row counts too
+  std::vector<uint16_t> frame((size_t) w * h, 0);
+  std::vector<uint32_t> sums((size_t) h, 0);
+  Band bands[4];
+  // Before anything was shown, everything is new
+  CHECK(changed_bands(frame.data(), sums.data(), w, h, bands, 4) == 1);
+  CHECK(bands[0].y0 == 0 && bands[0].y1 == h);
+  CHECK(changed_bands(frame.data(), sums.data(), w, h, bands, 4) == 0);
+  frame[(size_t) 20 * w + 14] = 1;  // the last pixel of row 20
+  frame[(size_t) 50 * w] = 1;
+  CHECK(changed_bands(frame.data(), sums.data(), w, h, bands, 4) == 2);
+  CHECK(bands[0].y0 == 20 && bands[0].y1 == 21);
+  CHECK(bands[1].y0 == 50 && bands[1].y1 == 51);
+  CHECK(changed_bands(frame.data(), sums.data(), w, h, bands, 4) == 0);
+  // Two pixels swapped within a row is a change
+  frame[(size_t) 5 * w + 2] = 7;
+  changed_bands(frame.data(), sums.data(), w, h, bands, 4);
+  frame[(size_t) 5 * w + 2] = 0;
+  frame[(size_t) 5 * w + 3] = 7;
+  CHECK(changed_bands(frame.data(), sums.data(), w, h, bands, 4) == 1);
+}
+
 int main() {
   test_stop_goes_confirm_pin_send();
   test_wrong_pin_sends_nothing();
@@ -566,6 +664,9 @@ int main() {
   test_home_fault_list();
   test_changed_bands();
   test_a_tap_changes_few_rows();
+  test_a_frame_is_drawn_only_when_it_changes();
+  test_the_dry_run_draws_nothing();
+  test_changed_bands_by_row_sums();
   test_everything_draws();
   printf("ui tests: %d checks, %d failed\n", checks, failures);
   return failures ? 1 : 0;

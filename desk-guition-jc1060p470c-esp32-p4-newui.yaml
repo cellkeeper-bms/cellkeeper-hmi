@@ -1,0 +1,62 @@
+# The desk Guition display with the new LCD UI (components/hmi_ui) in place of the LVGL UI.
+# Same device name, keys and entities as desk-guition-jc1060p470c-esp32-p4.yaml, which is the
+# way back: flash that file to return to the LVGL UI.
+
+esphome:
+  name: ck0
+  friendly_name: CK0
+  min_version: 2025.11.0
+  # Its own build folder: three device files are named ck0
+  build_path: build/ck0-desk-newui
+  project:
+    name: "CellKeeper.ESP32-P4-JC1060P470"
+    version: "1.0b"
+
+substitutions:
+  hmi_pin: !secret hmi_pin  # PIN for commands and for unlocking the settings
+
+packages:
+  core: !include bms_core.yaml
+  hardware: !include hardware_guition_jc1060p470-usb-base.yaml
+  ui: !include ui_new_1024x600.yaml
+
+# Bench only: GET /screenshot.raw[?page=N] for tools/screenshot.py
+hmi_ui:
+  screenshot: true
+
+web_server:
+  port: 80
+  auth:
+    username: !secret web_server_username
+    password: !secret web_server_password
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  power_save_mode: none
+  reboot_timeout: 0s
+
+api:
+  encryption:
+    key: !secret api_encryption_key
+  reboot_timeout: 0s
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+    on_begin:
+      then:
+        - lambda: id(lcd_ui).show_message("Firmware update", "The display restarts when it is done.");
+    on_error:
+      then:
+        - lambda: id(lcd_ui).resume();
+  - platform: web_server
+    on_begin:
+      then:
+        - lambda: id(lcd_ui).show_message("Firmware update", "The display restarts when it is done.");
+    on_error:
+      then:
+        - lambda: id(lcd_ui).resume();
+
+safe_mode:
+  disabled: true

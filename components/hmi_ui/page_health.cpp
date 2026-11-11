@@ -105,8 +105,7 @@ void draw_health(Frame &f) {
   c.text(FONT_R14, rx + 16, by + 12, "LINKS", t.caption);
   const bool linked = m.link == Link::OK;
   row(c, t, rx + 16, by + 44, rw - 32, "Display to BMS", linked ? "OK, protocol 2" : "no answer", linked ? t.good : t.warning);
-  row(c, t, rx + 16, by + 80, rw - 32, "Checksum errors / timeouts",
-      fmt("%u / %u", (unsigned) m.link_crc_errors, (unsigned) m.link_timeouts));
+  row(c, t, rx + 16, by + 80, rw - 32, "BMS board", m.board_revision[0] ? m.board_revision : "--");
   row(c, t, rx + 16, by + 116, rw - 32, "Inverter", std::isnan(m.inverter_soc) ? "not seen on CAN" : "talking on CAN",
       std::isnan(m.inverter_soc) ? t.caption : t.good);
   row(c, t, rx + 16, by + 152, rw - 32, "Wi-Fi", m.wifi_ssid[0] ? fmt("%s, %d dBm", m.wifi_ssid, m.wifi_rssi) : "not connected");

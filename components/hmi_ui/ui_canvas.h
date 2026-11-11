@@ -5,6 +5,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 
 namespace hmiui {
 
@@ -38,6 +39,18 @@ class Canvas {
  public:
   Canvas(uint16_t *pixels, int width, int height) : px_(pixels), w_(width), h_(height) { this->reset_clip(); }
 
+  // A dry run: until end_dry() nothing is drawn. What would have been drawn is summed up in
+  // one number instead, so that a frame can be compared with the one before it without
+  // drawing either. Drawing a frame costs tens of milliseconds; a dry run costs one or two.
+  void begin_dry() {
+    dry_ = true;
+    sum_ = 2166136261u;
+  }
+  uint32_t end_dry() {
+    dry_ = false;
+    return sum_;
+  }
+
   int width() const { return w_; }
   int height() const { return h_; }
   const uint16_t *pixels() const { return px_; }
@@ -67,6 +80,24 @@ class Canvas {
 
  protected:
   void blend_(int x, int y, uint32_t r, uint32_t g, uint32_t b, uint32_t alpha /* 0..255 */);
+  // In a dry run: adds one drawing call with its arguments to the sum, and says "don't draw"
+  void sum_up_(uint32_t v) { sum_ = (sum_ ^ v) * 16777619u; }
+  static uint32_t bits_(int v) { return (uint32_t) v; }
+  static uint32_t bits_(uint32_t v) { return v; }
+  static uint32_t bits_(bool v) { return v ? 1u : 0u; }
+  static uint32_t bits_(float v) {
+    uint32_t u;
+    memcpy(&u, &v, sizeof(u));
+    return u;
+  }
+  template<typename... Args> bool dry_call_(uint32_t what, Args... args) {
+    if (!dry_) return false;
+    this->sum_up_(what);
+    (this->sum_up_(bits_(args)), ...);
+    return true;
+  }
+  bool dry_ = false;
+  uint32_t sum_ = 0;
   uint16_t *px_;
   int w_, h_;
   int cx0_, cy0_, cx1_, cy1_;  // clip, x1/y1 exclusive

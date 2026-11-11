@@ -220,7 +220,7 @@ static void number_pad(Frame &f) {
   const float typed = (float) atof(p.entry);
   const bool has_digit = strpbrk(p.entry, "0123456789") != nullptr;
   const bool ok = has_digit && typed >= s.min && typed <= s.max;
-  row(f.c, f.t, x + 32, y + 224, lw, "Now", fmt("%.*f %s", s.decimals, (double) s.value, s.unit));
+  row(f.c, f.t, x + 32, y + 224, lw, "Now", std::isnan(s.value) ? "--" : fmt("%.*f %s", s.decimals, (double) s.value, s.unit));
   row(f.c, f.t, x + 32, y + 260, lw, "Allowed", fmt("%.*f to %.*f %s", s.decimals, (double) s.min, s.decimals, (double) s.max, s.unit),
       has_digit && !ok ? f.t.warning : 0);
   text_wrap(f.c, FONT_R16, x + 32, y + 304, lw, "The page shows the new value once the BMS has confirmed it.", f.t.caption, 3);

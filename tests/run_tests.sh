@@ -9,5 +9,5 @@ g++ -std=c++17 -O1 -g -Wall -Wextra -Werror -fsanitize=address,undefined \
 
 # The LCD UI's behaviour: taps, pop-ups, what it asks the device to do
 out_ui="${TMPDIR:-/tmp}/hmi_ui_test"
-g++ -std=c++17 -O1 -g -Wall -Wextra -Werror -fsanitize=address,undefined   -o "$out_ui" ui_test.cpp ../components/hmi_ui/*.cpp
+g++ -std=c++17 -O1 -g -Wall -Wextra -Werror -fsanitize=address,undefined   -o "$out_ui" ui_test.cpp ../components/hmi_ui/ui*.cpp ../components/hmi_ui/page_*.cpp
 "$out_ui"

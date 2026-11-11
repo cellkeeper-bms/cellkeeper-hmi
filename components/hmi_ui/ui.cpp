@@ -27,7 +27,7 @@ void Ui::draw_(Frame &f) {
   }
 }
 
-void Ui::frame(Canvas &c, const Model &m, const Input &input, Actions &actions, uint32_t now_ms, HitTrace *trace) {
+bool Ui::frame(Canvas &c, const Model &m, const Input &input, Actions &actions, uint32_t now_ms, HitTrace *trace) {
   const bool pressed = input.down && !was_down_, released = !input.down && was_down_;
   int dx = 0, dy = 0;
   if (pressed) {
@@ -50,6 +50,8 @@ void Ui::frame(Canvas &c, const Model &m, const Input &input, Actions &actions, 
     state = UiState();
   }
 
+  // First a dry run: the widgets see the touch and react, and what the frame would look like
+  // is summed up without drawing it.
   Frame f{c, theme, m, state, actions, now_ms};
   f.down = input.down;
   f.released = released;
@@ -62,22 +64,34 @@ void Ui::frame(Canvas &c, const Model &m, const Input &input, Actions &actions, 
   f.dy = dy;
   f.trace = trace;
   if (trace != nullptr) trace->count = 0;
+  c.begin_dry();
   this->draw_(f);
+  uint32_t sum = c.end_dry();
+  // The frame as it is after the touch was dealt with: the touch itself is no longer in it
+  auto settled = [&](HitTrace *record) {
+    Frame after{c, theme, m, state, actions, now_ms};
+    after.down = input.down;
+    after.dragging = dragging_;
+    after.tx = last_x_;
+    after.ty = last_y_;
+    after.press_x = press_x_;
+    after.press_y = press_y_;
+    after.trace = record;
+    if (record != nullptr) record->count = 0;
+    this->draw_(after);
+  };
   if (f.changed) {
-    // Something was tapped or moved: draw again so the frame shows the state after it. The
-    // touch has been dealt with, so this pass sees none.
-    Frame again{c, theme, m, state, actions, now_ms};
-    again.down = input.down;
-    again.dragging = dragging_;
-    again.tx = last_x_;
-    again.ty = last_y_;
-    again.press_x = press_x_;
-    again.press_y = press_y_;
-    again.trace = trace;
-    if (trace != nullptr) trace->count = 0;
-    this->draw_(again);
+    // Something was tapped or moved: the frame to show is the one after it
+    c.begin_dry();
+    settled(trace);
+    sum = c.end_dry();
   }
   was_down_ = input.down;
+  if (drawn_ && sum == drawn_sum_) return false;
+  settled(nullptr);
+  drawn_ = true;
+  drawn_sum_ = sum;
+  return true;
 }
 
 }  // namespace hmiui

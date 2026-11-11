@@ -81,7 +81,7 @@ static void settings_section(Frame &f) {
       const bool held = m.settings_unlocked && f.held(x + cw - vw, y + 2, vw, row_h - 8);
       c.round_rect(x + cw - vw, y + 2, vw, row_h - 8, 8, held ? 0x38444A : (m.settings_unlocked ? 0x222A2E : t.card));
       c.round_frame(x + cw - vw, y + 2, vw, row_h - 8, 8, 1, m.settings_unlocked ? 0x3A464B : t.card_border);
-      c.text(FONT_M20, x + cw - vw / 2, y + 8, fmt("%.*f %s", s.decimals, (double) s.value, s.unit),
+      c.text(FONT_M20, x + cw - vw / 2, y + 8, std::isnan(s.value) ? "--" : fmt("%.*f %s", s.decimals, (double) s.value, s.unit),
              m.settings_unlocked ? t.text : t.text_dim, CENTER);
       if (m.settings_unlocked && hot(f, x + cw - vw, y + 2, vw, row_h - 8, s.name)) open_number(f.s, i);
       y += row_h;

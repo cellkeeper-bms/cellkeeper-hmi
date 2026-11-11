@@ -1,0 +1,269 @@
+# The LCD UI without LVGL (components/hmi_ui) for the 1024x600 displays: where each value the
+# pages show comes from, and what is done with what the pages ask for.
+# A device file includes this in place of ui_1024x600.yaml (the LVGL UI).
+
+esphome:
+  includes:
+    - ui_new/ui_glue.h
+  on_boot:
+    priority: -200
+    then:
+      - lambda: |-
+          // The BMS settings the settings page lists: group, name, entity, scale to the unit
+          // shown, decimals, unit shown
+          ui_glue::bound_settings() = {
+              {"Current", "Max charge current", id(max_charge), 1.0f, 1, "A"},
+              {"Current", "Max discharge current", id(max_discharge), 1.0f, 1, "A"},
+              {"Cell voltage", "Working range, bottom", id(cv_working_min), 0.001f, 3, "V"},
+              {"Cell voltage", "Working range, top", id(cv_working_max), 0.001f, 3, "V"},
+              {"Cell voltage", "Soft limit, low", id(cv_soft_min), 0.001f, 3, "V"},
+              {"Cell voltage", "Soft limit, high", id(cv_soft_max), 0.001f, 3, "V"},
+              {"Sent to the inverter", "Voltage offset, lower", id(v_offset_lower), 0.1f, 1, "V"},
+              {"Sent to the inverter", "Voltage offset, upper", id(v_offset_upper), 0.1f, 1, "V"},
+              {"State of charge", "SoC scaling, bottom", id(soc_scale_min), 1.0f, 0, "%"},
+              {"State of charge", "SoC scaling, top", id(soc_scale_max), 1.0f, 0, "%"},
+              {"State of charge", "Set SoC now", id(soc_set_cmd), 1.0f, 0, "%"},
+              {"Balancing", "Start above", id(bal_start_v), 0.001f, 3, "V"},
+              {"Balancing", "Never below", id(min_bal_v), 0.001f, 3, "V"},
+              {"Balancing", "Leave a spread of", id(bal_min_offset), 1.0f, 0, "mV"},
+              {"Balancing", "Periods per mV", id(bal_periods_mv), 1.0f, 0, ""},
+              {"Balancing", "Automatic every", id(auto_bal_period), 0.001f, 0, "s"},
+              {"Balance charge", "Every", id(balance_charge_interval), 1.0f, 0, "days"},
+              {"Balance charge", "Start hour", id(balance_charge_start_hour), 1.0f, 0, "h"},
+              {"Balance charge", "Lasts", id(balance_charge_duration), 1.0f, 0, "h"},
+              {"Balance charge", "Charge offset", id(balance_charge_offset), 0.1f, 1, "V"},
+              {"Balance charge", "Float offset", id(balance_charge_float_offset), 0.1f, 1, "V"},
+          };
+      # The brightness that was set on the display, kept across restarts
+      - light.turn_on:
+          id: display_backlight
+          brightness: !lambda 'return clamp(id(hmi_brightness), 0.05f, 1.0f);'
+
+globals:
+  - id: hmi_brightness
+    type: float
+    restore_value: yes
+    initial_value: '0.4'
+
+hmi_ui:
+  id: lcd_ui
+  display_id: my_display
+  touchscreen_id: my_touchscreen
+  pin_code: "${hmi_pin}"
+  fill: !lambda |-
+    using namespace hmiui;
+    // ---- the link ----
+    const uint32_t silent = id(hub).ms_since_rx();
+    m.link = id(hub).is_incompatible() ? Link::WRONG_PROTOCOL
+             : (silent > 5000 ? Link::NO_DATA : (id(hub).is_link_ready() ? Link::OK : Link::CONNECTING));
+    m.link_silent_s = silent == UINT32_MAX ? 0 : silent / 1000;
+    m.pack_name = App.get_name().c_str();
+
+    // ---- state ----
+    const float state = id(system_state).state;
+    m.system_state = std::isnan(state) || state < 0 || state > 5 ? SystemState::UNKNOWN : (SystemState) (int) state;
+    const float contactors = id(contactor_state).state;
+    m.contactor_state = std::isnan(contactors) ? 0 : (uint8_t) contactors;
+    m.contactors_closed = m.contactor_state == 8;
+    m.precharging = m.contactor_state == 6 || m.contactor_state == 7;
+    m.contactor_state_text = id(contactor_state_text).state.c_str();
+
+    // ---- pack ----
+    m.soc = id(soc).state;
+    m.pack_voltage = id(voltage_mV).state;
+    m.output_voltage = id(output_voltage_mV).state;
+    m.link_voltage = id(link_voltage).state;
+    m.current = id(current_mA).state;
+    m.power = id(power_w).state;
+    m.contactor_pos_v = id(pos_contactor_voltage).state;
+    m.contactor_neg_v = id(neg_contactor_voltage).state;
+
+    // ---- cells ----
+    {
+      const auto &cells = id(hub).get_cell_voltage_sensors();
+      const auto &timers = id(hub).get_balancing_time_sensors();
+      float sum = 0;
+      for (size_t i = 0; i < cells.size() && i < (size_t) MAX_CELLS; i++) {
+        const float v = cells[i]->state;
+        if (std::isnan(v) || v <= 0) continue;
+        m.cell_mv[i] = v * 1000.0f;
+        sum += v;
+        m.cell_count++;
+      }
+      for (size_t i = 0; i < timers.size() && i < (size_t) MAX_CELLS; i++) {
+        const float s = timers[i]->state;
+        m.balance_s[i] = std::isnan(s) || s < 0 ? 0 : (uint16_t) s;
+      }
+      ui_glue::parse_cells(id(cells_balancing_active).state, m.balancing_now, MAX_CELLS);
+      if (m.cell_count > 0) m.cell_avg = sum / m.cell_count;
+      m.cell_min = id(cell_min).state;
+      m.cell_max = id(cell_max).state;
+      const float left = id(max_balancing_timer).state;
+      m.balance_cycle_left_s = std::isnan(left) || left < 0 ? 0 : (uint32_t) left;
+    }
+
+    // ---- temperatures ----
+    {
+      sensor::Sensor *const temps[] = {id(module_temperature_1), id(module_temperature_2), id(module_temperature_3),
+                                       id(module_temperature_4), id(module_temperature_5), id(module_temperature_6),
+                                       id(module_temperature_7), id(module_temperature_8)};
+      for (int i = 0; i < 8; i++) {
+        m.module_temp[i] = temps[i]->state;
+        if (!std::isnan(m.module_temp[i])) m.module_count = i + 1;
+      }
+      m.temp_min = id(module_temperature_min).state;
+      m.temp_max = id(module_temperature_max).state;
+      m.bms_chip_temp = id(bms_chip_temp).state;
+      m.shunt_temp = id(shunt_die_temp).state;
+      m.shunt_ntc_temp = id(shunt_ntc_temp).state;
+      m.hmi_chip_temp = id(hmi_internal_temp).state;
+    }
+
+    // ---- current limits ----
+    m.charge_limit = ui_glue::limit(id(charge_current_limit).state);
+    m.discharge_limit = ui_glue::limit(id(discharge_current_limit).state);
+    {
+      const float chg = id(charge_current_limit).state, dis = id(discharge_current_limit).state;
+      ui_glue::add_part(m.charge_parts, m.charge_part_count, "hard limit", id(hard_charge_current_limit).state, chg, m.charge_limited_by);
+      ui_glue::add_part(m.charge_parts, m.charge_part_count, "temperature", id(temp_charge_current_limit).state, chg, m.charge_limited_by);
+      ui_glue::add_part(m.charge_parts, m.charge_part_count, "cell voltage", id(cell_voltage_charge_current_limit).state, chg, m.charge_limited_by);
+      ui_glue::add_part(m.charge_parts, m.charge_part_count, "top of working range", id(working_charge_current_limit).state, chg, m.charge_limited_by);
+      ui_glue::add_part(m.charge_parts, m.charge_part_count, "cell spread", id(delta_charge_current_limit).state, chg, m.charge_limited_by);
+      ui_glue::add_part(m.charge_parts, m.charge_part_count, "max charge setting", id(max_charge).state, chg, m.charge_limited_by);
+      ui_glue::add_part(m.discharge_parts, m.discharge_part_count, "hard limit", id(hard_discharge_current_limit).state, dis, m.discharge_limited_by);
+      ui_glue::add_part(m.discharge_parts, m.discharge_part_count, "temperature", id(temp_discharge_current_limit).state, dis, m.discharge_limited_by);
+      ui_glue::add_part(m.discharge_parts, m.discharge_part_count, "cell voltage", id(cell_voltage_discharge_current_limit).state, dis, m.discharge_limited_by);
+      ui_glue::add_part(m.discharge_parts, m.discharge_part_count, "bottom of working range", id(working_discharge_current_limit).state, dis, m.discharge_limited_by);
+      ui_glue::add_part(m.discharge_parts, m.discharge_part_count, "max discharge setting", id(max_discharge).state, dis, m.discharge_limited_by);
+    }
+
+    // ---- capacity and energy ----
+    m.capacity_ah = id(capacity_mC).state;
+    m.nameplate_ah = id(nameplate_capacity).state;
+    m.learned_ah = id(learned_capacity).state;
+    m.today_in_kwh = id(energy_charged_daily).state;
+    m.today_out_kwh = id(energy_discharged_daily).state;
+    m.lifetime_in_kwh = id(lifetime_energy_charged).state;
+    m.lifetime_out_kwh = id(lifetime_energy_discharged).state;
+
+    // ---- what the inverter is told ----
+    m.inverter_soc = id(inverter_can_soc).state;
+    m.inverter_charge_v = id(inverter_can_voltage_limit_max).state;
+    m.inverter_discharge_v = id(inverter_can_voltage_limit_min).state;
+
+    // ---- events: one sensor per event type, in the firmware's order ----
+    {
+      const auto &events = id(hub).get_event_sensors();
+      for (size_t type = 0; type < events.size() && m.event_count < MAX_EVENTS; type++) {
+        if (events[type] == nullptr) continue;
+        Event e{(uint8_t) type, Level::INACTIVE, 0, 0};
+        if (ui_glue::parse_event(events[type]->state, e.level, e.count, e.data)) m.events[m.event_count++] = e;
+      }
+    }
+
+    // ---- supervisor ----
+    {
+      const std::string &sv = id(supervisor_state).state;
+      m.supervisor_state = sv == "Enabled" ? 1 : (sv == "Disabled" ? 0 : (sv == "Latched off" ? 2 : -1));
+      m.supervisor_reasons = id(supervisor_reasons).state.c_str();
+    }
+
+    // ---- supplies, isolation ----
+    m.v3v3 = id(supply_3v3).state;
+    m.v5 = id(supply_5v).state;
+    m.v12 = id(supply_12v).state;
+    m.v_contactor = id(supply_ctr).state;
+    m.isolation_kohm = id(iso_resistance).state * 1000.0f;  // the entity is in megohms
+    m.isolation_pos_v = id(pack_pos_chassis).state;
+    m.isolation_neg_v = id(pack_neg_chassis).state;
+    {
+      const float age = id(iso_check_age).state;
+      m.isolation_age_s = std::isnan(age) || age < 0 ? 0 : (uint32_t) age;
+    }
+
+    // ---- what it is ----
+    m.bms_serial = id(serial).state.c_str();
+    m.bms_firmware = id(bms_fw_ts).state.c_str();
+    m.hmi_firmware = id(hmi_fw_ts).state.c_str();
+    m.board_revision = id(board_revision_ts).state.c_str();
+    {
+      const float bms_up = id(uptime_pico_sec).state, hmi_up = id(uptime_hmi_sec).state;
+      m.bms_uptime_s = std::isnan(bms_up) ? 0 : (uint32_t) bms_up;
+      m.hmi_uptime_s = std::isnan(hmi_up) ? millis() / 1000 : (uint32_t) hmi_up;
+    }
+    m.wifi_ssid = id(wifi_ssid_sensor).state.c_str();
+    m.ip = id(wifi_ip_sensor).state.c_str();
+    m.wifi_ap = id(wifi_bssid_sensor).state.c_str();
+    m.wifi_rssi = std::isnan(id(wifi_rssi_sensor).state) ? 0 : (int) id(wifi_rssi_sensor).state;
+    {
+      static char clock[8];
+      const auto now = id(homeassistant_time).now();
+      if (now.is_valid()) {
+        snprintf(clock, sizeof(clock), "%02d:%02d", now.hour, now.minute);
+        m.clock = clock;
+      }
+    }
+
+    // ---- balance charge, settings, log ----
+    m.balance_charge_status = id(balance_charge_status).state.c_str();
+    ui_glue::fill_settings(m);
+    m.settings_unlocked = id(hub).is_settings_unlocked();
+    m.log_enabled = id(hub).is_log_enabled();
+    m.brightness = (uint8_t) (clamp(id(hmi_brightness), 0.05f, 1.0f) * 100.0f + 0.5f);
+
+  on_command:
+    - lambda: |-
+        using hmiui::Command;
+        ESP_LOGI("hmi_ui", "Command from the display: %s", hmiui::command_name(command));
+        switch (command) {
+          case Command::RUN: id(btn_web_run).press(); break;
+          case Command::STOP: id(btn_web_stop).press(); break;
+          case Command::CALIBRATE_OFFLINE_LONG: id(btn_web_calibrate).press(); break;
+          case Command::CALIBRATE_OFFLINE_SHORT: id(btn_web_calibrate_short).press(); break;
+          case Command::CALIBRATE_ONLINE: id(btn_web_calibrate_online).press(); break;
+          case Command::ISOLATION_ZERO: id(btn_isolation_zero).press(); break;
+          case Command::BALANCE_CHARGE_START: id(balance_charge_start_now).press(); break;
+          case Command::BALANCE_CHARGE_STOP: id(balance_charge_stop).press(); break;
+          case Command::RESTART_DISPLAY: App.safe_reboot(); break;
+          case Command::WIFI_FORGET:
+            // As the LVGL UI did it. The saved network is loaded again at the next start
+            // (audit bug 10): still to be fixed.
+            wifi::global_wifi_component->clear_sta();
+            App.safe_reboot();
+            break;
+          default: break;  // WIFI_SCAN: the list is not filled yet
+        }
+  on_write_setting:
+    - lambda: |-
+        ESP_LOGI("hmi_ui", "Setting %d from the display: %g", index, value);
+        ui_glue::write_setting(index, value);
+  on_settings_unlocked:
+    - lambda: id(hub).set_settings_unlocked(unlocked);
+  on_brightness:
+    - lambda: |-
+        id(hmi_brightness) = percent / 100.0f;
+        auto call = id(display_backlight).turn_on();
+        call.set_brightness(id(hmi_brightness));
+        call.perform();
+  on_log_enabled:
+    - lambda: |-
+        if (on) {
+          id(log_enable).turn_on();
+        } else {
+          id(log_enable).turn_off();
+        }
+  on_wifi_join:
+    - lambda: |-
+        ESP_LOGI("hmi_ui", "Joining Wi-Fi network %s from the display", ssid.c_str());
+        wifi::global_wifi_component->save_wifi_sta(ssid, password);
+    - delay: 2s
+    - lambda: App.safe_reboot();
+  # Untouched for five minutes: dim. The first touch only brings the brightness back.
+  on_idle:
+    - light.turn_on:
+        id: display_backlight
+        brightness: 10%
+  on_wake:
+    - light.turn_on:
+        id: display_backlight
+        brightness: !lambda 'return clamp(id(hmi_brightness), 0.05f, 1.0f);'

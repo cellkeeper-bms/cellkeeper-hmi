@@ -11,7 +11,7 @@ external_components:
   - source:
       type: local
       path: components
-    components: [ hmi_bms, lcd_screenshot ]
+    components: [ hmi_bms, hmi_ui, lcd_screenshot ]
 
 # Time component required for daily energy sensors
 time:
@@ -87,6 +87,7 @@ sensor:
       name: "Capacity"
       unit_of_measurement: "Ah"
     nameplate_capacity:
+      id: nameplate_capacity
       name: "Nameplate Capacity"
       icon: mdi:battery-outline
     learned_capacity:
@@ -110,12 +111,15 @@ sensor:
       icon: mdi:battery-arrow-down-outline
       filters: [delta: 0.1]
     lifetime_energy_charged:
+      id: lifetime_energy_charged
       name: "Lifetime Energy Charged"
       filters: [delta: 0.01]
     lifetime_energy_discharged:
+      id: lifetime_energy_discharged
       name: "Lifetime Energy Discharged"
       filters: [delta: 0.01]
     link_voltage_mV:
+      id: link_voltage
       name: "Link Voltage"
       unit_of_measurement: "V"
       entity_category: diagnostic
@@ -905,6 +909,7 @@ text_sensor:
       name: "Supervisor State"
       icon: mdi:shield-lock-outline
     supervisor_reasons:
+      id: supervisor_reasons
       name: "Supervisor Reasons"
       icon: mdi:shield-alert-outline
     module_ids:
