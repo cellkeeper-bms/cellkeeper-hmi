@@ -16,14 +16,6 @@ static const char *uptime_text(uint32_t s) {
   return fmt("%u:%02u:%02u", (unsigned) (s / 3600), (unsigned) (s % 3600 / 60), (unsigned) (s % 60));
 }
 
-// A padlock, open or closed
-static void padlock(Canvas &c, float cx, float cy, bool open, Rgb color) {
-  c.ring(cx + (open ? 9.0f : 0.0f), cy - 5, 5.5f, 8.5f, 180, 360, color);
-  c.line(cx - 7 + (open ? 9.0f : 0.0f), cy - 5, cx - 7 + (open ? 9.0f : 0.0f), cy, 3.0f, color);
-  if (!open) c.line(cx + 7, cy - 5, cx + 7, cy, 3.0f, color);
-  c.round_rect((int) cx - 11, (int) cy - 1, 22, 17, 4, color);
-}
-
 static void settings_section(Canvas &c, const Theme &t, const Model &m) {
   const int w = X1 - X0;
   // The lock
@@ -52,7 +44,8 @@ static void settings_section(Canvas &c, const Theme &t, const Model &m) {
     const int need = row_h + (new_group ? 26 : 0);
     if (y + need > Y1 - 8) {
       if (col == 1) {
-        c.text(FONT_R14, X1 - 16, Y1 - 26, fmt("%d more below  ↓", m.setting_count - i), t.out, RIGHT);
+        c.text(FONT_R14, X1 - 22, Y1 - 26, fmt("%d more below", m.setting_count - i), t.out, RIGHT);
+        scrollbar(c, t, X1 - 10, top + 8, Y1 - top - 16, 0.0f, (float) i / m.setting_count);
         break;
       }
       col = 1;
@@ -106,6 +99,25 @@ static void display_section(Canvas &c, const Theme &t, const Model &m) {
   button(c, t, rx + 16 + bw + 12, Y1 - 16 - 60, bw, 60, "Forget");
 }
 
+// Every register the BMS lists, with its number and what it reads now
+static void registers_view(Canvas &c, const Theme &t, const Model &m) {
+  const int w = X1 - X0, h = Y1 - BODY_Y;
+  card(c, t, X0, BODY_Y, w, h);
+  c.text(FONT_R14, X0 + 16, BODY_Y + 20, "RAW REGISTERS", t.caption);
+  c.text(FONT_R14, X0 + 144, BODY_Y + 20, fmt("%d listed by the BMS, as it sends them", m.register_count), t.hint);
+  button(c, t, X1 - 16 - 170, BODY_Y + 8, 170, 44, "‹  Log");
+  const int ty = BODY_Y + 62, th = h - 62 - 12, rows = (th - 16) / 21, colw = (w - 24) / 2;
+  c.round_rect(X0 + 12, ty, w - 24, th, 8, 0x050606);
+  for (int i = 0; i < m.register_count && i < 2 * rows; i++) {
+    const RegisterRow &r = m.registers[i];
+    const int x = X0 + 26 + (i / rows) * colw, y = ty + 10 + (i % rows) * 21;
+    c.text(FONT_MONO14, x, y, fmt("%04X", r.id), t.caption);
+    c.text(FONT_MONO14, x + 48, y, r.name, t.text_dim);
+    c.text(FONT_MONO14, x + colw - 30, y, r.value, t.text, RIGHT);
+  }
+  if (m.register_count > 2 * rows) scrollbar(c, t, X1 - 22, ty + 8, th - 16, 0.0f, 2.0f * rows / m.register_count);
+}
+
 static void log_section(Canvas &c, const Theme &t, const Model &m) {
   const int w = X1 - X0, h = Y1 - BODY_Y;
   card(c, t, X0, BODY_Y, w, h);
@@ -154,7 +166,7 @@ static void about_section(Canvas &c, const Theme &t, const Model &m) {
   c.text(FONT_R14, rx + 16, Y1 - 40, "github.com/cellkeeper-bms", t.hint);
 }
 
-void draw_setup(Canvas &c, const Theme &t, const Model &m, int section) {
+void draw_setup(Canvas &c, const Theme &t, const Model &m, int section, bool raw_registers) {
   top_line(c, t, m, "Setup");
   // The sections, along the top
   const int w = X1 - X0;
@@ -168,7 +180,7 @@ void draw_setup(Canvas &c, const Theme &t, const Model &m, int section) {
   switch (section) {
     case 0: settings_section(c, t, m); break;
     case 1: display_section(c, t, m); break;
-    case 2: log_section(c, t, m); break;
+    case 2: raw_registers ? registers_view(c, t, m) : log_section(c, t, m); break;
     default: about_section(c, t, m); break;
   }
   // The BMS settings and its log need the BMS; the display's own pages don't

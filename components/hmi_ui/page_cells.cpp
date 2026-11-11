@@ -68,18 +68,16 @@ void draw_cells(Canvas &c, const Theme &t, const Model &m) {
     if (!std::isnan(m.cell_mv[i])) last = i;
   }
   const int n = last + 1;
-  // Modules: a gap line between them when the cells divide evenly, and each one's temperature
-  const int mods = std::min(m.module_count, MAX_MODULES);
-  const bool even = mods > 1 && n % mods == 0;
-  for (int k = 0; k < mods; k++) {
-    const int x0 = px + k * pw / mods, x1 = px + (k + 1) * pw / mods;
-    if (even && k > 0) c.fill(x0 - 1, py - 6, 1, ph + 34, t.track);
-    if (even) c.text(FONT_R14, x0 + 3, py + ph + 6, fmt("%d", k * (n / mods) + 1), t.hint);
-    const int mx = (x0 + x1) / 2;
-    c.text(FONT_R14, mx, py + ph + 34, fmt("MODULE %d", k + 1), t.caption, CENTER);
-    num_unit(c, mx, py + ph + 76, FONT_M24, value(m.module_temp[k], "%.1f"), FONT_R18, "°C", t.text, t.caption, CENTER);
-  }
+  // Cell numbers along the bottom, and under them the pack's temperature sensors
+  for (int i = 0; i < n; i += 12) c.text(FONT_R14, px + i * pw / n + 1, py + ph + 6, fmt("%d", i + 1), t.hint);
   c.text(FONT_R14, px + pw, py + ph + 6, fmt("%d", n), t.hint, RIGHT);
+  const int mods = std::min(m.module_count, MAX_MODULES);
+  if (mods > 0) c.text(FONT_R14, px - 10, py + ph + 54, "°C", t.hint, RIGHT);
+  for (int k = 0; k < mods; k++) {
+    const int mx = px + (2 * k + 1) * pw / (2 * mods);
+    c.text(FONT_R14, mx, py + ph + 32, fmt("TEMP %d", k + 1), t.caption, CENTER);
+    c.text(FONT_M24, mx, py + ph + 48, value(m.module_temp[k], "%.1f"), t.text, CENTER);
+  }
   for (int i = 0; i < n; i++) {
     const float mv = m.cell_mv[i];
     if (std::isnan(mv)) continue;

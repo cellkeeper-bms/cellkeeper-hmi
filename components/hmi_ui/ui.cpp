@@ -11,10 +11,11 @@ void Ui::render(Canvas &c, const Model &m, uint32_t now_ms) {
     case Page::CELLS: draw_cells(c, theme, m); break;
     case Page::POWER: draw_power(c, theme, m); break;
     case Page::HEALTH: draw_health(c, theme, m); break;
-    case Page::EVENTS: draw_events(c, theme, m); break;
+    case Page::EVENTS: draw_events(c, theme, m, all_event_types); break;
     case Page::CONTROL: draw_control(c, theme, m); break;
-    default: draw_setup(c, theme, m, setup_section); break;
+    default: draw_setup(c, theme, m, setup_section, raw_registers); break;
   }
+  if (popup.kind != Overlay::NONE) draw_popup(c, theme, m, popup);
 }
 
 }  // namespace hmiui

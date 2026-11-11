@@ -115,6 +115,12 @@ const char *event_title(uint8_t type) {
   return out;
 }
 
+const char *event_name(uint8_t type) {
+  return type < esphome::hmi_bms::HMI_EVENT_COUNT ? esphome::hmi_bms::HMI_EVENT_NAMES[type] : "";
+}
+
+int event_type_count() { return esphome::hmi_bms::HMI_EVENT_COUNT; }
+
 const char *event_help(uint8_t type) {
   if (type >= esphome::hmi_bms::HMI_EVENT_COUNT) return "";
   const char *name = esphome::hmi_bms::HMI_EVENT_NAMES[type];

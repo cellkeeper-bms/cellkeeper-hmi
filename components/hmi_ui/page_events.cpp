@@ -6,8 +6,46 @@
 
 namespace hmiui {
 
-void draw_events(Canvas &c, const Theme &t, const Model &m) {
+// Every event type the firmware has, in its order: which are active, which happened earlier
+static void all_types(Canvas &c, const Theme &t, const Model &m) {
+  const int w = X1 - X0, h = Y1 - Y0, rows = 20, colw = (w - 32) / 3;
+  card(c, t, X0, Y0, w, h);
+  c.text(FONT_R14, X0 + 16, Y0 + 16, fmt("ALL EVENT TYPES  ·  %d", event_type_count()), t.caption);
+  int lx = X0 + 250;
+  c.disc(lx, Y0 + 25.0f, 5.0f, t.fatal);
+  lx += 12 + c.text(FONT_R14, lx + 10, Y0 + 16, "active, in its level's colour", t.caption) + 24;
+  c.disc(lx, Y0 + 25.0f, 5.0f, t.caption);
+  lx += 12 + c.text(FONT_R14, lx + 10, Y0 + 16, "happened earlier", t.caption) + 24;
+  c.ring(lx, Y0 + 25.0f, 3.5f, 5.0f, 0, 360, t.track);
+  c.text(FONT_R14, lx + 10, Y0 + 16, "never", t.caption);
+  button(c, t, X1 - 16 - 150, Y0 + 6, 150, 40, "‹  Active");
+  for (int i = 0; i < event_type_count(); i++) {
+    const Event *e = nullptr;
+    for (int k = 0; k < m.event_count; k++) {
+      if (m.events[k].type == i) e = &m.events[k];
+    }
+    const int x = X0 + 16 + (i / rows) * colw, y = Y0 + 56 + (i % rows) * 23;
+    const bool active = e != nullptr && e->level != Level::INACTIVE, earlier = e != nullptr && !active && e->count > 0;
+    if (active) {
+      c.disc(x + 6.0f, y + 9.0f, 5.0f, level_color(t, e->level));
+    } else if (earlier) {
+      c.disc(x + 6.0f, y + 9.0f, 5.0f, t.caption);
+    } else {
+      c.ring(x + 6.0f, y + 9.0f, 3.5f, 5.0f, 0, 360, t.track);
+    }
+    c.text(active ? FONT_M16 : FONT_R14, x + 20, active ? y - 1 : y, event_title((uint8_t) i),
+           active ? t.text : (earlier ? t.text_dim : t.hint));
+    if (e != nullptr && e->count > 1) c.text(FONT_R14, x + colw - 14, y, fmt("×%u", (unsigned) e->count), t.caption, RIGHT);
+  }
+}
+
+void draw_events(Canvas &c, const Theme &t, const Model &m, bool all_types_view) {
   top_line(c, t, m, "Events");
+  if (all_types_view) {
+    all_types(c, t, m);
+    page_end(c, t, m, Page::EVENTS);
+    return;
+  }
   const Event *list[MAX_EVENTS];
   const int n = top_events(m, list, MAX_EVENTS, Level::INFO);
   const int lw = 592, h = Y1 - Y0;

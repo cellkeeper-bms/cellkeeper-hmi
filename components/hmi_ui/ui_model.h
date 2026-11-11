@@ -48,6 +48,21 @@ struct Setting {
   float value;       // as the BMS confirmed it
   uint8_t decimals;
   const char *unit;
+  float min, max;    // what the BMS accepts
+};
+
+// A register as the raw view lists it
+struct RegisterRow {
+  uint16_t id;
+  const char *name;
+  const char *value;
+};
+
+// A Wi-Fi network the display can see
+struct WifiNetwork {
+  const char *ssid;
+  int rssi;          // dBm
+  bool secured;
 };
 
 struct Model {
@@ -56,6 +71,7 @@ struct Model {
   SystemState system_state = SystemState::UNKNOWN;
   uint8_t contactor_state = 0;      // the firmware's contactors state number
   bool contactors_closed = false;
+  bool precharging = false;         // the output is being charged up through the precharge resistor
   const char *contactor_state_text = "";  // the firmware's name for the contactor state
   float link_voltage = NAN;         // V, between the contactors
   float contactor_pos_v = NAN, contactor_neg_v = NAN;  // V across each contactor
@@ -127,6 +143,10 @@ struct Model {
   const char *const *log_lines = nullptr;
   bool log_enabled = false;
   uint8_t brightness = 68;          // %
+  int register_count = 0;
+  const RegisterRow *registers = nullptr;
+  int wifi_network_count = 0;
+  const WifiNetwork *wifi_networks = nullptr;
 
   // Identity
   const char *pack_name = "";

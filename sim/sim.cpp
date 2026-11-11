@@ -37,39 +37,93 @@ int main(int argc, char **argv) {
   std::vector<uint16_t> frame((size_t) SCREEN_W * SCREEN_H);
   Canvas canvas(frame.data(), SCREEN_W, SCREEN_H);
 
-  const sim::Scenario scenarios[] = {sim::charging(), sim::discharging(), sim::idle(), sim::desk_fault(),
-                                     sim::no_link()};
-  // What to draw: the page, the name its files get, and for Setup which section
+  const sim::Scenario scenarios[] = {sim::charging(),         sim::discharging(), sim::idle(),
+                                     sim::precharge(),        sim::lfp(),         sim::fault_with_cells(),
+                                     sim::desk_fault(),       sim::wrong_protocol(), sim::no_link()};
+  // What to draw: the page, the name its files get, for Setup which section, and anything
+  // open over or instead of the page. A view with `only` is drawn for that scenario alone.
+  enum Extra { PLAIN, ALL_TYPES, REGISTERS, UNLOCKED, CONFIRM_STOP, PIN, PIN_WRONG, NUMBER, WIFI_LIST, KEYBOARD, EVENT };
   struct View {
     Page page;
     const char *name;
     int section;
+    Extra extra;
+    const char *only;
   };
   static const View VIEWS[] = {
-      {Page::HOME, "home", 0},
-      {Page::CELLS, "cells", 0},
-      {Page::POWER, "power", 0},
-      {Page::HEALTH, "health", 0},
-      {Page::EVENTS, "events", 0},
-      {Page::CONTROL, "control", 0},
-      {Page::SETUP, "setup-settings", 0},
-      {Page::SETUP, "setup-display", 1},
-      {Page::SETUP, "setup-log", 2},
-      {Page::SETUP, "setup-about", 3},
+      {Page::HOME, "home", 0, PLAIN, nullptr},
+      {Page::CONTROL, "control", 0, PLAIN, nullptr},
+      {Page::POWER, "power", 0, PLAIN, nullptr},
+      {Page::CELLS, "cells", 0, PLAIN, nullptr},
+      {Page::HEALTH, "health", 0, PLAIN, nullptr},
+      {Page::EVENTS, "events", 0, PLAIN, nullptr},
+      {Page::SETUP, "setup-settings", 0, PLAIN, nullptr},
+      {Page::SETUP, "setup-display", 1, PLAIN, nullptr},
+      {Page::SETUP, "setup-log", 2, PLAIN, nullptr},
+      {Page::SETUP, "setup-about", 3, PLAIN, nullptr},
+      {Page::EVENTS, "events-all-types", 0, ALL_TYPES, "fault-cells"},
+      {Page::EVENTS, "events-all-types", 0, ALL_TYPES, "desk-fault"},
+      {Page::EVENTS, "popup-event", 0, EVENT, "desk-fault"},
+      {Page::CONTROL, "popup-confirm", 0, CONFIRM_STOP, "charging"},
+      {Page::CONTROL, "popup-pin", 0, PIN, "charging"},
+      {Page::CONTROL, "popup-pin-wrong", 0, PIN_WRONG, "charging"},
+      {Page::SETUP, "setup-settings-unlocked", 0, UNLOCKED, "charging"},
+      {Page::SETUP, "popup-number", 0, NUMBER, "charging"},
+      {Page::SETUP, "setup-registers", 2, REGISTERS, "charging"},
+      {Page::SETUP, "popup-wifi-list", 1, WIFI_LIST, "charging"},
+      {Page::SETUP, "popup-keyboard", 1, KEYBOARD, "charging"},
   };
   int written = 0;
   for (const auto &s : scenarios) {
     for (const auto &v : VIEWS) {
+      if (v.only != nullptr && std::string(v.only) != s.name) continue;
       Ui ui;
+      Model model = s.model;
       ui.page = v.page;
       ui.setup_section = v.section;
-      ui.render(canvas, s.model, 0);
+      ui.all_event_types = v.extra == ALL_TYPES;
+      ui.raw_registers = v.extra == REGISTERS;
+      model.settings_unlocked = v.extra == UNLOCKED || v.extra == NUMBER;
+      Popup &p = ui.popup;
+      switch (v.extra) {
+        case CONFIRM_STOP:
+          p.kind = Overlay::CONFIRM;
+          p.title = "Open the contactors?";
+          p.text = "The BMS disconnects the pack from the inverter. The inverter loses its battery until you press Run.";
+          p.action = "Open the contactors";
+          p.danger = true;
+          break;
+        case PIN:
+        case PIN_WRONG:
+          p.kind = Overlay::PIN;
+          p.action = "open the contactors";
+          p.entry = v.extra == PIN ? "12" : "";
+          p.wrong = v.extra == PIN_WRONG;
+          break;
+        case NUMBER:
+          p.kind = Overlay::NUMBER;
+          p.index = 0;
+          p.entry = "85";
+          break;
+        case WIFI_LIST: p.kind = Overlay::WIFI_LIST; break;
+        case KEYBOARD:
+          p.kind = Overlay::KEYBOARD;
+          p.title = "Hakalau Farm";
+          p.entry = "mauka-2";
+          break;
+        case EVENT:
+          p.kind = Overlay::EVENT_DETAIL;
+          p.index = 4;
+          break;
+        default: break;
+      }
+      ui.render(canvas, model, 0);
       const std::string path = out + "/" + v.name + "-" + s.name + ".ppm";
       if (!write_ppm(path, canvas)) {
         fprintf(stderr, "cannot write %s\n", path.c_str());
         return 1;
       }
-      printf("%s  (%s)\n", path.c_str(), s.what);
+      printf("%s\n", path.c_str());
       written++;
     }
   }

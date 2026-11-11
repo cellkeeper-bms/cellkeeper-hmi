@@ -57,6 +57,10 @@ int top_events(const Model &m, const Event *out[], int max, Level at_least);
 const char *event_title(uint8_t type);
 // One line on what the event means; "" if unknown
 const char *event_help(uint8_t type);
+// The firmware's own name ("CELL_VOLTAGES_STALE"); "" if unknown
+const char *event_name(uint8_t type);
+// How many event types the firmware has
+int event_type_count();
 
 // ---- drawing ----
 
@@ -101,13 +105,33 @@ void row(Canvas &c, const Theme &t, int x, int y, int w, const char *label, cons
 void button(Canvas &c, const Theme &t, int x, int y, int w, int h, const char *label, const char *note = "",
             Rgb fill = 0, Rgb text = 0);
 
+// A padlock, open or closed
+void padlock(Canvas &c, float cx, float cy, bool open, Rgb color);
+// How far a list is scrolled: a thin bar with a thumb
+void scrollbar(Canvas &c, const Theme &t, int x, int y, int h, float start, float shown);
+
+// ---- pop-ups: drawn over the page ----
+enum class Overlay : uint8_t { NONE, CONFIRM, PIN, NUMBER, WIFI_LIST, KEYBOARD, EVENT_DETAIL };
+struct Popup {
+  Overlay kind = Overlay::NONE;
+  const char *title = "";   // CONFIRM: the question. KEYBOARD: what is being typed, and for what
+  const char *text = "";    // CONFIRM: what will happen
+  const char *action = "";  // CONFIRM: the button that does it. PIN: what the PIN is for
+  bool danger = false;      // CONFIRM: the action interrupts the pack
+  const char *entry = "";   // what has been typed so far
+  bool wrong = false;       // PIN: the last one entered was wrong
+  bool shifted = false;     // KEYBOARD: capitals
+  int index = -1;           // NUMBER: which setting. EVENT_DETAIL: which of the model's events
+};
+void draw_popup(Canvas &c, const Theme &t, const Model &m, const Popup &p);
+
 // ---- pages: one source file each ----
 void draw_home(Canvas &c, const Theme &t, const Model &m);
 void draw_cells(Canvas &c, const Theme &t, const Model &m);
 void draw_power(Canvas &c, const Theme &t, const Model &m);
 void draw_health(Canvas &c, const Theme &t, const Model &m);
-void draw_events(Canvas &c, const Theme &t, const Model &m);
+void draw_events(Canvas &c, const Theme &t, const Model &m, bool all_types);
 void draw_control(Canvas &c, const Theme &t, const Model &m);
-void draw_setup(Canvas &c, const Theme &t, const Model &m, int section);
+void draw_setup(Canvas &c, const Theme &t, const Model &m, int section, bool raw_registers);
 
 }  // namespace hmiui

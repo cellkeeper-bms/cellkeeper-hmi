@@ -327,6 +327,19 @@ void nav_rail(Canvas &c, const Theme &t, const Model &m, Page selected) {
   }
 }
 
+void padlock(Canvas &c, float cx, float cy, bool open, Rgb color) {
+  const float dx = open ? 9.0f : 0.0f;
+  c.ring(cx + dx, cy - 5, 5.5f, 8.5f, 180, 360, color);
+  c.line(cx - 7 + dx, cy - 5, cx - 7 + dx, cy, 3.0f, color);
+  if (!open) c.line(cx + 7, cy - 5, cx + 7, cy, 3.0f, color);
+  c.round_rect((int) cx - 11, (int) cy - 1, 22, 17, 4, color);
+}
+
+void scrollbar(Canvas &c, const Theme &t, int x, int y, int h, float start, float shown) {
+  c.round_rect(x, y, 4, h, 2, t.track);
+  c.round_rect(x, y + (int) (h * start), 4, std::max(12, (int) (h * shown)), 2, t.caption);
+}
+
 void top_line(Canvas &c, const Theme &t, const Model &m, const char *title, const char *subtitle) {
   const bool linked = m.link == Link::OK;
   const Event *list[MAX_EVENTS];
@@ -352,7 +365,8 @@ void top_line(Canvas &c, const Theme &t, const Model &m, const char *title, cons
     pill(c, rx, 15, system_state_name(m.system_state), fault ? 0xFFFFFF : (run ? t.good : t.text_dim),
          fault ? t.fatal : (run ? mix(t.background, t.good, 0.16f) : t.track), RIGHT, true);
   } else {
-    pill(c, rx, 15, m.link == Link::CONNECTING ? "Connecting" : "No BMS link", 0x000000, t.warning, RIGHT, true);
+    pill(c, rx, 15, m.link == Link::CONNECTING ? "Connecting" : (m.link == Link::WRONG_PROTOCOL ? "Old BMS protocol" : "No BMS link"),
+         0x000000, t.warning, RIGHT, true);
   }
 }
 

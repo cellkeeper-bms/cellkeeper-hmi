@@ -109,7 +109,7 @@ void draw_home(Canvas &c, const Theme &t, const Model &m) {
   // The line: live on the pack side, switched by the contactors
   const int xa = X0 + 24 + 252 + 14, xb = ix, sw_a = (xa + xb) / 2 - 36, sw_b = (xa + xb) / 2 + 36;
   const Rgb live = flow == Flow::CHARGING || flow == Flow::DISCHARGING ? flow_color(t, flow) : (linked ? t.text_dim : t.track);
-  const Rgb far = m.contactors_closed ? live : t.track;
+  const Rgb far = m.contactors_closed ? live : (m.precharging ? mix(t.track, t.text_dim, 0.55f) : t.track);
   const int dir = !m.contactors_closed ? 0 : (flow == Flow::CHARGING ? -1 : (flow == Flow::DISCHARGING ? 1 : 0));
   bus(c, xa, sw_a, by, live, dir);
   bus(c, sw_b, xb, by, far, dir);
@@ -121,7 +121,7 @@ void draw_home(Canvas &c, const Theme &t, const Model &m) {
   c.disc((float) sw_a, by + 0.5f, 8.0f, live);
   c.disc((float) sw_b, by + 0.5f, 8.0f, far);
   const int mid = (xa + xb) / 2;
-  c.text(FONT_R16, mid, by + 17, !linked ? "" : (m.contactors_closed ? "Contactors closed" : "Contactors open"),
+  c.text(FONT_R16, mid, by + 17, !linked ? "" : (m.contactors_closed ? "Contactors closed" : (m.precharging ? "Precharging" : "Contactors open")),
          m.contactors_closed ? t.caption : t.text, CENTER);
   // The power, on the line
   if (linked && m.system_state == SystemState::FAULT) {
