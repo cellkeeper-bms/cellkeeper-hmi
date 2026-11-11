@@ -1104,7 +1104,7 @@ interval:
             ui1024::parse_event_state(s->has_state() ? s->state : std::string(""), lvl, cnt);
             const int grp = ui1024::name_group(name);
             lv_label_set_text(id(event_popup_title), ui1024::short_name(name));
-            std::string body = std::string(ui1024::event_help(t)) + "\n\n" +
+            std::string body = std::string(ui1024::event_help(esphome::hmi_bms::HMIBMS::event_type_name(t))) + "\n\n" +
                                "Severity: " + ui1024::level_name(grp) + "    BMS name: " + esphome::hmi_bms::HMIBMS::event_type_name(t) + "\n" +
                                "Now: " + (lvl > 0 ? ui1024::level_name(lvl) : "inactive") + "    Times active: " + str_sprintf("%d", cnt);
             lv_label_set_text(id(event_popup_text), body.c_str());
@@ -1293,32 +1293,35 @@ interval:
           last_text = millis();
           std::string out;
           if (id(sys_show_raw)) {
-            auto line = [&](const char *name, const std::string &v) { out += str_sprintf("%-28s %s\n", name, v.c_str()); };
-            line("1  Serial", ts(id(serial)));
-            line("3  SoC", f(id(soc).state, "%.2f %%"));
-            line("4  Current", f(id(current_mA).state, "%.3f A"));
-            line("5  Charge", f(id(charge_raw).state, "%.3f Ah"));
-            line("6  Battery voltage", f(id(voltage_mV).state, "%.3f V"));
-            line("7  Output voltage", f(id(output_voltage_mV).state, "%.3f V"));
-            line("8  Pos contactor", f(id(pos_contactor_voltage).state, "%.3f V"));
-            line("9  Neg contactor", f(id(neg_contactor_voltage).state, "%.3f V"));
-            line("10 Temp min", f(id(module_temperature_min).state, "%.1f C"));
-            line("11 Temp max", f(id(module_temperature_max).state, "%.1f C"));
-            line("12 Cell min", f(id(cell_min).state, "%.3f V"));
-            line("13 Cell max", f(id(cell_max).state, "%.3f V"));
-            line("14 System request", f(id(system_req).state, "%.0f"));
-            line("15 System state", ts(id(system_state_text)));
-            line("16 Contactor state", ts(id(contactor_state_text)));
-            line("17 SoC voltage based", f(id(soc_voltage_based).state, "%.2f %%"));
-            line("18 SoC basic count", f(id(soc_basic_count).state, "%.2f %%"));
-            line("20 Capacity", f(id(capacity_mC).state, "%.2f Ah"));
-            line("21 3V3", f(id(supply_3v3).state, "%.3f V"));
-            line("22 5V", f(id(supply_5v).state, "%.3f V"));
-            line("23 12V", f(id(supply_12v).state, "%.3f V"));
-            line("24 Contactor supply", f(id(supply_ctr).state, "%.3f V"));
-            line("37 Inverter SoC", f(id(inverter_can_soc).state, "%.1f %%"));
-            line("45 Charge limit", f(id(charge_current_limit).state, "%.1f A"));
-            line("46 Discharge limit", f(id(discharge_current_limit).state, "%.1f A"));
+            // Each value with its register ID (hex), as the BMS firmware's hmi_serial.h has it
+            auto line = [&](uint16_t reg, const char *name, const std::string &v) {
+              out += str_sprintf("%04X %-23s %s\n", reg, name, v.c_str());
+            };
+            line(esphome::hmi_bms::HMI_REG_SERIAL, "Serial", ts(id(serial)));
+            line(esphome::hmi_bms::HMI_REG_SOC, "SoC", f(id(soc).state, "%.2f %%"));
+            line(esphome::hmi_bms::HMI_REG_CURRENT, "Current", f(id(current_mA).state, "%.3f A"));
+            line(esphome::hmi_bms::HMI_REG_CHARGE, "Charge", f(id(charge_raw).state, "%.3f Ah"));
+            line(esphome::hmi_bms::HMI_REG_BATTERY_VOLTAGE, "Battery voltage", f(id(voltage_mV).state, "%.3f V"));
+            line(esphome::hmi_bms::HMI_REG_OUTPUT_VOLTAGE, "Output voltage", f(id(output_voltage_mV).state, "%.3f V"));
+            line(esphome::hmi_bms::HMI_REG_POS_CONTACTOR_VOLTAGE, "Pos contactor", f(id(pos_contactor_voltage).state, "%.3f V"));
+            line(esphome::hmi_bms::HMI_REG_NEG_CONTACTOR_VOLTAGE, "Neg contactor", f(id(neg_contactor_voltage).state, "%.3f V"));
+            line(esphome::hmi_bms::HMI_REG_TEMPERATURE_MIN, "Temp min", f(id(module_temperature_min).state, "%.1f C"));
+            line(esphome::hmi_bms::HMI_REG_TEMPERATURE_MAX, "Temp max", f(id(module_temperature_max).state, "%.1f C"));
+            line(esphome::hmi_bms::HMI_REG_CELL_VOLTAGE_MIN, "Cell min", f(id(cell_min).state, "%.3f V"));
+            line(esphome::hmi_bms::HMI_REG_CELL_VOLTAGE_MAX, "Cell max", f(id(cell_max).state, "%.3f V"));
+            line(esphome::hmi_bms::HMI_REG_SYSTEM_REQUEST, "System request", f(id(system_req).state, "%.0f"));
+            line(esphome::hmi_bms::HMI_REG_SYSTEM_STATE, "System state", ts(id(system_state_text)));
+            line(esphome::hmi_bms::HMI_REG_CONTACTORS_STATE, "Contactor state", ts(id(contactor_state_text)));
+            line(esphome::hmi_bms::HMI_REG_SOC_VOLTAGE_BASED, "SoC voltage based", f(id(soc_voltage_based).state, "%.2f %%"));
+            line(esphome::hmi_bms::HMI_REG_SOC_BASIC_COUNT, "SoC basic count", f(id(soc_basic_count).state, "%.2f %%"));
+            line(esphome::hmi_bms::HMI_REG_CAPACITY, "Capacity", f(id(capacity_mC).state, "%.2f Ah"));
+            line(esphome::hmi_bms::HMI_REG_SUPPLY_VOLTAGE_3V3, "3V3", f(id(supply_3v3).state, "%.3f V"));
+            line(esphome::hmi_bms::HMI_REG_SUPPLY_VOLTAGE_5V, "5V", f(id(supply_5v).state, "%.3f V"));
+            line(esphome::hmi_bms::HMI_REG_SUPPLY_VOLTAGE_12V, "12V", f(id(supply_12v).state, "%.3f V"));
+            line(esphome::hmi_bms::HMI_REG_SUPPLY_VOLTAGE_CTR, "Contactor supply", f(id(supply_ctr).state, "%.3f V"));
+            line(esphome::hmi_bms::HMI_REG_INVERTER_SOC, "Inverter SoC", f(id(inverter_can_soc).state, "%.1f %%"));
+            line(esphome::hmi_bms::HMI_REG_CHARGE_CURRENT_LIMIT_DA, "Charge limit", f(id(charge_current_limit).state, "%.1f A"));
+            line(esphome::hmi_bms::HMI_REG_DISCHARGE_CURRENT_LIMIT_DA, "Discharge limit", f(id(discharge_current_limit).state, "%.1f A"));
           } else {
             static text_sensor::TextSensor *log_sensors[] = {
               id(log_line_01), id(log_line_02), id(log_line_03), id(log_line_04), id(log_line_05),

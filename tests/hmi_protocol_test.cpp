@@ -4,6 +4,7 @@
 
 #include "../components/hmi_bms/hmi_protocol.h"
 #include "../components/hmi_bms/hmi_map.h"
+#include "../ui_1024/ui_1024_helpers.h"
 
 #include <cmath>
 #include <cstdio>
@@ -449,7 +450,26 @@ static void test_events_paging() {
   CHECK(!parse_events(r.data(), 5, next, recs));
 }
 
+// The LCD's event pop-up: every event the firmware has must have its explanation, and no
+// explanation may be left over for an event the firmware no longer has
+static void test_event_help_covers_every_event() {
+  for (int i = 0; i < HMI_EVENT_COUNT; i++) {
+    if (ui1024::event_help(HMI_EVENT_NAMES[i])[0] == 0) {
+      printf("no help text for event %s\n", HMI_EVENT_NAMES[i]);
+      CHECK(false);
+    }
+  }
+  for (const auto &e : ui1024::EVENT_HELP) {
+    bool known = false;
+    for (int i = 0; i < HMI_EVENT_COUNT; i++) known = known || strcmp(e.name, HMI_EVENT_NAMES[i]) == 0;
+    if (!known) printf("help text for an event the firmware does not have: %s\n", e.name);
+    CHECK(known);
+  }
+  CHECK(ui1024::event_help("NOT_AN_EVENT")[0] == 0);
+}
+
 int main() {
+  test_event_help_covers_every_event();
   test_crc();
   test_build_frame();
   test_parser_basic();
