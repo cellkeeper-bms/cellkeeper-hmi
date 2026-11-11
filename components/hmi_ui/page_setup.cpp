@@ -37,44 +37,57 @@ static void settings_section(Frame &f) {
     }
   }
 
-  // The values, in two columns, grouped
-  const int top = BODY_Y + 76, colw = (w - 12) / 2, row_h = 44;
-  card(c, t, X0, top, colw, Y1 - top);
-  card(c, t, X0 + colw + 12, top, w - colw - 12, Y1 - top);
+  // The values: two columns of groups, which scroll together when there are more than fit
+  const int top = BODY_Y + 76, colw = (w - 12) / 2, row_h = 44, group_h = 26, view_h = Y1 - top;
+  card(c, t, X0, top, colw, view_h);
+  card(c, t, X0 + colw + 12, top, w - colw - 12, view_h);
   if (m.settings == nullptr || m.setting_count == 0) {
     c.text(FONT_R18, X0 + 16, top + 16, "The BMS has not listed its settings yet.", t.hint);
     return;
   }
-  int col = 0, y = top + 10;
+  // The second column starts with the first group that begins past half of the whole list
+  int total = 0;
   const char *group = "";
   for (int i = 0; i < m.setting_count; i++) {
-    const Setting &s = m.settings[i];
-    const bool new_group = strcmp(group, s.group) != 0;
-    const int need = row_h + (new_group ? 26 : 0);
-    if (y + need > Y1 - 8) {
-      if (col == 1) {
-        c.text(FONT_R14, X1 - 22, Y1 - 26, fmt("%d more below", m.setting_count - i), t.out, RIGHT);
-        scrollbar(c, t, X1 - 10, top + 8, Y1 - top - 16, 0.0f, (float) i / m.setting_count);
-        break;
-      }
-      col = 1;
-      y = top + 10;
-    }
-    const int x = X0 + col * (colw + 12) + 16, cw = (col == 0 ? colw : w - colw - 12) - 32;
-    if (new_group || y == top + 10) {
-      c.text(FONT_R14, x, y + 4, s.group, t.caption);
-      y += 26;
-      group = s.group;
-    }
-    c.text(FONT_R18, x, y + 9, s.name, m.settings_unlocked ? t.text : t.text_dim);
-    const int vw = 132;
-    c.round_rect(x + cw - vw, y + 2, vw, row_h - 8, 8, m.settings_unlocked ? 0x222A2E : t.card);
-    c.round_frame(x + cw - vw, y + 2, vw, row_h - 8, 8, 1, m.settings_unlocked ? 0x3A464B : t.card_border);
-    c.text(FONT_M20, x + cw - vw / 2, y + 8, fmt("%.*f %s", s.decimals, (double) s.value, s.unit),
-           m.settings_unlocked ? t.text : t.text_dim, CENTER);
-    if (m.settings_unlocked && hot(f, x + cw - vw, y + 2, vw, row_h - 8, s.name)) open_number(f.s, i);
-    y += row_h;
+    if (strcmp(group, m.settings[i].group) != 0) total += group_h;
+    group = m.settings[i].group;
+    total += row_h;
   }
+  int split = m.setting_count, first = 0;
+  group = "";
+  for (int i = 0; i < m.setting_count; i++) {
+    const bool new_group = strcmp(group, m.settings[i].group) != 0;
+    if (new_group && first >= total / 2) {
+      split = i;
+      break;
+    }
+    if (new_group) first += group_h;
+    group = m.settings[i].group;
+    first += row_h;
+  }
+  const int y0 = scroll_begin(f, f.s.settings_scroll, X0, top + 2, w, view_h - 4) + 8;
+  for (int col = 0; col < 2; col++) {
+    const int x = X0 + col * (colw + 12) + 16, cw = (col == 0 ? colw : w - colw - 12) - 32, vw = 132;
+    int y = y0;
+    group = "";
+    for (int i = col == 0 ? 0 : split; i < (col == 0 ? split : m.setting_count); i++) {
+      const Setting &s = m.settings[i];
+      if (strcmp(group, s.group) != 0) {
+        c.text(FONT_R14, x, y + 4, s.group, t.caption);
+        y += group_h;
+        group = s.group;
+      }
+      c.text(FONT_R18, x, y + 9, s.name, m.settings_unlocked ? t.text : t.text_dim);
+      const bool held = m.settings_unlocked && f.held(x + cw - vw, y + 2, vw, row_h - 8);
+      c.round_rect(x + cw - vw, y + 2, vw, row_h - 8, 8, held ? 0x38444A : (m.settings_unlocked ? 0x222A2E : t.card));
+      c.round_frame(x + cw - vw, y + 2, vw, row_h - 8, 8, 1, m.settings_unlocked ? 0x3A464B : t.card_border);
+      c.text(FONT_M20, x + cw - vw / 2, y + 8, fmt("%.*f %s", s.decimals, (double) s.value, s.unit),
+             m.settings_unlocked ? t.text : t.text_dim, CENTER);
+      if (m.settings_unlocked && hot(f, x + cw - vw, y + 2, vw, row_h - 8, s.name)) open_number(f.s, i);
+      y += row_h;
+    }
+  }
+  scroll_end(f, f.s.settings_scroll, X0, top + 2, w, view_h - 4, std::max(first, total - first) + 20);
 }
 
 static void display_section(Frame &f) {
@@ -129,16 +142,17 @@ static void registers_view(Frame &f) {
   c.text(FONT_R14, X0 + 16, BODY_Y + 20, "RAW REGISTERS", t.caption);
   c.text(FONT_R14, X0 + 144, BODY_Y + 20, fmt("%d listed by the BMS, as it sends them", m.register_count), t.hint);
   if (button(f, X1 - 16 - 170, BODY_Y + 8, 170, 44, "‹  Log")) f.s.raw_registers = false;
-  const int ty = BODY_Y + 62, th = h - 62 - 12, rows = (th - 16) / 21, colw = (w - 24) / 2;
+  const int ty = BODY_Y + 62, th = h - 62 - 12, colw = (w - 24) / 2, rows = (m.register_count + 1) / 2;
   c.round_rect(X0 + 12, ty, w - 24, th, 8, 0x050606);
-  for (int i = 0; i < m.register_count && i < 2 * rows; i++) {
+  const int y0 = scroll_begin(f, f.s.registers_scroll, X0 + 12, ty + 2, w - 24, th - 4) + 8;
+  for (int i = 0; i < m.register_count; i++) {
     const RegisterRow &r = m.registers[i];
-    const int x = X0 + 26 + (i / rows) * colw, y = ty + 10 + (i % rows) * 21;
+    const int x = X0 + 26 + (i / rows) * colw, y = y0 + (i % rows) * 21;
     c.text(FONT_MONO14, x, y, fmt("%04X", r.id), t.caption);
     c.text(FONT_MONO14, x + 48, y, r.name, t.text_dim);
     c.text(FONT_MONO14, x + colw - 30, y, r.value, t.text, RIGHT);
   }
-  if (m.register_count > 2 * rows) scrollbar(c, t, X1 - 22, ty + 8, th - 16, 0.0f, 2.0f * rows / m.register_count);
+  scroll_end(f, f.s.registers_scroll, X0 + 12, ty + 2, w - 24, th - 4, rows * 21 + 16);
 }
 
 static void log_section(Frame &f) {
@@ -148,7 +162,8 @@ static void log_section(Frame &f) {
   const int w = X1 - X0, h = Y1 - BODY_Y;
   card(c, t, X0, BODY_Y, w, h);
   c.text(FONT_R14, X0 + 16, BODY_Y + 20, "BMS LOG", t.caption);
-  c.text(FONT_R14, X0 + 96, BODY_Y + 20, m.log_enabled ? "newest at the bottom" : "off", t.hint);
+  c.text(FONT_R14, X0 + 96, BODY_Y + 20, !m.log_enabled ? "off" : (f.s.log_follow ? "newest at the bottom" : "scrolled back"),
+         t.hint);
   if (button(f, X1 - 16 - 2 * 170 - 12, BODY_Y + 8, 170, 44, m.log_enabled ? "Log: on" : "Log: off", "",
              m.log_enabled ? 0x1B4A35 : 0)) {
     f.act.set_log_enabled(!m.log_enabled);
@@ -161,12 +176,14 @@ static void log_section(Frame &f) {
            t.caption);
     return;
   }
-  const int lines = std::min(m.log_count, (th - 20) / 21);
-  c.set_clip(X0 + 12, ty, w - 24, th);
-  for (int i = 0; i < lines; i++) {
-    c.text(FONT_MONO14, X0 + 26, ty + 12 + i * 21, m.log_lines[m.log_count - lines + i], t.text_dim);
-  }
-  c.reset_clip();
+  // The newest line stays in view until the log is scrolled back, and again once it is
+  // scrolled to its end
+  const int content = m.log_count * 21 + 16, view = th - 4, most = std::max(0, content - view);
+  if (f.s.log_follow) f.s.log_scroll.offset = most;
+  const int y0 = scroll_begin(f, f.s.log_scroll, X0 + 12, ty + 2, w - 24, view) + 8;
+  for (int i = 0; i < m.log_count; i++) c.text(FONT_MONO14, X0 + 26, y0 + i * 21, m.log_lines[i], t.text_dim);
+  scroll_end(f, f.s.log_scroll, X0 + 12, ty + 2, w - 24, view, content);
+  f.s.log_follow = f.s.log_scroll.offset >= most;
 }
 
 static void about_section(Frame &f) {

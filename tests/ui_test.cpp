@@ -390,6 +390,107 @@ static void test_everything_draws() {
   }
 }
 
+// ---- lists that are longer than the screen ----
+
+static void test_all_settings_can_be_reached() {
+  Driver d = on_page(sim::charging(), Page::SETUP);
+  d.model.settings_unlocked = true;
+  d.draw();
+  CHECK(d.shows("Max charge current"));
+  CHECK(!d.shows("Upper offset"));  // the last one is below the edge
+  d.drag(500, 520, 500, 250);
+  CHECK(d.ui.state.settings_scroll.offset > 0);
+  CHECK(d.shows("Upper offset"));
+  CHECK(d.tap("Upper offset"));
+  d.type("3");
+  d.tap("Set");
+  CHECK(d.actions.did("setting 15 = 3"));
+  // Every setting can be brought into view, at the top or at the end of the list
+  d.drag(500, 300, 500, 3000);
+  int seen = 0;
+  for (int i = 0; i < d.model.setting_count; i++) seen += d.shows(d.model.settings[i].name);
+  d.drag(500, 520, 500, -3000);
+  int at_end = 0;
+  for (int i = 0; i < d.model.setting_count; i++) at_end += d.shows(d.model.settings[i].name);
+  CHECK(seen < d.model.setting_count);
+  CHECK(seen + at_end >= d.model.setting_count);
+  // Locked, the list still scrolls but its values are not buttons
+  d.model.settings_unlocked = false;
+  d.draw();
+  CHECK(!d.shows("Upper offset"));
+}
+
+static void test_log_follows_until_scrolled_back() {
+  static char text[60][24];
+  static const char *lines[60];
+  for (int i = 0; i < 60; i++) {
+    snprintf(text[i], sizeof(text[i]), "line %d", i);
+    lines[i] = text[i];
+  }
+  sim::Scenario s = sim::charging();
+  s.model.log_lines = lines;
+  s.model.log_count = 50;
+  Driver d = on_page(s, Page::SETUP);
+  d.ui.state.setup_section = 2;
+  d.draw();
+  CHECK(d.ui.state.log_follow);
+  const int end = d.ui.state.log_scroll.offset;
+  CHECK(end > 0);
+  d.model.log_count = 60;  // more lines arrive: it stays at the end
+  d.draw();
+  CHECK(d.ui.state.log_scroll.offset > end);
+  d.drag(500, 300, 500, 480);  // pulled down to read older lines
+  CHECK(!d.ui.state.log_follow);
+  const int back = d.ui.state.log_scroll.offset;
+  d.draw();
+  CHECK(d.ui.state.log_scroll.offset == back);  // and it stays there
+  d.drag(500, 480, 500, -3000);
+  CHECK(d.ui.state.log_follow);
+}
+
+static void test_registers_scroll() {
+  static hmiui::RegisterRow rows[140];
+  for (int i = 0; i < 140; i++) rows[i] = {(uint16_t) (0x1000 + i), "REGISTER", "0"};
+  sim::Scenario s = sim::charging();
+  s.model.registers = rows;
+  s.model.register_count = 140;
+  Driver d = on_page(s, Page::SETUP);
+  d.ui.state.setup_section = 2;
+  d.ui.state.raw_registers = true;
+  d.draw();
+  d.drag(500, 500, 500, 200);
+  CHECK(d.ui.state.registers_scroll.offset > 200);
+  d.drag(500, 500, 500, -9000);
+  const int end = d.ui.state.registers_scroll.offset;
+  CHECK(end > 0 && end < 70 * 21);  // it stops at the last row
+}
+
+static void test_every_event_type_tells_more() {
+  using namespace esphome::hmi_bms;
+  Driver d = on_page(sim::desk_fault(), Page::EVENTS);
+  d.ui.state.events_view = 1;
+  d.draw();
+  CHECK(d.tap("type BMB_READ_ERROR"));  // one the BMS reports
+  CHECK(d.ui.state.popup.kind == Overlay::EVENT_DETAIL);
+  CHECK(d.ui.state.popup.index == 4);
+  d.tap("Close");
+  CHECK(d.tap("type ESTOP_PRESSED"));  // one that never happened
+  CHECK(d.ui.state.popup.kind == Overlay::EVENT_DETAIL);
+  CHECK(d.ui.state.popup.index < 0 && d.ui.state.popup.type == HMI_EVENT_ESTOP_PRESSED);
+  d.tap("Close");
+  CHECK(d.ui.state.popup.kind == Overlay::NONE);
+  CHECK(d.shows("type INVERTER_DETECTED"));  // the last one is on the screen
+}
+
+static void test_home_fault_list() {
+  Driver d(sim::desk_fault().model);
+  CHECK(d.tap("Cell Voltages Stale"));
+  CHECK(d.ui.state.popup.kind == Overlay::EVENT_DETAIL);
+  d.tap("Close");
+  CHECK(d.tap("More events"));
+  CHECK(d.ui.state.page == Page::EVENTS);
+}
+
 int main() {
   test_stop_goes_confirm_pin_send();
   test_wrong_pin_sends_nothing();
@@ -410,6 +511,11 @@ int main() {
   test_plain_confirm_needs_no_pin();
   test_log_and_registers();
   test_event_list_scrolls();
+  test_all_settings_can_be_reached();
+  test_log_follows_until_scrolled_back();
+  test_registers_scroll();
+  test_every_event_type_tells_more();
+  test_home_fault_list();
   test_everything_draws();
   printf("ui tests: %d checks, %d failed\n", checks, failures);
   return failures ? 1 : 0;

@@ -173,8 +173,12 @@ void draw_home(Frame &f) {
       c.text(FONT_R14, X0 + cw - 16, y + 4, e.count > 1 ? fmt("%s  ×%u", level_name(e.level), (unsigned) e.count)
                                                          : level_name(e.level), t.caption, RIGHT);
       c.text(FONT_R16, X0 + 34, y + 23, event_help(e.type), t.text_dim);
+      if (hot(f, X0 + 8, y - 2, cw - 16, 44, event_title(e.type))) open_event(f.s, (int) (&e - m.events));
     }
-    if (all > rows) c.text(FONT_R14, X0 + cw - 16, cy + 12, fmt("+%d more on Events ›", all - rows), t.out, RIGHT);
+    if (all > rows) {
+      c.text(FONT_R14, X0 + cw - 16, cy + 12, fmt("+%d more on Events ›", all - rows), t.out, RIGHT);
+      if (hot(f, X0 + cw - 200, cy, 200, 36, "More events")) f.s.page = Page::EVENTS;
+    }
   }
 
   // ---- the day's energy ----

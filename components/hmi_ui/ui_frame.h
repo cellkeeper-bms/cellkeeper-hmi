@@ -87,6 +87,7 @@ struct Popup {
   bool naming = false;       // KEYBOARD: typing a network's name, not yet its password
   char ssid[33] = "";        // KEYBOARD: the network being joined
   int index = -1;            // NUMBER: which setting. EVENT_DETAIL: which of the model's events
+  int type = -1;             // EVENT_DETAIL: the event type, when the model has no event of it
 };
 
 struct UiState {
@@ -95,8 +96,8 @@ struct UiState {
   int events_view = 0;         // Events: 0 what is active, 1 every event type, 2 the fault logic chart
   bool raw_registers = false;  // Setup, Log: the registers instead of the log
   Popup popup;
-  Scroll events_scroll;
-  Scroll settings_scroll;
+  Scroll events_scroll, types_scroll, settings_scroll, log_scroll, registers_scroll;
+  bool log_follow = true;      // the log shows its newest lines until it is scrolled back
 };
 
 // ---- for the tests and the simulator: where each thing that can be tapped was drawn ----

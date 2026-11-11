@@ -13,7 +13,7 @@ static void all_types(Frame &f) {
   Canvas &c = f.c;
   const Theme &t = f.t;
   const Model &m = f.m;
-  const int w = X1 - X0, h = Y1 - Y0, rows = 20, colw = (w - 32) / 3;
+  const int w = X1 - X0, h = Y1 - Y0, colw = (w - 32) / 3, rows = (event_type_count() + 2) / 3;
   card(c, t, X0, Y0, w, h);
   c.text(FONT_R14, X0 + 16, Y0 + 16, fmt("ALL EVENT TYPES  ·  %d", event_type_count()), t.caption);
   int lx = X0 + 250;
@@ -24,13 +24,16 @@ static void all_types(Frame &f) {
   c.ring(lx, Y0 + 25.0f, 3.5f, 5.0f, 0, 360, t.track);
   c.text(FONT_R14, lx + 10, Y0 + 16, "never", t.caption);
   if (button(f, X1 - 16 - 150, Y0 + 6, 150, 40, "‹  Active")) f.s.events_view = 0;
+  const int list_y = Y0 + 52, list_h = h - 60;
+  const int y0 = scroll_begin(f, f.s.types_scroll, X0, list_y, w, list_h) + 4;
   for (int i = 0; i < event_type_count(); i++) {
     const Event *e = nullptr;
     for (int k = 0; k < m.event_count; k++) {
       if (m.events[k].type == i) e = &m.events[k];
     }
-    const int x = X0 + 16 + (i / rows) * colw, y = Y0 + 56 + (i % rows) * 23;
+    const int x = X0 + 16 + (i / rows) * colw, y = y0 + (i % rows) * 22;
     const bool active = e != nullptr && e->level != Level::INACTIVE, earlier = e != nullptr && !active && e->count > 0;
+    if (f.held(x, y, colw - 8, 23)) c.round_rect(x - 4, y, colw - 4, 22, 6, 0x222A2E);
     if (active) {
       c.disc(x + 6.0f, y + 9.0f, 5.0f, level_color(t, e->level));
     } else if (earlier) {
@@ -41,7 +44,10 @@ static void all_types(Frame &f) {
     c.text(active ? FONT_M16 : FONT_R14, x + 20, active ? y - 1 : y, event_title((uint8_t) i),
            active ? t.text : (earlier ? t.text_dim : t.hint));
     if (e != nullptr && e->count > 1) c.text(FONT_R14, x + colw - 14, y, fmt("×%u", (unsigned) e->count), t.caption, RIGHT);
+    // A tap on any of them says what it means
+    if (hot(f, x, y, colw - 8, 23, fmt("type %s", event_name((uint8_t) i)))) open_event_type(f.s, m, i);
   }
+  scroll_end(f, f.s.types_scroll, X0, list_y, w, list_h, rows * 22 + 8);
 }
 
 // The fault logic as a flow chart, with the pack's own situation marked on it. The rules are

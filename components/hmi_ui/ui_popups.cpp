@@ -57,6 +57,18 @@ void open_event(UiState &s, int event) {
   s.popup.index = event;
 }
 
+void open_event_type(UiState &s, const Model &m, int type) {
+  for (int i = 0; i < m.event_count; i++) {
+    if (m.events[i].type == type) {
+      open_event(s, i);
+      return;
+    }
+  }
+  s.popup = Popup();
+  s.popup.kind = Overlay::EVENT_DETAIL;
+  s.popup.type = type;
+}
+
 void open_wifi(UiState &s) {
   s.popup = Popup();
   s.popup.kind = Overlay::WIFI_LIST;
@@ -379,25 +391,29 @@ static void keyboard(Frame &f) {
 static void event_detail(Frame &f) {
   const Popup &p = f.s.popup;
   const Model &m = f.m;
-  if (p.index < 0 || p.index >= m.event_count) {
+  const bool listed = p.index >= 0 && p.index < m.event_count;
+  if (!listed && (p.type < 0 || p.type >= event_type_count())) {
     close_popup(f.s);
     return;
   }
-  const Event &e = m.events[p.index];
+  // An event type the BMS has not reported has never happened
+  const Event never = {(uint8_t) p.type, Level::INACTIVE, 0, 0};
+  const Event &e = listed ? m.events[p.index] : never;
   Canvas &c = f.c;
   const Theme &t = f.t;
   int x, y;
   const int w = 700, h = 420;
   box(f, w, h, x, y);
   const bool active = e.level != Level::INACTIVE, tinted = active && e.level != Level::INFO;
-  const char *level = active ? level_name(e.level) : "NOT ACTIVE";
+  const char *level = active ? level_name(e.level) : (e.count > 0 ? "NOT ACTIVE" : "NEVER HAPPENED");
   const int tw = Canvas::text_width(FONT_M16, level) + 24;
   c.round_rect(x + 32, y + 28, tw, 28, 14, tinted ? level_color(t, e.level) : t.track);
   c.text(FONT_M16, x + 32 + tw / 2, y + 32, level, tinted ? level_text_color(e.level) : t.text_dim, CENTER);
   c.text(FONT_M32, x + 32, y + 68, event_title(e.type), t.text);
   text_wrap(c, FONT_R20, x + 32, y + 114, w - 64, event_help(e.type), t.text_dim, 3);
   c.fill(x + 32, y + 196, w - 64, 1, BOX_EDGE);
-  row(c, t, x + 32, y + 212, w - 64, "Happened", fmt("%u times since the BMS started", (unsigned) e.count));
+  row(c, t, x + 32, y + 212, w - 64, "Happened",
+      e.count == 0 ? "not since the BMS started" : fmt("%u time%s since the BMS started", (unsigned) e.count, e.count == 1 ? "" : "s"));
   c.text(FONT_R18, x + 32, y + 248, "The BMS's name for it", t.text_dim);
   c.text(FONT_MONO14, x + w - 32, y + 252, event_name(e.type), t.text, RIGHT);
   c.text(FONT_R18, x + 32, y + 284, "Data of the last time", t.text_dim);

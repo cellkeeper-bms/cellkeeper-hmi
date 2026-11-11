@@ -131,6 +131,8 @@ void ask_unlock(UiState &s);
 void open_number(UiState &s, int setting);
 // More about one of the model's events
 void open_event(UiState &s, int event);
+// More about an event type, whether or not it ever happened
+void open_event_type(UiState &s, const Model &m, int type);
 // The list of Wi-Fi networks, then the keyboard for the password
 void open_wifi(UiState &s);
 void close_popup(UiState &s);
