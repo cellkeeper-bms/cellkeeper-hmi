@@ -17,74 +17,10 @@ static const char* EVENT_LEVELS[] = {
     "FATAL"
 };
 
-static const char* EVENT_TYPES[] = {
-    "CONTACTOR_POS_STUCK_OPEN",
-    "CONTACTOR_POS_STUCK_CLOSED",
-    "CONTACTOR_NEG_STUCK_OPEN",
-    "CONTACTOR_NEG_STUCK_CLOSED",
-    "CONTACTOR_PRE_STUCK_OPEN",
-    "CONTACTOR_PRE_STUCK_CLOSED",
-    "CONTACTOR_PRECHARGE_VOLTAGE_TOO_HIGH",
-    "CONTACTOR_PRECHARGE_CURRENT_TOO_HIGH",
-    "CONTACTOR_POS_UNEXPECTED_OPEN",
-    "CONTACTOR_NEG_UNEXPECTED_OPEN",
-    "CONTACTOR_CLOSING_FAILED",
-    "SUPPLY_VOLTAGE_STALE",
-    "BATTERY_VOLTAGE_STALE",
-    "BATTERY_TEMPERATURE_STALE",
-    "CURRENT_STALE",
-    "CELL_VOLTAGES_STALE",
-    "SUPPLY_VOLTAGE_3V3_LOW",
-    "SUPPLY_VOLTAGE_3V3_HIGH",
-    "SUPPLY_VOLTAGE_5V_LOW",
-    "SUPPLY_VOLTAGE_5V_HIGH",
-    "SUPPLY_VOLTAGE_12V_LOW",
-    "SUPPLY_VOLTAGE_12V_HIGH",
-    "SUPPLY_VOLTAGE_CONTACTOR_LOW",
-    "SUPPLY_VOLTAGE_CONTACTOR_VERY_LOW",
-    "SUPPLY_VOLTAGE_CONTACTOR_HIGH",
-    "BATTERY_VOLTAGE_HIGH",
-    "BATTERY_VOLTAGE_VERY_HIGH",
-    "BATTERY_VOLTAGE_LOW",
-    "BATTERY_VOLTAGE_VERY_LOW",
-    "CELL_VOLTAGE_HIGH",
-    "CELL_VOLTAGE_VERY_HIGH",
-    "CELL_VOLTAGE_LOW",
-    "CELL_VOLTAGE_VERY_LOW",
-    "SOFT_CHARGE_BUFFER_EXCEEDED",
-    "OVERCURRENT_CHARGING",
-    "OVERCURRENT_DISCHARGING",
-    "BATTERY_TEMPERATURE_HIGH",
-    "BATTERY_TEMPERATURE_VERY_HIGH",
-    "BATTERY_TEMPERATURE_LOW",
-    "BATTERY_TEMPERATURE_VERY_LOW",
-    "VOLTAGE_MISMATCH",
-    "BMB_READ_ERROR",
-    "BMB_CRC_MISMATCH",
-    "CELL_VOLTAGE_GLITCH",
-    "MODULE_TEMPERATURE_GLITCH",
-    "INVERTER_DETECTED",
-    "ESTOP_PRESSED",
-    "BOOT_NORMAL",
-    "BOOT_WATCHDOG",
-    "LOOP_OVERRUN",
-    "RESTARTING",
-    "LINK_VOLTAGE_MISMATCH",
-    "FUSE_VOLTAGE_DROP_HIGH",
-    "BMB_PACK_MISMATCH",
-    "ISOLATION_ASYMMETRY",
-    "CONTACTOR_PORT_ENERGIZED",
-    "BOARD_MISMATCH",
-    "SUPERVISOR_NOT_ENABLED",
-    "SUPERVISOR_DISABLED_CONTACTORS",
-    "BMB_MODULE_ID_CHECK_FAILED",
-    "BMB_MODULE_ID_UNKNOWN",
-    "BMB_MODULE_ID_CONFLICT"
-};
-
+// The names are in hmi_map.h, in the firmware's order
 const char *HMIBMS::event_type_name(int type) {
-  if (type < 0 || type >= (int) (sizeof(EVENT_TYPES) / sizeof(EVENT_TYPES[0]))) return "UNKNOWN";
-  return EVENT_TYPES[type];
+  if (type < 0 || type >= HMI_EVENT_COUNT) return "UNKNOWN";
+  return HMI_EVENT_NAMES[type];
 }
 
 void HMIBMS::request_events_(uint16_t start_index) {
@@ -110,8 +46,8 @@ void HMIBMS::handle_read_events_response_(const uint8_t *data, size_t length) {
 
   for (const auto &rec : records) {
     const uint16_t type = rec.type;
-    // Override: Inverter Detected (Type 45) is always Info level
-    const uint16_t level = (type == 45) ? 1 : rec.level;
+    // Override: Inverter Detected is always Info level
+    const uint16_t level = (type == HMI_EVENT_INVERTER_DETECTED) ? 1 : rec.level;
     const char *type_str = event_type_name(type);
     const char *level_str = (level < sizeof(EVENT_LEVELS) / sizeof(EVENT_LEVELS[0])) ? EVENT_LEVELS[level] : "??";
 

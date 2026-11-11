@@ -8,6 +8,7 @@
 #include "esphome/components/switch/switch.h"
 #include <deque>
 #include "hmi_protocol.h"
+#include "hmi_map.h"
 
 namespace esphome {
 namespace hmi_bms {
@@ -80,22 +81,6 @@ class HMIBMSLogSwitch : public switch_::Switch {
   HMIBMS *parent_{nullptr};
 };
 
-enum HMIMsgType {
-  HMI_MSG_ANNOUNCE_DEVICE = 0x81,
-  HMI_MSG_SET_DEVICE_ADDRESS = 0x01,
-  HMI_MSG_WRITE_REGISTERS = 0x03,
-  HMI_MSG_READ_REGISTERS = 0x04,
-  HMI_MSG_READ_REGISTERS_RESPONSE = 0x84,
-  HMI_MSG_READ_CELL_VOLTAGES = 0x05,
-  HMI_MSG_READ_CELL_VOLTAGES_RESPONSE = 0x85,
-  HMI_MSG_READ_EVENTS = 0x06,
-  HMI_MSG_READ_EVENTS_RESPONSE = 0x86,
-  HMI_MSG_READ_BALANCING_TIMES = 0x07,
-  HMI_MSG_READ_BALANCING_TIMES_RESPONSE = 0x87,
-  HMI_MSG_READ_LOG = 0x08,
-  HMI_MSG_READ_LOG_RESPONSE = 0x88,
-};
-
 enum HMIType {
   HMI_TYPE_UINT8 = 0x11,
   HMI_TYPE_INT8 = 0x21,
@@ -109,100 +94,16 @@ enum HMIType {
   HMI_TYPE_DOUBLE = 0x38,
 };
 
-enum HMIRegister {
-  HMI_REG_SERIAL = 1,
-  HMI_REG_MILLIS = 2,
-  HMI_REG_SOC = 3,
-  HMI_REG_CURRENT = 4,
-  HMI_REG_CHARGE = 5,
-  HMI_REG_BATTERY_VOLTAGE = 6,
-  HMI_REG_OUTPUT_VOLTAGE = 7,
-  HMI_REG_POS_CONTACTOR_VOLTAGE = 8,
-  HMI_REG_NEG_CONTACTOR_VOLTAGE = 9,
-  HMI_REG_TEMPERATURE_MIN = 10,
-  HMI_REG_TEMPERATURE_MAX = 11,
-  HMI_REG_CELL_VOLTAGE_MIN = 12,
-  HMI_REG_CELL_VOLTAGE_MAX = 13,
-  HMI_REG_SYSTEM_REQUEST = 14,
-  HMI_REG_SYSTEM_STATE = 15,
-  HMI_REG_CONTACTORS_STATE = 16,
-  HMI_REG_SOC_VOLTAGE_BASED = 17,
-  HMI_REG_SOC_BASIC_COUNT = 18,
-  HMI_REG_CAPACITY = 20,
-  HMI_REG_SUPPLY_VOLTAGE_3V3 = 21,
-  HMI_REG_SUPPLY_VOLTAGE_5V = 22,
-  HMI_REG_SUPPLY_VOLTAGE_12V = 23,
-  HMI_REG_SUPPLY_VOLTAGE_CTR = 24,
-  HMI_REG_CELL_VOLTAGE_WORKING_MIN = 25,
-  HMI_REG_CELL_VOLTAGE_WORKING_MAX = 26,
-  HMI_REG_SOC_SCALING_MIN = 27,
-  HMI_REG_SOC_SCALING_MAX = 28,
-  HMI_REG_VOLTAGE_LIMIT_OFFSET_LOWER = 29,
-  HMI_REG_VOLTAGE_LIMIT_OFFSET_UPPER = 30,
-  HMI_REG_CELL_VOLTAGE_SOFT_MIN = 31,
-  HMI_REG_CELL_VOLTAGE_SOFT_MAX = 32,
-  HMI_REG_AUTO_BALANCING_PERIOD_MS = 33,
-  HMI_REG_BALANCING_PERIODS_PER_MV = 34,
-  HMI_REG_BALANCE_MIN_OFFSET_MV = 35,
-  HMI_REG_MINIMUM_BALANCING_VOLTAGE_MV = 36,
-  HMI_REG_INVERTER_SOC = 37,               // int16 (0.01%)
-  HMI_REG_INVERTER_FULL_CAPACITY_DAH = 38, // int16 (0.1Ah)
-  HMI_REG_INVERTER_REMAINING_CAPACITY_DAH = 39, // int16 (0.1Ah)
-  HMI_REG_INVERTER_MIN_VOLTAGE_LIMIT_DV = 40,   // int16 (0.1V)
-  HMI_REG_INVERTER_MAX_VOLTAGE_LIMIT_DV = 41,   // int16 (0.1V)
-  HMI_REG_BALANCING_START_VOLTAGE_MV = 42,      // uint16 (mV)
-  HMI_REG_USER_CHARGE_CURRENT_LIMIT_DA = 43,    // uint16 (0.1A)
-  HMI_REG_USER_DISCHARGE_CURRENT_LIMIT_DA = 44, // uint16 (0.1A)
-  HMI_REG_CHARGE_CURRENT_LIMIT_DA = 45,         // uint16 (0.1A)
-  HMI_REG_DISCHARGE_CURRENT_LIMIT_DA = 46,      // uint16 (0.1A)
-  HMI_REG_TEMP_CHARGE_CURRENT_LIMIT_DA = 47,    // uint16 (0.1A)
-  HMI_REG_TEMP_DISCHARGE_CURRENT_LIMIT_DA = 48, // uint16 (0.1A)
-  HMI_REG_CELL_VOLTAGE_CHARGE_CURRENT_LIMIT_DA = 49,    // uint16 (0.1A)
-  HMI_REG_CELL_VOLTAGE_DISCHARGE_CURRENT_LIMIT_DA = 50, // uint16 (0.1A)
-  HMI_REG_WORKING_CHARGE_CURRENT_LIMIT_DA = 51,         // uint16 (0.1A)
-  HMI_REG_WORKING_DISCHARGE_CURRENT_LIMIT_DA = 52,      // uint16 (0.1A)
-  HMI_REG_DELTA_CHARGE_CURRENT_LIMIT_DA = 53,           // uint16 (0.1A)
-  HMI_REG_HARD_CHARGE_CURRENT_LIMIT_DA = 54,            // uint16 (0.1A)
-  HMI_REG_HARD_DISCHARGE_CURRENT_LIMIT_DA = 55,         // uint16 (0.1A)
-  HMI_REG_SHUNT_DIE_TEMP = 57,                          // float (C), the current shunt chip's (INA228) die temperature
-  HMI_REG_SHUNT_NTC_TEMP = 58,                          // float (C), the external NTC on the shunt
-  // 60/61 (raw isolation ADC counts) exist on the BMS but are not shown here
-  HMI_REG_ISOLATION_RESISTANCE = 62,                    // float (ohms), NAN unless contactors open
-  HMI_REG_PACK_POS_TO_CHASSIS = 63,                     // float (V)
-  HMI_REG_PACK_NEG_TO_CHASSIS = 64,                     // float (V)
-  HMI_REG_ISOLATION_CHECK_AGE = 65,                     // float (s); 0 = live, NAN = not measured yet
-  HMI_REG_BOARD_REVISION = 66,                          // uint16: major*10+minor (Rev1.3 = 13), 0 = Rev0, 0xFFFF = unknown
-  HMI_REG_BOARD_STRAP_COUNTS = 67,                      // float, revision strap ADC counts
-  HMI_REG_BUILD_HASH = 68,                              // uint32: firmware commit's first 7 hex digits; bit 31 = uncommitted changes; 0 = unknown
-  HMI_REG_BUILD_TIME = 69,                              // uint32: firmware build time, Unix seconds UTC; 0 = unknown
-  HMI_REG_MCU_TEMPERATURE = 70,                         // float (C), the BMS controller chip's own sensor
-  // Health and diagnostics (from 96; the BMS's upstream uses 71-80)
-  HMI_REG_EKF_CAPACITY = 96,                            // float (Ah), the EKF's capacity estimate
-  HMI_REG_SOC_FANCY_COUNT = 97,                         // uint16 (0.01%)
-  HMI_REG_OVERCURRENT_CHARGE_BUFFER = 98,               // float (%), 100 = trips
-  HMI_REG_OVERCURRENT_DISCHARGE_BUFFER = 99,            // float (%)
-  HMI_REG_SOFT_CHARGE_BUFFER = 100,                     // float (%), + charge, - discharge
-  HMI_REG_UART0_PACKETS_RECEIVED = 101,                 // uint32 counters since the BMS started (101-108)
-  HMI_REG_CAN_FRAMES_RECEIVED = 108,
-  HMI_REG_BALANCING_STATE = 109,                        // uint8
-  HMI_REG_CALIBRATION_STATE = 110,                      // uint8
-  HMI_REG_PACK_TYPE = 111,                              // int8, -1 = none
-  HMI_REG_MODULE_IDS_VALID_MASK = 112,                  // uint8
-  HMI_REG_MODULE_ID_START = 113,                        // uint16 each, BMB slots 0-7 (absent until read)
-  HMI_REG_MODULE_ID_END = 120,
-  HMI_REG_CELL_VOLTAGES_START = 0x100,
-  HMI_REG_CELL_VOLTAGES_END = 0x1FF,
-  HMI_REG_MODULE_TEMPS_START = 0x200,
-  HMI_REG_MODULE_TEMPS_END = 0x207,
-};
+// Message types, register IDs, array IDs and event types are in hmi_map.h, generated from the
+// BMS firmware's headers.
 
 // When a register is read: FAST on every poll, the others on their own slot of the 10-poll cycle
 enum PollGroup : uint8_t {
   POLL_FAST = 0,
-  POLL_SLOW = 1,          // slot 0
-  POLL_MODULE_TEMPS = 2,  // slot 1
-  POLL_LIMITS = 3,        // slot 3
-  POLL_SETTINGS = 4,      // slot 4
+  POLL_SLOW = 1,      // slot 0
+  POLL_LIMITS = 3,    // slot 3
+  POLL_SETTINGS = 4,  // slot 4
+  POLL_NEVER = 5,     // a command: written, never read back
 };
 
 class HMIBMS : public PollingComponent, public uart::UARTDevice {
@@ -227,8 +128,14 @@ class HMIBMS : public PollingComponent, public uart::UARTDevice {
   void set_bms_firmware_text_sensor(text_sensor::TextSensor *s) { bms_firmware_text_sensor_ = s; }
   void set_hmi_firmware_text_sensor(text_sensor::TextSensor *s) { hmi_firmware_text_sensor_ = s; }
   void set_hmi_build(const std::string &build) { hmi_build_ = build; }
-  // The BMBs' module IDs and the pack type they classify as (registers 111-120)
+  // The BMBs' module IDs, in chain order (array HMI_ARRAY_MODULE_IDS)
   void set_module_ids_text_sensor(text_sensor::TextSensor *s) { module_ids_text_sensor_ = s; }
+  // The HMI protocol version the BMS speaks, or why this HMI can't talk to it
+  void set_protocol_text_sensor(text_sensor::TextSensor *s) { protocol_text_sensor_ = s; }
+  // True once the BMS has answered with the protocol version this HMI speaks and its register list
+  bool is_link_ready() const { return this->link_state_ == LINK_READY; }
+  // True when a BMS answers but speaks another protocol version
+  bool is_incompatible() const { return this->link_state_ == LINK_INCOMPATIBLE; }
   // Calculated here rather than read
   void set_temperature_delta_sensor(sensor::Sensor *s) { temperature_delta_sensor_ = s; }
   void set_cell_voltage_delta_sensor(sensor::Sensor *s) { cell_voltage_delta_sensor_ = s; }
@@ -247,6 +154,7 @@ class HMIBMS : public PollingComponent, public uart::UARTDevice {
   text_sensor::TextSensor *get_event_history_text_sensor() const { return event_history_text_sensor_; }
   void add_cell_voltage_sensor(sensor::Sensor *s) { cell_voltage_sensors_.push_back(s); }
   void add_balancing_time_sensor(sensor::Sensor *s) { balancing_time_sensors_.push_back(s); }
+  void add_module_temperature_sensor(sensor::Sensor *s) { module_temperature_sensors_.push_back(s); }
   const std::vector<sensor::Sensor *> &get_cell_voltage_sensors() const { return cell_voltage_sensors_; }
   const std::vector<sensor::Sensor *> &get_balancing_time_sensors() const { return balancing_time_sensors_; }
   // One text sensor per BMS event type (index = type), state "LEVEL (count)" or "INACTIVE"; for the LCD
@@ -297,8 +205,9 @@ class HMIBMS : public PollingComponent, public uart::UARTDevice {
   void handle_packet_(const uint8_t *payload, size_t length);
   void handle_message_(const uint8_t *msg, size_t length);
   void handle_read_registers_response_(const uint8_t *data, size_t length);
-  void handle_read_cell_voltages_response_(const uint8_t *data, size_t length);
-  void handle_read_balancing_times_response_(const uint8_t *data, size_t length);
+  void handle_list_registers_response_(const uint8_t *data, size_t length);
+  void handle_array_page_(const uint8_t *data, size_t length);
+  void handle_nack_(const uint8_t *data, size_t length);
   void handle_read_log_response_(const uint8_t *data, size_t length);
   void publish_log_();
   void handle_read_events_response_(const uint8_t *data, size_t length);
@@ -314,6 +223,39 @@ class HMIBMS : public PollingComponent, public uart::UARTDevice {
   uint32_t update_count_{0};
   protocol::FrameParser rx_;
   uint32_t last_crc_errors_{0};
+
+  // What the BMS speaks, settled before anything else is polled: its protocol version
+  // (register PROTOCOL_VERSION must read HMI_PROTOCOL_VERSION), then the registers it has
+  // (LIST_REGISTERS), so only those are asked for. Checked again when the BMS restarts.
+  enum LinkState : uint8_t { LINK_CHECK_VERSION, LINK_LIST_REGISTERS, LINK_READY, LINK_INCOMPATIBLE };
+  LinkState link_state_{LINK_CHECK_VERSION};
+  uint32_t link_polls_{0};
+  int bms_protocol_version_{-1};  // -1: the BMS answered without a version (older than this protocol)
+  std::vector<protocol::RegisterInfo> bms_registers_;  // in increasing ID order, as the BMS lists them
+  text_sensor::TextSensor *protocol_text_sensor_{nullptr};
+  void start_link_check_();
+  void poll_link_();
+  void handle_version_reply_(const std::vector<protocol::RegisterValue> &regs);
+  void publish_protocol_status_(const std::string &status);
+  bool bms_has_register_(uint16_t reg) const;
+
+  // Arrays (cell voltages, balancing times, module temperatures, module IDs) are read a page
+  // at a time, one array at a time; the others wait their turn.
+  struct ArrayRead {
+    bool active{false};
+    uint8_t id{0};
+    uint8_t pages{0};
+    uint32_t started_ms{0};
+    std::vector<double> values;
+  } array_read_;
+  std::vector<uint8_t> array_queue_;
+  void request_array_(uint8_t array_id);
+  void send_array_request_(uint8_t array_id, uint16_t start);
+  void finish_array_read_(bool complete);
+  void publish_cell_voltages_(const std::vector<double> &values);
+  void publish_balancing_times_(const std::vector<double> &values);
+  void publish_module_temperatures_(const std::vector<double> &values);
+  void publish_module_ids_(const std::vector<double> &values);
   
   struct RegisterEntry {
     uint16_t reg;
@@ -333,11 +275,6 @@ class HMIBMS : public PollingComponent, public uart::UARTDevice {
   text_sensor::TextSensor *board_revision_text_sensor_{nullptr};
   text_sensor::TextSensor *bms_firmware_text_sensor_{nullptr};
   text_sensor::TextSensor *module_ids_text_sensor_{nullptr};
-  uint16_t module_ids_[8]{};
-  uint8_t module_ids_seen_{0};  // slots that answered this cycle
-  uint8_t module_ids_valid_{0};
-  int pack_type_{-2};           // -2 = not read yet
-  void publish_module_ids_();
   text_sensor::TextSensor *hmi_firmware_text_sensor_{nullptr};
   std::string hmi_build_{"unknown"};
   uint32_t bms_build_hash_{0};
@@ -374,6 +311,7 @@ class HMIBMS : public PollingComponent, public uart::UARTDevice {
   uint32_t last_log_line_publish_time_{0};
   std::vector<sensor::Sensor *> cell_voltage_sensors_;
   std::vector<sensor::Sensor *> balancing_time_sensors_;
+  std::vector<sensor::Sensor *> module_temperature_sensors_;
   uint32_t baud_rate_{460800};
   bool dump_raw_{false};
   SettingsLock settings_;

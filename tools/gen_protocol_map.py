@@ -127,8 +127,12 @@ def main():
     fw = Path(sys.argv[1])
     h, py = render(*parse(fw))
     if "--check" in sys.argv[2:]:
+        # The commit named in the header isn't compared: git may not be usable where this runs
+        def body(text):
+            return re.sub(r"change \w+\.", "change .", text, count=1)
+
         stale = [p.name for p, text in ((OUT_H, h), (OUT_PY, py))
-                 if not p.exists() or read(p) != text]
+                 if not p.exists() or body(read(p)) != body(text)]
         if stale:
             sys.exit(f"{', '.join(stale)}: out of date with {fw} (run tools/gen_protocol_map.py)")
         print("protocol map matches the firmware headers")

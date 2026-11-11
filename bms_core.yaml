@@ -167,16 +167,9 @@ sensor:
       id: bms_chip_temp
       name: "BMS Chip Temperature"
       entity_category: diagnostic
-    # Health and diagnostics (BMS registers 96-110; older BMS firmware doesn't answer, so these
-    # stay unknown). The SOC estimate and buffers change slowly or rarely; the counters go up
-    # every second, so they're sent once a minute.
-    ekf_capacity:
-      name: "EKF Capacity"
-      icon: mdi:battery-heart-variant
-    soc_fancy_count:
-      name: "SOC Fancy Count"
-      icon: mdi:battery-sync
-      filters: [delta: 0.05]
+    # Health and diagnostics. A BMS firmware without these registers leaves them unknown. The
+    # buffers change slowly or rarely; the counters go up every second, so they're sent once
+    # a minute.
     overcurrent_charge_buffer:
       name: "Overcurrent Charge Buffer"
       icon: mdi:current-dc
@@ -847,6 +840,10 @@ text_sensor:
       name: "HMI Firmware"
       icon: mdi:monitor-dashboard
       entity_category: diagnostic
+    protocol:
+      name: "BMS Protocol"
+      icon: mdi:handshake-outline
+      entity_category: diagnostic
     module_ids:
       name: "Module IDs"
       icon: mdi:identifier
@@ -997,7 +994,6 @@ text_sensor:
     error_supply_voltage_contactor_high: { name: "Event Warning Ctr Supply High" }
     error_battery_voltage_high: { name: "Event Warning Battery Voltage High" }
     error_battery_voltage_very_high: { name: "Event Critical Battery Voltage Very High" }
-    error_battery_voltage_low: { name: "Event Warning Battery Voltage Low" }
     error_battery_voltage_very_low: { name: "Event Critical Battery Voltage Very Low" }
     error_cell_voltage_high: { name: "Event Warning Cell Voltage High" }
     error_cell_voltage_very_high: { name: "Event Critical Cell Voltage Very High" }
@@ -1024,14 +1020,12 @@ text_sensor:
     error_link_voltage_mismatch: { name: "Event Warning Link Voltage Mismatch" }
     error_fuse_voltage_drop_high: { name: "Event Warning Fuse Voltage Drop High" }
     error_bmb_pack_mismatch: { name: "Event Warning BMB Pack Mismatch" }
-    error_isolation_asymmetry: { name: "Event Warning Isolation Asymmetry" }
-    error_contactor_port_energized: { name: "Event Info Contactor Port Energized" }
+    error_cell_missing: { name: "Event Warning Cell Missing" }
+    error_absent_channel_voltage: { name: "Event Critical Absent Channel Voltage" }
+    error_isolation_low: { name: "Event Warning Isolation Low" }
     error_board_mismatch: { name: "Event Fatal Board Mismatch" }
     error_supervisor_not_enabled: { name: "Event Warning Supervisor Not Enabled" }
     error_supervisor_disabled_contactors: { name: "Event Fatal Supervisor Disabled Contactors" }
-    error_bmb_module_id_check_failed: { name: "Event Warning BMB Module ID Check Failed" }
-    error_bmb_module_id_unknown: { name: "Event Info BMB Module ID Unknown" }
-    error_bmb_module_id_conflict: { name: "Event Fatal BMB Module ID Conflict" }
 
   - platform: template
     id: system_state_text

@@ -1,4 +1,5 @@
 #include "hmi_protocol.h"
+#include "hmi_map.h"
 
 #include <cstring>
 
@@ -134,32 +135,77 @@ size_t parse_registers(const uint8_t *payload, size_t len, std::vector<RegisterV
   return out.size();
 }
 
-size_t decode_delta_array(const uint8_t *data, size_t len, size_t count, bool signed_absolute,
-                          std::vector<int32_t> &out) {
-  out.clear();
-  size_t offset = 0;
-  int32_t last = 0;
-  for (size_t i = 0; i < count && offset < len; i++) {
-    int32_t value;
-    if (data[offset] & 0x80) {
-      if (offset + 1 >= len) break;
-      uint16_t v = (uint16_t) (((data[offset] & 0x7F) << 8) | data[offset + 1]);
-      if (signed_absolute && (v & 0x4000)) {
-        value = (int16_t) (v | 0x8000);
-      } else {
-        value = v;
-      }
-      offset += 2;
-    } else {
-      uint8_t v = data[offset] & 0x7F;
-      int8_t delta = (v & 0x40) ? (int8_t) (v | 0x80) : (int8_t) v;
-      value = last + delta;
-      offset += 1;
-    }
-    out.push_back(value);
-    last = value;
+bool parse_array_page(const uint8_t *payload, size_t len, ArrayPage &out) {
+  // [0] message type, [1] address, [2] array id, [3] encoding, [4..5] start, [6..7] total,
+  // [8] elements in this page, [9..12] sample time, then the elements
+  if (len < ARRAY_PAGE_HEADER_SIZE) return false;
+  out.array_id = payload[2];
+  out.encoding = payload[3];
+  out.start = get_u16(payload + 4);
+  out.total = get_u16(payload + 6);
+  out.count = payload[8];
+  out.sample_time = get_u32(payload + 9);
+  out.elements = payload + ARRAY_PAGE_HEADER_SIZE;
+  if (out.count == 0) return true;
+  const size_t size = type_size(out.encoding);
+  if ((out.encoding & 0x80) || size == 0) return false;
+  if (ARRAY_PAGE_HEADER_SIZE + (size_t) out.count * size > len) return false;
+  double unused;
+  return decode_value(out.encoding, out.elements, unused);
+}
+
+bool array_element(const ArrayPage &page, size_t index, double &out) {
+  if (index >= page.count) return false;
+  return decode_value(page.encoding, page.elements + index * type_size(page.encoding), out);
+}
+
+std::vector<uint8_t> read_array_request(uint8_t address, uint8_t array_id, uint16_t start) {
+  return {HMI_MSG_READ_ARRAY, address, array_id, (uint8_t) (start & 0xFF), (uint8_t) (start >> 8)};
+}
+
+bool parse_register_list(const uint8_t *payload, size_t len, uint16_t &start, uint16_t &total,
+                         std::vector<RegisterInfo> &out) {
+  // [0] message type, [1] address, [2..3] start, [4..5] total, [6] entries, then id (2), type, flags
+  static const size_t HEADER = 7, ENTRY = 4;
+  if (len < HEADER) return false;
+  start = get_u16(payload + 2);
+  total = get_u16(payload + 4);
+  const size_t count = payload[6];
+  if (HEADER + count * ENTRY > len) return false;
+  for (size_t i = 0; i < count; i++) {
+    const uint8_t *e = payload + HEADER + i * ENTRY;
+    out.push_back({get_u16(e), e[2], e[3]});
   }
-  return out.size();
+  return true;
+}
+
+std::vector<uint8_t> list_registers_request(uint8_t address, uint16_t start) {
+  return {HMI_MSG_LIST_REGISTERS, address, (uint8_t) (start & 0xFF), (uint8_t) (start >> 8)};
+}
+
+bool parse_nack(const uint8_t *payload, size_t len, Nack &out) {
+  if (len < 4) return false;
+  out.request = payload[2];
+  out.reason = payload[3];
+  return true;
+}
+
+bool parse_supervisor(const uint8_t *payload, size_t len, SupervisorStatus &out) {
+  if (len < 27) return false;
+  const uint8_t *p = payload + 2;
+  out.protocol_version = p[0];
+  out.state = p[1];
+  out.reasons = get_u16(p + 2);
+  out.latch_reasons = get_u16(p + 4);
+  out.cell_min_mv = get_i16(p + 6);
+  out.cell_max_mv = get_i16(p + 8);
+  out.cells_in_range = p[10];
+  out.cells_in_map = p[11];
+  out.chemistry = p[12];
+  out.scans = get_u32(p + 13);
+  out.ms_since_scan = get_u32(p + 17);
+  out.ms_since_bms_status = get_u32(p + 21);
+  return true;
 }
 
 bool parse_events(const uint8_t *payload, size_t len, uint16_t &next_index, std::vector<EventRecord> &out) {

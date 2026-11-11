@@ -3,6 +3,7 @@
 // drivers/comms/duart.c) so the decoder is checked against what the BMS really sends.
 
 #include "../components/hmi_bms/hmi_protocol.h"
+#include "../components/hmi_bms/hmi_map.h"
 
 #include <cmath>
 #include <cstdio>
@@ -10,6 +11,7 @@
 #include <string>
 #include <vector>
 
+using namespace esphome::hmi_bms;
 using namespace esphome::hmi_bms::protocol;
 
 static int failures = 0;
@@ -33,24 +35,6 @@ static std::vector<uint8_t> bms_frame(const std::vector<uint8_t> &payload) {
   buf.push_back(crc & 0xFF);
   buf.push_back(crc >> 8);
   return buf;
-}
-
-// encode_int16_delta_array
-static size_t bms_encode_int16_delta_array(uint8_t *buf, const int16_t *values, size_t count) {
-  int16_t last_value = 0;
-  size_t idx = 0;
-  for (size_t i = 0; i < count; i++) {
-    int16_t value = values[i];
-    int16_t delta = value - last_value;
-    if (delta >= -64 && delta <= 63) {
-      buf[idx++] = (delta & 0x7F);
-    } else {
-      buf[idx++] = ((value >> 8) & 0xFF) | 0x80;
-      buf[idx++] = (value >> 0) & 0xFF;
-    }
-    last_value = value;
-  }
-  return idx;
 }
 
 static void put_u16(std::vector<uint8_t> &b, uint16_t v) {
@@ -262,45 +246,175 @@ static void test_registers() {
   CHECK(parse_registers(q.data(), q.size(), regs) == 0);
 }
 
-static void test_delta_cells() {
-  // 120 cells like the BMS sends: 15 real ones, then -1 ("no reading"), plus a big jump
-  int16_t cells[120];
-  for (int i = 0; i < 120; i++) cells[i] = -1;
-  int16_t real[15] = {3632, 3619, 3640, 3682, 3682, 3626, 3632, 3643, 3628, 3627, 3626, 3682, 3639, 3630, 3621};
-  memcpy(cells, real, sizeof(real));
-  cells[20] = 0;
-  cells[21] = 4200;
-  uint8_t buf[260];
-  size_t n = bms_encode_int16_delta_array(buf, cells, 120);
-  std::vector<int32_t> out;
-  CHECK(decode_delta_array(buf, n, 120, true, out) == 120);
-  bool same = out.size() == 120;
-  for (int i = 0; same && i < 120; i++) same = out[i] == cells[i];
-  CHECK(same);
-  // Truncated input decodes what fits
-  CHECK(decode_delta_array(buf, 3, 120, true, out) >= 1);
+// hmi_build_read_array_response, for an array of int16 or float values (hmi_arrays.c): as many
+// elements from start as fit in 256 bytes; none past the end, or before the first reading of a
+// timestamped array (sample time 0)
+template<typename T>
+static std::vector<uint8_t> bms_array_reply(uint8_t array_id, uint8_t encoding, const std::vector<T> &values,
+                                            uint16_t start, uint32_t sample_time, bool timestamped = true) {
+  std::vector<uint8_t> tx = {0x89, 0x01, array_id, encoding};
+  put_u16(tx, start);
+  put_u16(tx, (uint16_t) values.size());
+  tx.push_back(0);  // count
+  for (int i = 0; i < 4; i++) tx.push_back((sample_time >> (8 * i)) & 0xFF);
+  uint8_t count = 0;
+  if (start < values.size() && !(timestamped && sample_time == 0)) {
+    size_t remaining = values.size() - start;
+    if (remaining > 255) remaining = 255;
+    for (size_t i = 0; i < remaining && tx.size() + sizeof(T) <= 256; i++) {
+      uint8_t raw[sizeof(T)];
+      memcpy(raw, &values[start + i], sizeof(T));
+      tx.insert(tx.end(), raw, raw + sizeof(T));
+      count++;
+    }
+  }
+  tx[8] = count;
+  return tx;
 }
 
-static void test_delta_balancing() {
-  // Balancing seconds up to 32767 decode as unsigned (bit 14 set would be negative if signed)
-  int16_t t[120] = {0};
-  t[0] = 20000;
-  t[1] = 19990;
-  t[5] = 32767;
-  t[6] = 1;
-  uint8_t buf[260];
-  size_t n = bms_encode_int16_delta_array(buf, t, 120);
-  std::vector<int32_t> out;
-  CHECK(decode_delta_array(buf, n, 120, false, out) == 120);
-  CHECK(out.size() == 120 && out[0] == 20000 && out[1] == 19990 && out[5] == 32767 && out[6] == 1 && out[7] == 0);
-  CHECK(decode_delta_array(buf, n, 120, true, out) == 120 && out[0] != 20000);  // why it must be unsigned
+static void test_array_cells() {
+  // 150 cell slots as int16 mV: more than one page (121 fit in a frame), -1 = no reading
+  std::vector<int16_t> cells(150, -1);
+  for (int i = 0; i < 96; i++) cells[i] = (int16_t) (3600 + i);
+  cells[20] = 0;
+  std::vector<double> got;
+  uint16_t start = 0;
+  int pages = 0;
+  while (pages < 5) {
+    auto reply = bms_array_reply(1, TYPE_INT16, cells, start, 123456);
+    ArrayPage page;
+    CHECK(parse_array_page(reply.data(), reply.size(), page));
+    CHECK(page.array_id == 1 && page.encoding == TYPE_INT16 && page.start == start && page.total == 150);
+    CHECK(page.sample_time == 123456);
+    for (size_t i = 0; i < page.count; i++) {
+      double v;
+      CHECK(array_element(page, i, v));
+      got.push_back(v);
+    }
+    double v;
+    CHECK(!array_element(page, page.count, v));
+    pages++;
+    start = (uint16_t) (start + page.count);
+    if (start >= page.total || page.count == 0) break;
+  }
+  CHECK(pages == 2);
+  bool same = got.size() == cells.size();
+  for (size_t i = 0; same && i < cells.size(); i++) same = got[i] == cells[i];
+  CHECK(same);
+
+  auto req = read_array_request(0x01, 1, 300);
+  CHECK(req == (std::vector<uint8_t>{0x09, 0x01, 1, 0x2C, 0x01}));
+}
+
+static void test_array_floats_and_edges() {
+  std::vector<float> temps = {21.5f, -3.25f, 40.0f};
+  auto reply = bms_array_reply(3, TYPE_FLOAT, temps, 0, 5000);
+  ArrayPage page;
+  double v;
+  CHECK(parse_array_page(reply.data(), reply.size(), page) && page.count == 3 && page.total == 3);
+  CHECK(array_element(page, 1, v) && v == -3.25);
+
+  // No reading yet: the header alone, no elements
+  reply = bms_array_reply(3, TYPE_FLOAT, temps, 0, 0);
+  CHECK(parse_array_page(reply.data(), reply.size(), page) && page.count == 0 && page.total == 3);
+  // Past the end
+  reply = bms_array_reply(3, TYPE_FLOAT, temps, 3, 5000);
+  CHECK(parse_array_page(reply.data(), reply.size(), page) && page.count == 0);
+  // An array the BMS doesn't have: encoding 0, no elements
+  std::vector<uint8_t> unknown = {0x89, 0x01, 99, 0x00, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+  CHECK(parse_array_page(unknown.data(), unknown.size(), page) && page.total == 0 && page.count == 0);
+
+  // Refused: a short header, elements cut off, a packed or unknown encoding
+  reply = bms_array_reply(3, TYPE_FLOAT, temps, 0, 5000);
+  CHECK(!parse_array_page(reply.data(), 12, page));
+  CHECK(!parse_array_page(reply.data(), reply.size() - 1, page));
+  reply[3] = TYPE_FLOAT | 0x80;
+  CHECK(!parse_array_page(reply.data(), reply.size(), page));
+  reply[3] = 0x44;
+  CHECK(!parse_array_page(reply.data(), reply.size(), page));
+}
+
+// hmi_build_list_registers_response (hmi_registers.c): entries from start that fit in 256 bytes
+static std::vector<uint8_t> bms_register_list_reply(const std::vector<RegisterInfo> &regs, uint16_t start) {
+  std::vector<uint8_t> tx = {0x8C, 0x01};
+  put_u16(tx, start);
+  put_u16(tx, (uint16_t) regs.size());
+  tx.push_back(0);
+  uint8_t count = 0;
+  for (size_t i = start; i < regs.size() && tx.size() + 4 <= 256 && count < 255; i++) {
+    put_u16(tx, regs[i].id);
+    tx.push_back(regs[i].type);
+    tx.push_back(regs[i].flags);
+    count++;
+  }
+  tx[6] = count;
+  return tx;
+}
+
+static void test_register_list() {
+  // 80 registers: two pages (62 entries fit in a frame)
+  std::vector<RegisterInfo> regs;
+  for (uint16_t i = 0; i < 80; i++) {
+    regs.push_back({(uint16_t) (0x1000 + i * 3), (uint8_t) (i % 2 ? TYPE_FLOAT : TYPE_UINT16),
+                    (uint8_t) (i >= 70 ? (REG_FLAG_WRITABLE | REG_FLAG_SAVED) : 0)});
+  }
+  std::vector<RegisterInfo> got;
+  uint16_t next = 0;
+  int pages = 0;
+  while (pages < 5) {
+    auto reply = bms_register_list_reply(regs, next);
+    uint16_t start, total;
+    size_t before = got.size();
+    CHECK(parse_register_list(reply.data(), reply.size(), start, total, got));
+    CHECK(start == next && total == 80);
+    pages++;
+    next = (uint16_t) got.size();
+    if (got.size() >= total || got.size() == before) break;
+  }
+  CHECK(pages == 2 && got.size() == 80);
+  CHECK(got.size() == 80 && got[79].id == regs[79].id && got[79].type == TYPE_FLOAT &&
+        got[79].flags == (REG_FLAG_WRITABLE | REG_FLAG_SAVED) && got[0].flags == 0);
+
+  auto reply = bms_register_list_reply(regs, 0);
+  uint16_t start, total;
+  CHECK(!parse_register_list(reply.data(), 6, start, total, got));
+  CHECK(!parse_register_list(reply.data(), reply.size() - 1, start, total, got));
+  CHECK(list_registers_request(0x01, 62) == (std::vector<uint8_t>{0x0C, 0x01, 62, 0}));
+}
+
+static void test_nack_and_supervisor() {
+  std::vector<uint8_t> nack = {0x80, 0x01, 0x05, 1};
+  Nack n;
+  CHECK(parse_nack(nack.data(), nack.size(), n) && n.request == 0x05 && n.reason == 1);
+  CHECK(!parse_nack(nack.data(), 3, n));
+
+  // READ_SUPERVISOR_RESPONSE as hmi_serial.h 2.12 lays it out
+  std::vector<uint8_t> sup = {0x8B, 0x01, 3, 2};
+  put_u16(sup, 0x0005);
+  put_u16(sup, 0x0100);
+  put_u16(sup, (uint16_t) (int16_t) -1);
+  put_u16(sup, 4150);
+  sup.push_back(95);
+  sup.push_back(96);
+  sup.push_back(2);
+  for (uint32_t v : {1234567u, 40u, 0xFFFFFFFFu}) {
+    for (int i = 0; i < 4; i++) sup.push_back((v >> (8 * i)) & 0xFF);
+  }
+  SupervisorStatus st;
+  CHECK(sup.size() == 27);
+  CHECK(parse_supervisor(sup.data(), sup.size(), st));
+  CHECK(st.protocol_version == 3 && st.state == 2 && st.reasons == 5 && st.latch_reasons == 0x0100);
+  CHECK(st.cell_min_mv == -1 && st.cell_max_mv == 4150 && st.cells_in_range == 95 && st.cells_in_map == 96);
+  CHECK(st.chemistry == 2 && st.scans == 1234567 && st.ms_since_scan == 40 &&
+        st.ms_since_bms_status == 0xFFFFFFFF);
+  CHECK(!parse_supervisor(sup.data(), 26, st));
 }
 
 static void test_events_paging() {
   // 30 event types have happened: three pages (11 + 11 + 8), followed with next_index
-  std::vector<uint16_t> counts(61, 0);
+  std::vector<uint16_t> counts(HMI_EVENT_COUNT, 0);
   int expected = 0;
-  for (int i = 0; i < 61; i += 2) {
+  for (int i = 0; i < HMI_EVENT_COUNT; i += 2) {
     counts[i] = (uint16_t) (i + 1);
     expected++;
   }
@@ -326,12 +440,12 @@ static void test_events_paging() {
   CHECK((int) seen.size() == expected);
   CHECK(pages == 3);
   // One page when few events
-  std::vector<uint16_t> one(61, 0);
+  std::vector<uint16_t> one(HMI_EVENT_COUNT, 0);
   one[47] = 1;
   auto r = bms_events_reply(one, 0);
   uint16_t next;
   std::vector<EventRecord> recs;
-  CHECK(parse_events(r.data(), r.size(), next, recs) && recs.size() == 1 && recs[0].type == 47 && next == 61);
+  CHECK(parse_events(r.data(), r.size(), next, recs) && recs.size() == 1 && recs[0].type == 47 && next == HMI_EVENT_COUNT);
   CHECK(!parse_events(r.data(), 5, next, recs));
 }
 
@@ -347,8 +461,10 @@ int main() {
   test_parser_overflow();
   test_values();
   test_registers();
-  test_delta_cells();
-  test_delta_balancing();
+  test_array_cells();
+  test_array_floats_and_edges();
+  test_register_list();
+  test_nack_and_supervisor();
   test_events_paging();
   printf("%d checks, %d failed\n", checks, failures);
   return failures == 0 ? 0 : 1;

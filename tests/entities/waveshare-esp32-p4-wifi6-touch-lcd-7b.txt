@@ -276,7 +276,6 @@ sensor | Current Limit Temperature Discharge | A | current | measurement | 1
 sensor | Current Limit Working Charge | A | current | measurement | 1
 sensor | Current Limit Working Discharge | A | current | measurement | 1
 sensor | Current | A | current | measurement | 3
-sensor | EKF Capacity | Ah |  | measurement | 2
 sensor | Energy Daily Charge | kWh | energy | total_increasing | 3
 sensor | Energy Daily Discharge | kWh | energy | total_increasing | 3
 sensor | Energy Daily Net | kWh | energy | total | 3
@@ -314,7 +313,6 @@ sensor | Power Discharge | kW | power | measurement | 3
 sensor | Power W | W | power | measurement | 0
 sensor | Power | kW | power | measurement | 3
 sensor | SOC Basic Count | % | battery | measurement | 1
-sensor | SOC Fancy Count | % |  | measurement | 2
 sensor | SOC Voltage Based | % | battery | measurement | 1
 sensor | SOC | % | battery | measurement | 2
 sensor | Shunt Die Temperature | °C | temperature | measurement | 1
@@ -339,6 +337,7 @@ switch | Audio Amplifier |  |  |  |
 switch | Log Enable |  |  |  |
 switch | Settings Unlock |  |  |  |
 text_sensor | BMS Firmware |  |  |  |
+text_sensor | BMS Protocol |  |  |  |
 text_sensor | BSSID |  |  |  |
 text_sensor | Balance Charge Status |  |  |  |
 text_sensor | Balance Cycle Time Remaining |  |  |  |
@@ -348,6 +347,7 @@ text_sensor | Cells Balancing |  |  |  |
 text_sensor | Contactor State Text |  |  |  |
 text_sensor | Event Critical 3V3 High |  |  |  |
 text_sensor | Event Critical 3V3 Low |  |  |  |
+text_sensor | Event Critical Absent Channel Voltage |  |  |  |
 text_sensor | Event Critical BMB CRC Mismatch |  |  |  |
 text_sensor | Event Critical BMB Read Error |  |  |  |
 text_sensor | Event Critical Battery Temperature Very High |  |  |  |
@@ -365,7 +365,6 @@ text_sensor | Event Critical POS Unexpected Open |  |  |  |
 text_sensor | Event Critical PRE Current High |  |  |  |
 text_sensor | Event Critical PRE Voltage High |  |  |  |
 text_sensor | Event Critical Voltage Mismatch |  |  |  |
-text_sensor | Event Fatal BMB Module ID Conflict |  |  |  |
 text_sensor | Event Fatal Board Mismatch |  |  |  |
 text_sensor | Event Fatal Ctr Supply Very Low |  |  |  |
 text_sensor | Event Fatal E-Stop Pressed |  |  |  |
@@ -377,24 +376,21 @@ text_sensor | Event Fatal PRE Stuck Closed |  |  |  |
 text_sensor | Event Fatal PRE Stuck Open |  |  |  |
 text_sensor | Event Fatal Supervisor Disabled Contactors |  |  |  |
 text_sensor | Event History |  |  |  |
-text_sensor | Event Info BMB Module ID Unknown |  |  |  |
 text_sensor | Event Info Boot Normal |  |  |  |
 text_sensor | Event Info Boot Watchdog |  |  |  |
-text_sensor | Event Info Contactor Port Energized |  |  |  |
 text_sensor | Event Info Inverter Detected |  |  |  |
 text_sensor | Event Info Restarting |  |  |  |
 text_sensor | Event Warning 12V High |  |  |  |
 text_sensor | Event Warning 12V Low |  |  |  |
 text_sensor | Event Warning 5V High |  |  |  |
 text_sensor | Event Warning 5V Low |  |  |  |
-text_sensor | Event Warning BMB Module ID Check Failed |  |  |  |
 text_sensor | Event Warning BMB Pack Mismatch |  |  |  |
 text_sensor | Event Warning Battery Temperature High |  |  |  |
 text_sensor | Event Warning Battery Temperature Low |  |  |  |
 text_sensor | Event Warning Battery Temperature Stale |  |  |  |
 text_sensor | Event Warning Battery Voltage High |  |  |  |
-text_sensor | Event Warning Battery Voltage Low |  |  |  |
 text_sensor | Event Warning Battery Voltage Stale |  |  |  |
+text_sensor | Event Warning Cell Missing |  |  |  |
 text_sensor | Event Warning Cell Voltage Glitch |  |  |  |
 text_sensor | Event Warning Cell Voltage High |  |  |  |
 text_sensor | Event Warning Cell Voltage Low |  |  |  |
@@ -402,7 +398,7 @@ text_sensor | Event Warning Cell Voltages Stale |  |  |  |
 text_sensor | Event Warning Ctr Supply High |  |  |  |
 text_sensor | Event Warning Current Stale |  |  |  |
 text_sensor | Event Warning Fuse Voltage Drop High |  |  |  |
-text_sensor | Event Warning Isolation Asymmetry |  |  |  |
+text_sensor | Event Warning Isolation Low |  |  |  |
 text_sensor | Event Warning Link Voltage Mismatch |  |  |  |
 text_sensor | Event Warning Loop Overrun |  |  |  |
 text_sensor | Event Warning Module Temperature Glitch |  |  |  |

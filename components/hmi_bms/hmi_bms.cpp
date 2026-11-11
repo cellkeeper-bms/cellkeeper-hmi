@@ -51,43 +51,16 @@ void HMIBMS::publish_bms_firmware_() {
   }
 }
 
-// "023 023 · pack type 34": each answering BMB's module ID (as the BMS's pack type table has
-// them, without the check bits), "?" after one that failed its checks; "none" before any answer.
-void HMIBMS::publish_module_ids_() {
-  if (this->module_ids_text_sensor_ == nullptr) return;
-  std::string text;
-  for (int slot = 0; slot < 8; slot++) {
-    if (!(this->module_ids_seen_ & (1u << slot))) continue;
-    char id[12];
-    snprintf(id, sizeof(id), "%s%03X%s", text.empty() ? "" : " ", this->module_ids_[slot] & 0x07FF,
-             (this->module_ids_valid_ & (1u << slot)) ? "" : "?");
-    text += id;
-  }
-  if (text.empty()) text = "none";
-  if (this->pack_type_ >= 0) text += str_sprintf(" · pack type %d", this->pack_type_);
-  if (!this->module_ids_text_sensor_->has_state() || this->module_ids_text_sensor_->state != text) {
-    this->module_ids_text_sensor_->publish_state(text);
-  }
-}
-
 // Registers read for the text sensors and limits that aren't table entries themselves
 void HMIBMS::add_internal_registers_() {
   auto add = [this](uint16_t reg, uint8_t type, uint8_t group) {
     this->registers_.push_back({reg, type, group, 1.0f, nullptr, nullptr});
   };
   if (this->serial_text_sensor_) add(HMI_REG_SERIAL, HMI_TYPE_UINT64, POLL_SLOW);
-  // PCB revision strap (register 66; older firmware just doesn't answer)
   if (this->board_revision_text_sensor_) add(HMI_REG_BOARD_REVISION, HMI_TYPE_UINT16, POLL_SLOW);
-  // Firmware build ID (registers 68/69; older firmware doesn't answer)
   if (this->bms_firmware_text_sensor_) {
     add(HMI_REG_BUILD_HASH, HMI_TYPE_UINT32, POLL_SLOW);
     add(HMI_REG_BUILD_TIME, HMI_TYPE_UINT32, POLL_SLOW);
-  }
-  // Module IDs and pack type (registers 111-120; older firmware doesn't answer)
-  if (this->module_ids_text_sensor_) {
-    add(HMI_REG_PACK_TYPE, HMI_TYPE_INT8, POLL_SLOW);
-    add(HMI_REG_MODULE_IDS_VALID_MASK, HMI_TYPE_UINT8, POLL_SLOW);
-    for (uint16_t reg = HMI_REG_MODULE_ID_START; reg <= HMI_REG_MODULE_ID_END; reg++) add(reg, HMI_TYPE_UINT16, POLL_SLOW);
   }
   // The user current limits are clamped to the hard limits, and show "no limit" as them
   if (this->max_charge_current_number_) add(HMI_REG_HARD_CHARGE_CURRENT_LIMIT_DA, HMI_TYPE_UINT16, POLL_LIMITS);
@@ -99,17 +72,20 @@ void HMIBMS::update() {
     ESP_LOGD(TAG, "No device address assigned yet, skipping register read");
     return;
   }
+  if (this->link_state_ != LINK_READY) {
+    this->poll_link_();
+    return;
+  }
 
-  // Use slot 0 on first update so slow/detail registers are available
-  // immediately after boot/reconnect (instead of after ~10 poll cycles).
+  // Slot 0 comes first after the link is up, so the slow registers arrive at once
   uint8_t slot = this->update_count_ % 10;
   this->update_count_++;
 
-  // 1. Registers: the fast group every poll, plus the group whose slot this is
+  // 1. Registers: the fast group every poll, plus the group whose slot this is. Only the
+  // registers this BMS firmware has are asked for.
   int slot_group = -1;
   switch (slot) {
     case 0: slot_group = POLL_SLOW; break;
-    case 1: slot_group = POLL_MODULE_TEMPS; break;
     case 3: slot_group = POLL_LIMITS; break;
     case 4: slot_group = POLL_SETTINGS; break;
     default: break;
@@ -118,17 +94,20 @@ void HMIBMS::update() {
   for (const auto &e : this->registers_) {
     if (e.group != POLL_FAST && e.group != slot_group) continue;
     if (!regs.empty() && regs.back() == e.reg) continue;  // sorted: a register can feed several entries
+    if (!this->bms_has_register_(e.reg)) continue;
     regs.push_back(e.reg);
   }
   this->send_register_reads_(regs);
 
-  // 2. Read Cell Voltages (Tick 2)
-  if (slot == 2 && !this->cell_voltage_sensors_.empty()) {
-    ESP_LOGV(TAG, "Polling cell voltages (slot 2). Sensors: %zu", this->cell_voltage_sensors_.size());
-    std::vector<uint8_t> cv_payload;
-    cv_payload.push_back(HMI_MSG_READ_CELL_VOLTAGES);
-    cv_payload.push_back(this->address_);
-    this->send_packet_(cv_payload);
+  // 2. Arrays, each on its own slot
+  if (slot == 0 && this->module_ids_text_sensor_ != nullptr) this->request_array_(HMI_ARRAY_MODULE_IDS);
+  if (slot == 1 && !this->module_temperature_sensors_.empty()) this->request_array_(HMI_ARRAY_MODULE_TEMPS);
+  if (slot == 2 && (!this->cell_voltage_sensors_.empty() || this->cell_count_sensor_ != nullptr)) {
+    this->request_array_(HMI_ARRAY_CELL_VOLTAGES);
+  }
+  if (slot == 7 && (this->cells_balancing_text_sensor_ || this->cells_balancing_active_text_sensor_ ||
+                    !this->balancing_time_sensors_.empty())) {
+    this->request_array_(HMI_ARRAY_BALANCING_TIMES);
   }
 
   // 3. Read Events (Tick 5): start a new sweep of the event list from index 0. A sweep
@@ -144,15 +123,6 @@ void HMIBMS::update() {
     sw.latest_level = 0;
     sw.latest_count = 0;
     this->request_events_(0);
-  }
-
-  // 4. Read Balancing Times (Tick 7)
-  if (slot == 7 && (this->cells_balancing_text_sensor_ || this->cells_balancing_active_text_sensor_ ||
-                    !this->balancing_time_sensors_.empty())) {
-    std::vector<uint8_t> bal_payload;
-    bal_payload.push_back(HMI_MSG_READ_BALANCING_TIMES);
-    bal_payload.push_back(this->address_);
-    this->send_packet_(bal_payload);
   }
 
   // 5. Read Log (Tick 9) - Poll for new log messages
@@ -355,15 +325,17 @@ void HMIBMS::handle_packet_(const uint8_t *payload, size_t length) {
         // This message type has variable length based on the registers included
         this->handle_read_registers_response_(payload + offset, length - offset);
         return; // Assume variable length takes rest of packet for now
-      case HMI_MSG_READ_CELL_VOLTAGES_RESPONSE:
-        ESP_LOGD(TAG, "Received Cell Voltages Response (msg_type=0x85)");
-        this->handle_read_cell_voltages_response_(payload + offset, length - offset);
+      case HMI_MSG_READ_ARRAY_RESPONSE:
+        this->handle_array_page_(payload + offset, length - offset);
+        return;
+      case HMI_MSG_LIST_REGISTERS_RESPONSE:
+        this->handle_list_registers_response_(payload + offset, length - offset);
+        return;
+      case HMI_MSG_NACK:
+        this->handle_nack_(payload + offset, length - offset);
         return;
       case HMI_MSG_READ_EVENTS_RESPONSE:
         this->handle_read_events_response_(payload + offset, length - offset);
-        return;
-      case HMI_MSG_READ_BALANCING_TIMES_RESPONSE:
-        this->handle_read_balancing_times_response_(payload + offset, length - offset);
         return;
       case HMI_MSG_READ_LOG_RESPONSE:
         this->handle_read_log_response_(payload + offset, length - offset);
@@ -380,6 +352,8 @@ void HMIBMS::handle_packet_(const uint8_t *payload, size_t length) {
           ESP_LOGI(TAG, "Device announced: Type=0x%02X, Addr=0x%02X, Serial=%llu", device_type, address, serial);
           
           this->serial_ = serial;
+          // Address 0 means the BMS has restarted: it may be other firmware now
+          if (address == 0 && this->link_state_ != LINK_CHECK_VERSION) this->start_link_check_();
           if (address == 0 || address == 1) {
             uint32_t now = millis();
             
@@ -428,6 +402,11 @@ void HMIBMS::handle_read_registers_response_(const uint8_t *data, size_t length)
   std::vector<protocol::RegisterValue> regs;
   protocol::parse_registers(data, length, regs);
   ESP_LOGD(TAG, "Read registers response from 0x%02X, len=%zu, registers=%zu", data[1], length, regs.size());
+  if (this->link_state_ != LINK_READY) {
+    // Nothing is published until the BMS is known to speak this protocol
+    if (this->link_state_ != LINK_LIST_REGISTERS) this->handle_version_reply_(regs);
+    return;
+  }
 
   float t_min = NAN, t_max = NAN, v_min = NAN, v_max = NAN;
   for (const auto &r : regs) {
@@ -483,15 +462,6 @@ void HMIBMS::publish_register_(uint16_t reg, const uint8_t *value, uint8_t wire_
 bool HMIBMS::handle_special_register_(const protocol::RegisterValue &r) {
   const uint8_t *v = r.value;
   const size_t size = protocol::type_size(r.type);
-  if (r.id >= HMI_REG_MODULE_ID_START && r.id <= HMI_REG_MODULE_ID_END) {
-    if (size == 2) {
-      const int slot = r.id - HMI_REG_MODULE_ID_START;
-      this->module_ids_[slot] = protocol::get_u16(v);
-      this->module_ids_seen_ |= (uint8_t) (1u << slot);
-      this->publish_module_ids_();
-    }
-    return true;
-  }
   switch (r.id) {
     case HMI_REG_SERIAL:
       if (this->serial_text_sensor_ != nullptr && size == 8) {
@@ -527,16 +497,6 @@ bool HMIBMS::handle_special_register_(const protocol::RegisterValue &r) {
         this->publish_bms_firmware_();
       }
       return true;
-    case HMI_REG_PACK_TYPE:
-      // The first of the module ID registers in each read: the slots that answer follow it
-      if (size == 1) {
-        this->pack_type_ = (int8_t) v[0];
-        this->module_ids_seen_ = 0;
-      }
-      return true;
-    case HMI_REG_MODULE_IDS_VALID_MASK:
-      if (size == 1) this->module_ids_valid_ = v[0];
-      return true;
     case HMI_REG_USER_CHARGE_CURRENT_LIMIT_DA:
     case HMI_REG_USER_DISCHARGE_CURRENT_LIMIT_DA: {
       const bool chg = r.id == HMI_REG_USER_CHARGE_CURRENT_LIMIT_DA;
@@ -567,6 +527,117 @@ bool HMIBMS::handle_special_register_(const protocol::RegisterValue &r) {
     default:
       return false;
   }
+}
+
+// --- The link: protocol version, then the BMS's register list ---
+
+void HMIBMS::start_link_check_() {
+  this->link_state_ = LINK_CHECK_VERSION;
+  this->link_polls_ = 0;
+  this->bms_registers_.clear();
+  this->array_read_.active = false;
+  this->array_queue_.clear();
+  this->event_sweep_.active = false;
+}
+
+void HMIBMS::publish_protocol_status_(const std::string &status) {
+  if (this->protocol_text_sensor_ == nullptr) return;
+  if (!this->protocol_text_sensor_->has_state() || this->protocol_text_sensor_->state != status) {
+    this->protocol_text_sensor_->publish_state(status);
+  }
+}
+
+// Called on every update until the link is ready. Requests are spaced out: every 5th update
+// while checking, every 20th once the BMS has turned out to speak something else.
+void HMIBMS::poll_link_() {
+  const uint32_t n = this->link_polls_++;
+  switch (this->link_state_) {
+    case LINK_CHECK_VERSION:
+    case LINK_INCOMPATIBLE:
+      if (n % (this->link_state_ == LINK_INCOMPATIBLE ? 20 : 5) == 0) {
+        this->send_register_reads_({HMI_REG_PROTOCOL_VERSION});
+      }
+      break;
+    case LINK_LIST_REGISTERS:
+      // Ask again from where the list has got to if a page was lost
+      if (n % 5 == 0) {
+        this->send_packet_(protocol::list_registers_request(this->address_, (uint16_t) this->bms_registers_.size()));
+      }
+      break;
+    default:
+      break;
+  }
+}
+
+// The answer to the PROTOCOL_VERSION read. Firmware from before this protocol has no such
+// register and answers without it.
+void HMIBMS::handle_version_reply_(const std::vector<protocol::RegisterValue> &regs) {
+  int version = -1;
+  for (const auto &r : regs) {
+    double v;
+    if (r.id == HMI_REG_PROTOCOL_VERSION && protocol::decode_value(r.type, r.value, v)) version = (int) v;
+  }
+  this->bms_protocol_version_ = version;
+  if (version == HMI_PROTOCOL_VERSION) {
+    if (this->link_state_ == LINK_INCOMPATIBLE) ESP_LOGI(TAG, "BMS now speaks protocol %d", version);
+    this->link_state_ = LINK_LIST_REGISTERS;
+    this->link_polls_ = 0;
+    this->bms_registers_.clear();
+    this->poll_link_();
+    return;
+  }
+  if (this->link_state_ != LINK_INCOMPATIBLE) {
+    ESP_LOGE(TAG, "BMS speaks HMI protocol %s, this HMI needs %u: nothing will be read",
+             version < 0 ? "1 or older" : str_sprintf("%d", version).c_str(), (unsigned) HMI_PROTOCOL_VERSION);
+  }
+  this->link_state_ = LINK_INCOMPATIBLE;
+  this->publish_protocol_status_(version < 0
+                                     ? str_sprintf("1 or older (this HMI needs %u)", (unsigned) HMI_PROTOCOL_VERSION)
+                                     : str_sprintf("%d (this HMI needs %u)", version, (unsigned) HMI_PROTOCOL_VERSION));
+}
+
+void HMIBMS::handle_list_registers_response_(const uint8_t *data, size_t length) {
+  if (this->link_state_ != LINK_LIST_REGISTERS) return;
+  uint16_t start = 0, total = 0;
+  std::vector<protocol::RegisterInfo> page;
+  if (!protocol::parse_register_list(data, length, start, total, page)) return;
+  if (start != this->bms_registers_.size()) return;  // a repeated or late page
+  this->bms_registers_.insert(this->bms_registers_.end(), page.begin(), page.end());
+  if (this->bms_registers_.size() < total && !page.empty()) {
+    this->send_packet_(protocol::list_registers_request(this->address_, (uint16_t) this->bms_registers_.size()));
+    return;
+  }
+  std::sort(this->bms_registers_.begin(), this->bms_registers_.end(),
+            [](const protocol::RegisterInfo &a, const protocol::RegisterInfo &b) { return a.id < b.id; });
+  size_t missing = 0;
+  for (const auto &e : this->registers_) {
+    if (e.group != POLL_NEVER && !this->bms_has_register_(e.reg)) {
+      ESP_LOGW(TAG, "The BMS has no register 0x%04X: its sensor stays unknown", e.reg);
+      missing++;
+    }
+  }
+  ESP_LOGI(TAG, "BMS speaks protocol %d and has %zu registers (%zu wanted here are missing)",
+           this->bms_protocol_version_, this->bms_registers_.size(), missing);
+  this->link_state_ = LINK_READY;
+  this->update_count_ = 0;
+  this->publish_protocol_status_(str_sprintf("%d", this->bms_protocol_version_));
+  this->update();
+}
+
+bool HMIBMS::bms_has_register_(uint16_t reg) const {
+  auto it = std::lower_bound(this->bms_registers_.begin(), this->bms_registers_.end(), reg,
+                             [](const protocol::RegisterInfo &e, uint16_t r) { return e.id < r; });
+  return it != this->bms_registers_.end() && it->id == reg;
+}
+
+// The BMS refused a request (a message type it doesn't know, or one too short)
+void HMIBMS::handle_nack_(const uint8_t *data, size_t length) {
+  protocol::Nack nack;
+  if (!protocol::parse_nack(data, length, nack)) return;
+  ESP_LOGW(TAG, "The BMS refused message 0x%02X (reason %u)", nack.request, nack.reason);
+  if (nack.request == HMI_MSG_READ_LOG) this->log_busy_ = false;
+  if (nack.request == HMI_MSG_READ_ARRAY) this->finish_array_read_(false);
+  if (nack.request == HMI_MSG_READ_EVENTS) this->event_sweep_.active = false;
 }
 
 void HMIBMS::dump_config() {

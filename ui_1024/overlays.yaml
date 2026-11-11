@@ -71,12 +71,13 @@ lvgl:
             - button: {id: tab_btn_8, x: 819, y: 0, width: 102, height: 34, radius: 0, border_width: 0, shadow_width: 0, bg_color: 0x0B0D0C, widgets: [{label: {text: "Log", align: CENTER, text_font: font_roboto_18}}], on_click: [{lvgl.page.show: bmslog_page}]}
             - button: {id: tab_btn_9, x: 921, y: 0, width: 103, height: 34, radius: 0, border_width: 0, shadow_width: 0, bg_color: 0x0B0D0C, widgets: [{label: {text: "System", align: CENTER, text_font: font_roboto_18}}], on_click: [{lvgl.page.show: system_page}]}
 
-      # ---------------- "No BMS data" tag (no reply for 5 s; not on the classic main) ----------------
+      # ---------------- "No BMS data" tag (no reply for 5 s; not on the classic main), which
+      # also says when the BMS speaks another HMI protocol version (on every page) ----------------
       - obj:
           id: ui_stale
           align: TOP_MID
           y: 6
-          width: 240
+          width: 400
           height: 36
           hidden: true
           scrollable: false
@@ -87,7 +88,7 @@ lvgl:
           bg_color: 0xB71C1C
           bg_opa: COVER
           widgets:
-            - label: {text: "NO BMS DATA", align: CENTER, text_font: font_roboto_20, text_color: 0xFFFFFF}
+            - label: {id: ui_stale_label, text: "NO BMS DATA", align: CENTER, text_font: font_roboto_20, text_color: 0xFFFFFF}
 
       # ---------------- Numeric pad (settings values and PIN entry) ----------------
       - obj:

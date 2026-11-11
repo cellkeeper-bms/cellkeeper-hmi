@@ -15,6 +15,7 @@ from esphome.const import (
     ICON_EMPTY,
 )
 from . import HMIBMS, hmi_bms_ns
+from .hmi_map import REGISTERS
 
 CONF_HMI_BMS_ID = "hmi_bms_id"
 CONF_MILLIS = "millis"
@@ -80,24 +81,6 @@ CONF_PACK_NEG_TO_CHASSIS = "pack_neg_to_chassis"
 CONF_ISOLATION_CHECK_AGE = "isolation_check_age"
 CONF_BOARD_STRAP_COUNTS = "board_strap_counts"
 CONF_BMS_CHIP_TEMPERATURE = "bms_chip_temperature"
-CONF_EKF_CAPACITY = "ekf_capacity"
-CONF_SOC_FANCY_COUNT = "soc_fancy_count"
-CONF_OVERCURRENT_CHARGE_BUFFER = "overcurrent_charge_buffer"
-CONF_OVERCURRENT_DISCHARGE_BUFFER = "overcurrent_discharge_buffer"
-CONF_SOFT_CHARGE_BUFFER = "soft_charge_buffer"
-CONF_BALANCING_STATE = "balancing_state"
-CONF_CALIBRATION_STATE = "calibration_state"
-# The BMS's serial and CAN counters since it started (registers 101-108)
-COUNTERS = {
-    "uart0_packets_received": 101,
-    "uart0_packets_sent": 102,
-    "uart0_crc_errors": 103,
-    "uart1_packets_received": 104,
-    "uart1_packets_sent": 105,
-    "uart1_crc_errors": 106,
-    "can_frames_sent": 107,
-    "can_frames_received": 108,
-}
 CONF_SHUNT_DIE_TEMPERATURE = "shunt_die_temperature"
 CONF_SHUNT_NTC_TEMPERATURE = "shunt_ntc_temperature"
 CONF_ISOLATION_RESISTANCE = "isolation_resistance"
@@ -106,6 +89,22 @@ CONF_INVERTER_REMAINING_CAPACITY = "inverter_remaining_capacity"
 CONF_INVERTER_MIN_VOLTAGE_LIMIT = "inverter_min_voltage_limit"
 CONF_INVERTER_MAX_VOLTAGE_LIMIT = "inverter_max_voltage_limit"
 CONF_MODULE_TEMPERATURES = "module_temperatures"
+CONF_OVERCURRENT_CHARGE_BUFFER = "overcurrent_charge_buffer"
+CONF_OVERCURRENT_DISCHARGE_BUFFER = "overcurrent_discharge_buffer"
+CONF_SOFT_CHARGE_BUFFER = "soft_charge_buffer"
+CONF_BALANCING_STATE = "balancing_state"
+CONF_CALIBRATION_STATE = "calibration_state"
+# The BMS's serial and CAN counters since it started: key -> register name
+COUNTERS = {
+    "uart0_packets_received": "UART0_PACKETS_RECEIVED",
+    "uart0_packets_sent": "UART0_PACKETS_SENT",
+    "uart0_crc_errors": "UART0_CRC_ERRORS",
+    "uart1_packets_received": "UART1_PACKETS_RECEIVED",
+    "uart1_packets_sent": "UART1_PACKETS_SENT",
+    "uart1_crc_errors": "UART1_CRC_ERRORS",
+    "can_frames_sent": "CAN_FRAMES_SENT",
+    "can_frames_received": "CAN_FRAMES_RECEIVED",
+}
 
 CONFIG_SCHEMA = cv.Schema({
     cv.GenerateID(CONF_HMI_BMS_ID): cv.use_id(HMIBMS),
@@ -280,16 +279,6 @@ CONFIG_SCHEMA = cv.Schema({
         )
         for key in (CONF_BMS_CHIP_TEMPERATURE, CONF_SHUNT_DIE_TEMPERATURE, CONF_SHUNT_NTC_TEMPERATURE)
     },
-    cv.Optional(CONF_EKF_CAPACITY): sensor.sensor_schema(
-        unit_of_measurement="Ah",
-        accuracy_decimals=2,
-        state_class=STATE_CLASS_MEASUREMENT,
-    ),
-    cv.Optional(CONF_SOC_FANCY_COUNT): sensor.sensor_schema(
-        unit_of_measurement=UNIT_PERCENT,
-        accuracy_decimals=2,
-        state_class=STATE_CLASS_MEASUREMENT,
-    ),
     **{
         cv.Optional(key): sensor.sensor_schema(
             unit_of_measurement=UNIT_PERCENT,
@@ -481,99 +470,87 @@ CONFIG_SCHEMA = cv.Schema({
     )),
 })
 
-# How each register is decoded (low nibble = size in bytes), as in hmi_protocol.h
-T_UINT8 = 0x11
-T_UINT16 = 0x12
-T_INT16 = 0x22
-T_UINT32 = 0x14
-T_INT32 = 0x24
-T_UINT64 = 0x18
-T_INT64 = 0x28
-T_FLOAT = 0x34
-
 # Poll groups (hmi_bms.h PollGroup): FAST every poll, the others once per 10-poll cycle
 POLL_FAST = 0
 POLL_SLOW = 1
-POLL_MODULE_TEMPS = 2
 POLL_LIMITS = 3
 POLL_SETTINGS = 4
-
+POLL_NEVER = 5  # a command: published when it is sent, never read
 MC_TO_AH = 1.0 / 3600000.0
 
-# Sensors read straight from one BMS register: key -> (register, type, scale, poll group).
+# Sensors read straight from one BMS register: key -> (register name, scale, poll group).
+# The register's ID and wire type come from hmi_map.py (generated from the BMS firmware).
 # Entity value = raw value * scale; units and filters come from the schema and the YAML.
 REGISTER_SENSORS = {
-    CONF_MILLIS: (2, T_UINT64, 1.0, POLL_SLOW),
-    CONF_SOC: (3, T_UINT16, 0.01, POLL_SLOW),
-    CONF_CURRENT_MA: (4, T_INT32, 1.0, POLL_FAST),
-    CONF_CHARGE_RAW: (5, T_INT64, MC_TO_AH, POLL_SLOW),
-    CONF_BATTERY_VOLTAGE_MV: (6, T_INT32, 1.0, POLL_FAST),
-    CONF_OUTPUT_VOLTAGE_MV: (7, T_INT32, 1.0, POLL_FAST),
-    CONF_POS_CONTACTOR_VOLTAGE_MV: (8, T_INT32, 1.0, POLL_SLOW),
-    CONF_NEG_CONTACTOR_VOLTAGE_MV: (9, T_INT32, 1.0, POLL_SLOW),
-    CONF_TEMPERATURE_MIN_DC: (10, T_FLOAT, 1.0, POLL_SLOW),
-    CONF_TEMPERATURE_MAX_DC: (11, T_FLOAT, 1.0, POLL_SLOW),
-    CONF_CELL_VOLTAGE_MIN_MV: (12, T_INT16, 1.0, POLL_SLOW),
-    CONF_CELL_VOLTAGE_MAX_MV: (13, T_INT16, 1.0, POLL_SLOW),
-    CONF_SYSTEM_REQUEST: (14, T_UINT8, 1.0, POLL_SLOW),
-    CONF_SYSTEM_SM: (15, T_UINT8, 1.0, POLL_SLOW),
-    CONF_CONTACTOR_SM: (16, T_UINT8, 1.0, POLL_FAST),
-    CONF_SOC_VOLTAGE_BASED: (17, T_UINT16, 0.01, POLL_SLOW),
-    CONF_SOC_BASIC_COUNT: (18, T_UINT16, 0.01, POLL_SLOW),
-    CONF_CAPACITY_MC: (20, T_UINT32, MC_TO_AH, POLL_SLOW),
-    CONF_SUPPLY_VOLTAGE_3V3_MV: (21, T_UINT16, 1.0, POLL_SLOW),
-    CONF_SUPPLY_VOLTAGE_5V_MV: (22, T_UINT16, 1.0, POLL_SLOW),
-    CONF_SUPPLY_VOLTAGE_12V_MV: (23, T_UINT16, 1.0, POLL_SLOW),
-    CONF_SUPPLY_VOLTAGE_CONTACTOR_MV: (24, T_UINT16, 1.0, POLL_SLOW),
+    CONF_MILLIS: ("MILLIS", 1.0, POLL_SLOW),
+    CONF_SOC: ("SOC", 0.01, POLL_SLOW),
+    CONF_CURRENT_MA: ("CURRENT", 1.0, POLL_FAST),
+    CONF_CHARGE_RAW: ("CHARGE", MC_TO_AH, POLL_SLOW),
+    CONF_BATTERY_VOLTAGE_MV: ("BATTERY_VOLTAGE", 1.0, POLL_FAST),
+    CONF_OUTPUT_VOLTAGE_MV: ("OUTPUT_VOLTAGE", 1.0, POLL_FAST),
+    CONF_POS_CONTACTOR_VOLTAGE_MV: ("POS_CONTACTOR_VOLTAGE", 1.0, POLL_SLOW),
+    CONF_NEG_CONTACTOR_VOLTAGE_MV: ("NEG_CONTACTOR_VOLTAGE", 1.0, POLL_SLOW),
+    CONF_TEMPERATURE_MIN_DC: ("TEMPERATURE_MIN", 1.0, POLL_SLOW),
+    CONF_TEMPERATURE_MAX_DC: ("TEMPERATURE_MAX", 1.0, POLL_SLOW),
+    CONF_CELL_VOLTAGE_MIN_MV: ("CELL_VOLTAGE_MIN", 1.0, POLL_SLOW),
+    CONF_CELL_VOLTAGE_MAX_MV: ("CELL_VOLTAGE_MAX", 1.0, POLL_SLOW),
+    CONF_SYSTEM_REQUEST: ("SYSTEM_REQUEST", 1.0, POLL_NEVER),
+    CONF_SYSTEM_SM: ("SYSTEM_STATE", 1.0, POLL_SLOW),
+    CONF_CONTACTOR_SM: ("CONTACTORS_STATE", 1.0, POLL_FAST),
+    CONF_SOC_VOLTAGE_BASED: ("SOC_VOLTAGE_BASED", 0.01, POLL_SLOW),
+    CONF_SOC_BASIC_COUNT: ("SOC_BASIC_COUNT", 0.01, POLL_SLOW),
+    CONF_CAPACITY_MC: ("CAPACITY", MC_TO_AH, POLL_SLOW),
+    CONF_SUPPLY_VOLTAGE_3V3_MV: ("SUPPLY_VOLTAGE_3V3", 1.0, POLL_SLOW),
+    CONF_SUPPLY_VOLTAGE_5V_MV: ("SUPPLY_VOLTAGE_5V", 1.0, POLL_SLOW),
+    CONF_SUPPLY_VOLTAGE_12V_MV: ("SUPPLY_VOLTAGE_12V", 1.0, POLL_SLOW),
+    CONF_SUPPLY_VOLTAGE_CONTACTOR_MV: ("SUPPLY_VOLTAGE_CTR", 1.0, POLL_SLOW),
     # Settings as read-only sensors (the number platform has the editable ones)
-    CONF_SOC_SCALING_MIN: (27, T_INT16, 0.01, POLL_SETTINGS),
-    CONF_SOC_SCALING_MAX: (28, T_INT16, 0.01, POLL_SETTINGS),
-    CONF_VOLTAGE_LIMIT_OFFSET_LOWER: (29, T_INT16, 1.0, POLL_SETTINGS),
-    CONF_VOLTAGE_LIMIT_OFFSET_UPPER: (30, T_INT16, 1.0, POLL_SETTINGS),
-    CONF_CELL_VOLTAGE_SOFT_MIN_MV: (31, T_UINT16, 1.0, POLL_SETTINGS),
-    CONF_CELL_VOLTAGE_SOFT_MAX_MV: (32, T_UINT16, 1.0, POLL_SETTINGS),
-    CONF_AUTO_BALANCING_PERIOD_MS: (33, T_UINT32, 1.0, POLL_SETTINGS),
-    CONF_BALANCING_PERIODS_PER_MV: (34, T_UINT16, 1.0, POLL_SETTINGS),
-    CONF_BALANCE_MIN_OFFSET_MV: (35, T_UINT16, 1.0, POLL_SETTINGS),
-    CONF_MINIMUM_BALANCING_VOLTAGE_MV: (36, T_UINT16, 1.0, POLL_SETTINGS),
-    CONF_INVERTER_SOC: (37, T_INT16, 0.01, POLL_SLOW),
-    CONF_INVERTER_FULL_CAPACITY: (38, T_INT16, 0.1, POLL_SLOW),
-    CONF_INVERTER_REMAINING_CAPACITY: (39, T_INT16, 0.1, POLL_SLOW),
-    CONF_INVERTER_MIN_VOLTAGE_LIMIT: (40, T_INT16, 0.1, POLL_SLOW),
-    CONF_INVERTER_MAX_VOLTAGE_LIMIT: (41, T_INT16, 0.1, POLL_SLOW),
+    CONF_SOC_SCALING_MIN: ("SOC_SCALING_MIN", 0.01, POLL_SETTINGS),
+    CONF_SOC_SCALING_MAX: ("SOC_SCALING_MAX", 0.01, POLL_SETTINGS),
+    CONF_VOLTAGE_LIMIT_OFFSET_LOWER: ("VOLTAGE_LIMIT_OFFSET_LOWER", 1.0, POLL_SETTINGS),
+    CONF_VOLTAGE_LIMIT_OFFSET_UPPER: ("VOLTAGE_LIMIT_OFFSET_UPPER", 1.0, POLL_SETTINGS),
+    CONF_CELL_VOLTAGE_SOFT_MIN_MV: ("CELL_VOLTAGE_SOFT_MIN", 1.0, POLL_SETTINGS),
+    CONF_CELL_VOLTAGE_SOFT_MAX_MV: ("CELL_VOLTAGE_SOFT_MAX", 1.0, POLL_SETTINGS),
+    CONF_AUTO_BALANCING_PERIOD_MS: ("AUTO_BALANCING_PERIOD_MS", 1.0, POLL_SETTINGS),
+    CONF_BALANCING_PERIODS_PER_MV: ("BALANCING_PERIODS_PER_MV", 1.0, POLL_SETTINGS),
+    CONF_BALANCE_MIN_OFFSET_MV: ("BALANCE_MIN_OFFSET_MV", 1.0, POLL_SETTINGS),
+    CONF_MINIMUM_BALANCING_VOLTAGE_MV: ("MINIMUM_BALANCING_VOLTAGE_MV", 1.0, POLL_SETTINGS),
+    CONF_INVERTER_SOC: ("INVERTER_SOC", 0.01, POLL_SLOW),
+    CONF_INVERTER_FULL_CAPACITY: ("INVERTER_FULL_CAPACITY_DAH", 0.1, POLL_SLOW),
+    CONF_INVERTER_REMAINING_CAPACITY: ("INVERTER_REMAINING_CAPACITY_DAH", 0.1, POLL_SLOW),
+    CONF_INVERTER_MIN_VOLTAGE_LIMIT: ("INVERTER_MIN_VOLTAGE_LIMIT_DV", 0.1, POLL_SLOW),
+    CONF_INVERTER_MAX_VOLTAGE_LIMIT: ("INVERTER_MAX_VOLTAGE_LIMIT_DV", 0.1, POLL_SLOW),
     # Current limits in 0.1 A; 6553.5 A = no limit
-    CONF_CHARGE_CURRENT_LIMIT: (45, T_UINT16, 0.1, POLL_LIMITS),
-    CONF_DISCHARGE_CURRENT_LIMIT: (46, T_UINT16, 0.1, POLL_LIMITS),
-    CONF_TEMP_CHARGE_CURRENT_LIMIT: (47, T_UINT16, 0.1, POLL_LIMITS),
-    CONF_TEMP_DISCHARGE_CURRENT_LIMIT: (48, T_UINT16, 0.1, POLL_LIMITS),
-    CONF_CELL_VOLTAGE_CHARGE_CURRENT_LIMIT: (49, T_UINT16, 0.1, POLL_LIMITS),
-    CONF_CELL_VOLTAGE_DISCHARGE_CURRENT_LIMIT: (50, T_UINT16, 0.1, POLL_LIMITS),
-    CONF_WORKING_CHARGE_CURRENT_LIMIT: (51, T_UINT16, 0.1, POLL_LIMITS),
-    CONF_WORKING_DISCHARGE_CURRENT_LIMIT: (52, T_UINT16, 0.1, POLL_LIMITS),
-    CONF_DELTA_CHARGE_CURRENT_LIMIT: (53, T_UINT16, 0.1, POLL_LIMITS),
-    CONF_HARD_CHARGE_CURRENT_LIMIT: (54, T_UINT16, 0.1, POLL_LIMITS),
-    CONF_HARD_DISCHARGE_CURRENT_LIMIT: (55, T_UINT16, 0.1, POLL_LIMITS),
-    CONF_SHUNT_DIE_TEMPERATURE: (57, T_FLOAT, 1.0, POLL_SLOW),
-    CONF_SHUNT_NTC_TEMPERATURE: (58, T_FLOAT, 1.0, POLL_SLOW),
-    # Isolation monitor, calculated on the BMS (registers 62-65)
-    CONF_ISOLATION_RESISTANCE: (62, T_FLOAT, 1.0, POLL_SLOW),
-    CONF_PACK_POS_TO_CHASSIS: (63, T_FLOAT, 1.0, POLL_SLOW),
-    CONF_PACK_NEG_TO_CHASSIS: (64, T_FLOAT, 1.0, POLL_SLOW),
-    CONF_ISOLATION_CHECK_AGE: (65, T_FLOAT, 1.0, POLL_SLOW),
-    CONF_BOARD_STRAP_COUNTS: (67, T_FLOAT, 1.0, POLL_SLOW),
-    CONF_BMS_CHIP_TEMPERATURE: (70, T_FLOAT, 1.0, POLL_SLOW),
-    # Health and diagnostics (registers 96-110; older BMS firmware doesn't answer)
-    CONF_EKF_CAPACITY: (96, T_FLOAT, 1.0, POLL_SLOW),
-    CONF_SOC_FANCY_COUNT: (97, T_UINT16, 0.01, POLL_SLOW),
-    CONF_OVERCURRENT_CHARGE_BUFFER: (98, T_FLOAT, 1.0, POLL_SLOW),
-    CONF_OVERCURRENT_DISCHARGE_BUFFER: (99, T_FLOAT, 1.0, POLL_SLOW),
-    CONF_SOFT_CHARGE_BUFFER: (100, T_FLOAT, 1.0, POLL_SLOW),
-    **{key: (reg, T_UINT32, 1.0, POLL_SLOW) for key, reg in COUNTERS.items()},
-    CONF_BALANCING_STATE: (109, T_UINT8, 1.0, POLL_SLOW),
-    CONF_CALIBRATION_STATE: (110, T_UINT8, 1.0, POLL_SLOW),
+    CONF_CHARGE_CURRENT_LIMIT: ("CHARGE_CURRENT_LIMIT_DA", 0.1, POLL_LIMITS),
+    CONF_DISCHARGE_CURRENT_LIMIT: ("DISCHARGE_CURRENT_LIMIT_DA", 0.1, POLL_LIMITS),
+    CONF_TEMP_CHARGE_CURRENT_LIMIT: ("TEMP_CHARGE_CURRENT_LIMIT_DA", 0.1, POLL_LIMITS),
+    CONF_TEMP_DISCHARGE_CURRENT_LIMIT: ("TEMP_DISCHARGE_CURRENT_LIMIT_DA", 0.1, POLL_LIMITS),
+    CONF_CELL_VOLTAGE_CHARGE_CURRENT_LIMIT: ("CELL_VOLTAGE_CHARGE_CURRENT_LIMIT_DA", 0.1, POLL_LIMITS),
+    CONF_CELL_VOLTAGE_DISCHARGE_CURRENT_LIMIT: ("CELL_VOLTAGE_DISCHARGE_CURRENT_LIMIT_DA", 0.1, POLL_LIMITS),
+    CONF_WORKING_CHARGE_CURRENT_LIMIT: ("WORKING_CHARGE_CURRENT_LIMIT_DA", 0.1, POLL_LIMITS),
+    CONF_WORKING_DISCHARGE_CURRENT_LIMIT: ("WORKING_DISCHARGE_CURRENT_LIMIT_DA", 0.1, POLL_LIMITS),
+    CONF_DELTA_CHARGE_CURRENT_LIMIT: ("DELTA_CHARGE_CURRENT_LIMIT_DA", 0.1, POLL_LIMITS),
+    CONF_HARD_CHARGE_CURRENT_LIMIT: ("HARD_CHARGE_CURRENT_LIMIT_DA", 0.1, POLL_LIMITS),
+    CONF_HARD_DISCHARGE_CURRENT_LIMIT: ("HARD_DISCHARGE_CURRENT_LIMIT_DA", 0.1, POLL_LIMITS),
+    CONF_SHUNT_DIE_TEMPERATURE: ("SHUNT_DIE_TEMP", 1.0, POLL_SLOW),
+    CONF_SHUNT_NTC_TEMPERATURE: ("SHUNT_NTC_TEMP", 1.0, POLL_SLOW),
+    # Isolation monitor, calculated on the BMS: the resistance is the last reading with the
+    # contactors open, and the age is how long ago that was (0 = live)
+    CONF_ISOLATION_RESISTANCE: ("ISOLATION_OPEN_RESISTANCE", 1.0, POLL_SLOW),
+    CONF_PACK_POS_TO_CHASSIS: ("PACK_POS_TO_CHASSIS", 1.0, POLL_SLOW),
+    CONF_PACK_NEG_TO_CHASSIS: ("PACK_NEG_TO_CHASSIS", 1.0, POLL_SLOW),
+    CONF_ISOLATION_CHECK_AGE: ("ISOLATION_OPEN_AGE", 1.0, POLL_SLOW),
+    CONF_BOARD_STRAP_COUNTS: ("BOARD_STRAP_COUNTS", 1.0, POLL_SLOW),
+    CONF_BMS_CHIP_TEMPERATURE: ("MCU_TEMPERATURE", 1.0, POLL_SLOW),
+    # Health and diagnostics. A BMS firmware without these registers doesn't list them, and
+    # the sensors stay unknown.
+    CONF_BALANCING_STATE: ("BALANCING_STATE", 1.0, POLL_SLOW),
+    CONF_CALIBRATION_STATE: ("CALIBRATION_STATE", 1.0, POLL_SLOW),
+    CONF_OVERCURRENT_CHARGE_BUFFER: ("OVERCURRENT_CHARGE_BUFFER", 1.0, POLL_SLOW),
+    CONF_OVERCURRENT_DISCHARGE_BUFFER: ("OVERCURRENT_DISCHARGE_BUFFER", 1.0, POLL_SLOW),
+    CONF_SOFT_CHARGE_BUFFER: ("SOFT_CHARGE_BUFFER", 1.0, POLL_SLOW),
+    **{key: (name, 1.0, POLL_SLOW) for key, name in COUNTERS.items()},
 }
-REG_MODULE_TEMPS_START = 0x200  # float degC, one per module (BMB)
-
 # Calculated in the component rather than read: key -> setter
 DERIVED_SENSORS = {
     CONF_TEMPERATURE_DELTA: "set_temperature_delta_sensor",
@@ -587,8 +564,9 @@ DERIVED_SENSORS = {
 async def to_code(config):
     parent = await cg.get_variable(config[CONF_HMI_BMS_ID])
 
-    for key, (reg, type_, scale, group) in REGISTER_SENSORS.items():
+    for key, (name, scale, group) in REGISTER_SENSORS.items():
         if key in config:
+            reg, type_, _flags = REGISTERS[name]
             sens = await sensor.new_sensor(config[key])
             cg.add(parent.add_register_sensor(reg, type_, scale, group, sens))
     for key, setter in DERIVED_SENSORS.items():
@@ -605,6 +583,6 @@ async def to_code(config):
             sens = await sensor.new_sensor(conf)
             cg.add(parent.add_balancing_time_sensor(sens))
     if CONF_MODULE_TEMPERATURES in config:
-        for i, conf in enumerate(config[CONF_MODULE_TEMPERATURES]):
+        for conf in config[CONF_MODULE_TEMPERATURES]:
             sens = await sensor.new_sensor(conf)
-            cg.add(parent.add_register_sensor(REG_MODULE_TEMPS_START + i, T_FLOAT, 1.0, POLL_MODULE_TEMPS, sens))
+            cg.add(parent.add_module_temperature_sensor(sens))

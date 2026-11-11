@@ -11,6 +11,7 @@ from esphome.const import (
     ENTITY_CATEGORY_CONFIG,
 )
 from . import HMIBMS, hmi_bms_ns
+from .hmi_map import REGISTERS
 
 HMIBMSNumber = hmi_bms_ns.class_("HMIBMSNumber", number.Number)
 
@@ -31,16 +32,16 @@ CONF_SOC_SCALING_MAX = "soc_scaling_max"
 CONF_MAX_CHARGE_CURRENT = "max_charge_current"
 CONF_MAX_DISCHARGE_CURRENT = "max_discharge_current"
 
-# HMI Types
-HMI_TYPE_UINT16 = 0x12
-HMI_TYPE_INT16 = 0x22
-HMI_TYPE_UINT32 = 0x14
-HMI_TYPE_INT32 = 0x24
-
 # Poll groups (hmi_bms.h PollGroup)
 POLL_SLOW = 1
 POLL_LIMITS = 3
 POLL_SETTINGS = 4
+
+def reg(name):
+    """A register's ID and wire type, from hmi_map.py (generated from the BMS firmware)."""
+    id_, type_, _flags = REGISTERS[name]
+    return id_, type_
+
 
 def number_schema(unit=None, icon=None, accuracy=None, device_class=None, min_val=None, max_val=None, step=None):
     args = {
@@ -92,67 +93,67 @@ async def to_code(config):
 
     if CONF_VOLTAGE_LIMIT_OFFSET_UPPER in config:
         conf = config[CONF_VOLTAGE_LIMIT_OFFSET_UPPER]
-        n = await number.new_number(conf, parent, 30, HMI_TYPE_INT16, 1.0, min_value=conf["min_value"], max_value=conf["max_value"], step=conf["step"])
+        n = await number.new_number(conf, parent, *reg("VOLTAGE_LIMIT_OFFSET_UPPER"), 1.0, min_value=conf["min_value"], max_value=conf["max_value"], step=conf["step"])
         cg.add(parent.add_register_number(POLL_SETTINGS, n))
     if CONF_VOLTAGE_LIMIT_OFFSET_LOWER in config:
         conf = config[CONF_VOLTAGE_LIMIT_OFFSET_LOWER]
-        n = await number.new_number(conf, parent, 29, HMI_TYPE_INT16, 1.0, min_value=conf["min_value"], max_value=conf["max_value"], step=conf["step"])
+        n = await number.new_number(conf, parent, *reg("VOLTAGE_LIMIT_OFFSET_LOWER"), 1.0, min_value=conf["min_value"], max_value=conf["max_value"], step=conf["step"])
         cg.add(parent.add_register_number(POLL_SETTINGS, n))
     if CONF_CELL_VOLTAGE_WORKING_MIN_MV in config:
         conf = config[CONF_CELL_VOLTAGE_WORKING_MIN_MV]
-        n = await number.new_number(conf, parent, 25, HMI_TYPE_UINT16, 1.0, min_value=conf["min_value"], max_value=conf["max_value"], step=conf["step"])
+        n = await number.new_number(conf, parent, *reg("CELL_VOLTAGE_WORKING_MIN"), 1.0, min_value=conf["min_value"], max_value=conf["max_value"], step=conf["step"])
         cg.add(parent.add_register_number(POLL_SETTINGS, n))
     if CONF_CELL_VOLTAGE_WORKING_MAX_MV in config:
         conf = config[CONF_CELL_VOLTAGE_WORKING_MAX_MV]
-        n = await number.new_number(conf, parent, 26, HMI_TYPE_UINT16, 1.0, min_value=conf["min_value"], max_value=conf["max_value"], step=conf["step"])
+        n = await number.new_number(conf, parent, *reg("CELL_VOLTAGE_WORKING_MAX"), 1.0, min_value=conf["min_value"], max_value=conf["max_value"], step=conf["step"])
         cg.add(parent.add_register_number(POLL_SETTINGS, n))
     if CONF_CELL_VOLTAGE_SOFT_MIN_MV in config:
         conf = config[CONF_CELL_VOLTAGE_SOFT_MIN_MV]
-        n = await number.new_number(conf, parent, 31, HMI_TYPE_UINT16, 1.0, min_value=conf["min_value"], max_value=conf["max_value"], step=conf["step"])
+        n = await number.new_number(conf, parent, *reg("CELL_VOLTAGE_SOFT_MIN"), 1.0, min_value=conf["min_value"], max_value=conf["max_value"], step=conf["step"])
         cg.add(parent.add_register_number(POLL_SETTINGS, n))
     if CONF_CELL_VOLTAGE_SOFT_MAX_MV in config:
         conf = config[CONF_CELL_VOLTAGE_SOFT_MAX_MV]
-        n = await number.new_number(conf, parent, 32, HMI_TYPE_UINT16, 1.0, min_value=conf["min_value"], max_value=conf["max_value"], step=conf["step"])
+        n = await number.new_number(conf, parent, *reg("CELL_VOLTAGE_SOFT_MAX"), 1.0, min_value=conf["min_value"], max_value=conf["max_value"], step=conf["step"])
         cg.add(parent.add_register_number(POLL_SETTINGS, n))
     if CONF_AUTO_BALANCING_PERIOD_MS in config:
         conf = config[CONF_AUTO_BALANCING_PERIOD_MS]
-        n = await number.new_number(conf, parent, 33, HMI_TYPE_UINT32, 1.0, min_value=conf["min_value"], max_value=conf["max_value"], step=conf["step"])
+        n = await number.new_number(conf, parent, *reg("AUTO_BALANCING_PERIOD_MS"), 1.0, min_value=conf["min_value"], max_value=conf["max_value"], step=conf["step"])
         cg.add(parent.add_register_number(POLL_SETTINGS, n))
     if CONF_BALANCING_PERIODS_PER_MV in config:
         conf = config[CONF_BALANCING_PERIODS_PER_MV]
-        n = await number.new_number(conf, parent, 34, HMI_TYPE_UINT16, 1.0, min_value=conf["min_value"], max_value=conf["max_value"], step=conf["step"])
+        n = await number.new_number(conf, parent, *reg("BALANCING_PERIODS_PER_MV"), 1.0, min_value=conf["min_value"], max_value=conf["max_value"], step=conf["step"])
         cg.add(parent.add_register_number(POLL_SETTINGS, n))
     if CONF_BALANCE_MIN_OFFSET_MV in config:
         conf = config[CONF_BALANCE_MIN_OFFSET_MV]
-        n = await number.new_number(conf, parent, 35, HMI_TYPE_UINT16, 1.0, min_value=conf["min_value"], max_value=conf["max_value"], step=conf["step"])
+        n = await number.new_number(conf, parent, *reg("BALANCE_MIN_OFFSET_MV"), 1.0, min_value=conf["min_value"], max_value=conf["max_value"], step=conf["step"])
         cg.add(parent.add_register_number(POLL_SETTINGS, n))
     if CONF_MINIMUM_BALANCING_VOLTAGE_MV in config:
         conf = config[CONF_MINIMUM_BALANCING_VOLTAGE_MV]
-        n = await number.new_number(conf, parent, 36, HMI_TYPE_UINT16, 1.0, min_value=conf["min_value"], max_value=conf["max_value"], step=conf["step"])
+        n = await number.new_number(conf, parent, *reg("MINIMUM_BALANCING_VOLTAGE_MV"), 1.0, min_value=conf["min_value"], max_value=conf["max_value"], step=conf["step"])
         cg.add(parent.add_register_number(POLL_SETTINGS, n))
     if CONF_BALANCING_START_VOLTAGE_MV in config:
         conf = config[CONF_BALANCING_START_VOLTAGE_MV]
-        n = await number.new_number(conf, parent, 42, HMI_TYPE_UINT16, 1.0, min_value=conf["min_value"], max_value=conf["max_value"], step=conf["step"])
+        n = await number.new_number(conf, parent, *reg("BALANCING_START_VOLTAGE_MV"), 1.0, min_value=conf["min_value"], max_value=conf["max_value"], step=conf["step"])
         cg.add(parent.add_register_number(POLL_SETTINGS, n))
     if CONF_SOC_SET in config:
         conf = config[CONF_SOC_SET]
-        n = await number.new_number(conf, parent, 3, HMI_TYPE_UINT16, 0.01, min_value=conf["min_value"], max_value=conf["max_value"], step=conf["step"])
+        n = await number.new_number(conf, parent, *reg("SOC"), 0.01, min_value=conf["min_value"], max_value=conf["max_value"], step=conf["step"])
         cg.add(parent.add_register_number(POLL_SLOW, n))
     if CONF_SOC_SCALING_MIN in config:
         conf = config[CONF_SOC_SCALING_MIN]
-        n = await number.new_number(conf, parent, 27, HMI_TYPE_INT16, 0.01, min_value=conf["min_value"], max_value=conf["max_value"], step=conf["step"])
+        n = await number.new_number(conf, parent, *reg("SOC_SCALING_MIN"), 0.01, min_value=conf["min_value"], max_value=conf["max_value"], step=conf["step"])
         cg.add(parent.add_register_number(POLL_SETTINGS, n))
     if CONF_SOC_SCALING_MAX in config:
         conf = config[CONF_SOC_SCALING_MAX]
-        n = await number.new_number(conf, parent, 28, HMI_TYPE_INT16, 0.01, min_value=conf["min_value"], max_value=conf["max_value"], step=conf["step"])
+        n = await number.new_number(conf, parent, *reg("SOC_SCALING_MAX"), 0.01, min_value=conf["min_value"], max_value=conf["max_value"], step=conf["step"])
         cg.add(parent.add_register_number(POLL_SETTINGS, n))
     if CONF_MAX_CHARGE_CURRENT in config:
         conf = config[CONF_MAX_CHARGE_CURRENT]
-        n = await number.new_number(conf, parent, 43, HMI_TYPE_UINT16, 0.1, min_value=conf["min_value"], max_value=conf["max_value"], step=conf["step"])
+        n = await number.new_number(conf, parent, *reg("USER_CHARGE_CURRENT_LIMIT_DA"), 0.1, min_value=conf["min_value"], max_value=conf["max_value"], step=conf["step"])
         cg.add(parent.set_max_charge_current_number(n))
         cg.add(parent.add_register_number(POLL_LIMITS, n))
     if CONF_MAX_DISCHARGE_CURRENT in config:
         conf = config[CONF_MAX_DISCHARGE_CURRENT]
-        n = await number.new_number(conf, parent, 44, HMI_TYPE_UINT16, 0.1, min_value=conf["min_value"], max_value=conf["max_value"], step=conf["step"])
+        n = await number.new_number(conf, parent, *reg("USER_DISCHARGE_CURRENT_LIMIT_DA"), 0.1, min_value=conf["min_value"], max_value=conf["max_value"], step=conf["step"])
         cg.add(parent.set_max_discharge_current_number(n))
         cg.add(parent.add_register_number(POLL_LIMITS, n))

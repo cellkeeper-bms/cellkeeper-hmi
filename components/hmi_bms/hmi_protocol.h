@@ -92,13 +92,64 @@ struct RegisterValue {
 // Stops at the first register that doesn't fit; returns how many were read.
 size_t parse_registers(const uint8_t *payload, size_t len, std::vector<RegisterValue> &out);
 
-// Cell voltages and balancing times (encode_int16_delta_array on the BMS): per value either
-// two bytes with bit 7 of the first set, a 15-bit big-endian absolute value, or one byte with
-// bit 7 clear, a 7-bit signed delta from the previous value (the first starts from 0).
-// signed_absolute: absolute values are 15-bit signed (cell mV, -1 = no reading) rather than
-// unsigned (balancing seconds, 0..32767). Returns how many values were decoded.
-size_t decode_delta_array(const uint8_t *data, size_t len, size_t count, bool signed_absolute,
-                          std::vector<int32_t> &out);
+// One page of an array, a READ_ARRAY_RESPONSE (which is also the answer to a WRITE_ARRAY). The
+// BMS sends as many elements from `start` as fit in a frame; the rest are read by asking again
+// from start + count, until that reaches `total`.
+struct ArrayPage {
+  uint8_t array_id;
+  uint8_t encoding;      // the elements' ValueType; 0 for an array the BMS doesn't have
+  uint16_t start;
+  uint16_t total;        // elements in the whole array
+  uint8_t count;         // elements in this page; 0 past the end or before the first reading
+  uint32_t sample_time;  // BMS millis when the values were read, 0 if not tracked
+  const uint8_t *elements;
+};
+static const size_t ARRAY_PAGE_HEADER_SIZE = 13;
+// False for a reply too short for its header or its elements, or with an encoding this code
+// can't size (the top bit is reserved for packed forms).
+bool parse_array_page(const uint8_t *payload, size_t len, ArrayPage &out);
+// Element `index` of a page (0 .. count-1) as a number
+bool array_element(const ArrayPage &page, size_t index, double &out);
+std::vector<uint8_t> read_array_request(uint8_t address, uint8_t array_id, uint16_t start);
+
+// One entry of a LIST_REGISTERS_RESPONSE: a register the firmware has
+struct RegisterInfo {
+  uint16_t id;
+  uint8_t type;
+  uint8_t flags;  // REG_FLAG_*
+};
+static const uint8_t REG_FLAG_WRITABLE = 0x01;  // WRITE_REGISTERS changes it
+static const uint8_t REG_FLAG_SAVED = 0x02;     // and the BMS keeps the value over a restart
+// A LIST_REGISTERS_RESPONSE page: entries from `start` of `total`, appended to out (in
+// increasing ID order). The next page is asked for from start + the entries in this one.
+bool parse_register_list(const uint8_t *payload, size_t len, uint16_t &start, uint16_t &total,
+                         std::vector<RegisterInfo> &out);
+std::vector<uint8_t> list_registers_request(uint8_t address, uint16_t start);
+
+// The BMS's answer to a request at its address that it can't handle
+struct Nack {
+  uint8_t request;  // the message type it refused
+  uint8_t reason;   // 1 = a message type it doesn't know, 2 = too short for its type
+};
+bool parse_nack(const uint8_t *payload, size_t len, Nack &out);
+
+// READ_SUPERVISOR_RESPONSE, from the supervisor chip next to the BMS (it answers at the BMS's
+// address, and keeps answering when the BMS has stopped)
+struct SupervisorStatus {
+  uint8_t protocol_version;
+  uint8_t state;            // 0 = contactor drivers disabled, 1 = enabled, 2 = disabled after a fault
+  uint16_t reasons;         // what stops it enabling
+  uint16_t latch_reasons;   // why it latched
+  int16_t cell_min_mv;      // from its own reading of the cell boards
+  int16_t cell_max_mv;
+  uint8_t cells_in_range;
+  uint8_t cells_in_map;     // 0 until it has the BMS's cell map
+  uint8_t chemistry;        // 1 = LFP, 2 = NMC
+  uint32_t scans;
+  uint32_t ms_since_scan;        // 0xFFFFFFFF: none yet
+  uint32_t ms_since_bms_status;  // 0xFFFFFFFF: none yet
+};
+bool parse_supervisor(const uint8_t *payload, size_t len, SupervisorStatus &out);
 
 // One event in a READ_EVENTS_RESPONSE (22 bytes)
 struct EventRecord {

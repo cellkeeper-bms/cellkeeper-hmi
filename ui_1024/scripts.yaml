@@ -438,8 +438,15 @@ interval:
             lv_obj_add_flag(id(mv2_banner), LV_OBJ_FLAG_HIDDEN);
           }
 
-          // No BMS frame for 5 s: red tag at the top (not on the classic main page)
-          const bool stale = id(hub).ms_since_rx() > 5000 && lv_scr_act() != id(energy_page)->obj;
+          // No BMS frame for 5 s: red tag at the top (not on the classic main page). A BMS that
+          // answers in another HMI protocol version gets the tag on every page: nothing is read.
+          const bool mismatch = id(hub).is_incompatible();
+          const bool stale = mismatch || (id(hub).ms_since_rx() > 5000 && lv_scr_act() != id(energy_page)->obj);
+          static int stale_shown = -1;
+          if (stale && stale_shown != (int) mismatch) {
+            lv_label_set_text(id(ui_stale_label), mismatch ? "BMS FIRMWARE: WRONG HMI PROTOCOL" : "NO BMS DATA");
+            stale_shown = (int) mismatch;
+          }
           if (stale) lv_obj_clear_flag(id(ui_stale), LV_OBJ_FLAG_HIDDEN);
           else lv_obj_add_flag(id(ui_stale), LV_OBJ_FLAG_HIDDEN);
 
