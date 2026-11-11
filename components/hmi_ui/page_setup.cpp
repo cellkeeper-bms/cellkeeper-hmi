@@ -126,8 +126,7 @@ static void display_section(Frame &f) {
   if (button(f, rx + 16, Y1 - 16 - 60, bw, 60, "Set up a network")) open_wifi(f.s);
   if (button(f, rx + 16 + bw + 12, Y1 - 16 - 60, bw, 60, "Forget", "", 0, 0, on)) {
     ask_plain(f.s, Command::WIFI_FORGET, "Forget this network?",
-              "The display leaves the Wi-Fi network and forgets its password. Home Assistant loses the display until a "
-              "network is set up again.",
+              "The display forgets the network that was set here and goes back to the one built into its firmware.",
               "Forget the network");
   }
 }

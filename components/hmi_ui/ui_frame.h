@@ -97,13 +97,26 @@ struct UiState {
   bool raw_registers = false;  // Setup, Log: the registers instead of the log
   Popup popup;
   // Wrong PINs in a row. After PIN_TRIES of them no PIN is taken for PIN_LOCK_MS. Kept when
-  // the UI goes back to Home by itself; a restart of the display clears it.
+  // the UI goes back to Home by itself, and by the device over a restart (hmi_ui.cpp).
   static const int PIN_TRIES = 10;
   static const uint32_t PIN_LOCK_MS = 10 * 60 * 1000;
   int pin_wrong = 0;
   bool pin_locked = false;
   uint32_t pin_locked_at_ms = 0;
   Scroll events_scroll, types_scroll, settings_scroll, log_scroll, registers_scroll;
+
+  // Opens a page afresh: nothing open over it, every list at its top. The wrong PINs stay
+  // counted: nothing that changes the page may clear them.
+  void start_over(Page to) {
+    const int wrong = pin_wrong;
+    const bool locked = pin_locked;
+    const uint32_t locked_at = pin_locked_at_ms;
+    *this = UiState();
+    page = to;
+    pin_wrong = wrong;
+    pin_locked = locked;
+    pin_locked_at_ms = locked_at;
+  }
   bool log_follow = true;      // the log shows its newest lines until it is scrolled back
 };
 

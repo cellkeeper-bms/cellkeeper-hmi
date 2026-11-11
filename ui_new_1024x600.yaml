@@ -271,10 +271,9 @@ hmi_ui:
           case Command::BALANCE_CHARGE_STOP: id(balance_charge_stop).press(); break;
           case Command::RESTART_DISPLAY: App.safe_reboot(); break;
           case Command::WIFI_FORGET:
-            // As the LVGL UI did it. The saved network is loaded again at the next start
-            // (audit bug 10): still to be fixed.
-            wifi::global_wifi_component->clear_sta();
-            App.safe_reboot();
+            // Back to the network built into this firmware. A network set on the display is kept
+            // in flash and loaded at every start, so it is replaced there, not just dropped.
+            wifi::global_wifi_component->save_wifi_sta("${wifi_ssid}", "${wifi_password}");
             break;
           case Command::WIFI_SCAN: wifi::global_wifi_component->start_scanning(); break;
           default: break;

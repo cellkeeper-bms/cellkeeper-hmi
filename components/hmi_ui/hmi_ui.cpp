@@ -38,6 +38,7 @@ void HmiUi::setup() {
     return;
   }
   memset(this->frame_, 0, (size_t) SCREEN_W * SCREEN_H * sizeof(uint16_t));
+  this->load_pin_(millis());
   this->touchscreen_->register_listener(this);
   if (this->screenshot_) {
     this->base_->init();
@@ -53,6 +54,46 @@ void HmiUi::dump_config() {
                 "  Last frame drawn: draw %u us, send %u us\n"
                 "  Screenshot request: %s",
                 SCREEN_W, SCREEN_H, (unsigned) this->draw_us_, (unsigned) this->push_us_, YESNO(this->screenshot_));
+}
+
+// ---- wrong PINs, kept over a restart ----
+
+void HmiUi::load_pin_(uint32_t now) {
+  this->pin_pref_ = global_preferences->make_preference<PinMemory>(fnv1_hash("hmi_ui wrong pins"));
+  PinMemory saved{};
+  if (!this->pin_pref_.load(&saved)) return;
+  hmiui::UiState &state = this->ui_.state;
+  if (saved.locked && saved.remaining_ms > 0 && saved.remaining_ms <= hmiui::UiState::PIN_LOCK_MS) {
+    // The wait goes on from where it was when last written down
+    state.pin_wrong = hmiui::UiState::PIN_TRIES;
+    state.pin_locked = true;
+    state.pin_locked_at_ms = now - (hmiui::UiState::PIN_LOCK_MS - saved.remaining_ms);
+  } else if (!saved.locked) {
+    state.pin_wrong = std::min<int>(saved.wrong, hmiui::UiState::PIN_TRIES - 1);
+  }
+  this->pin_saved_ = saved;
+  this->pin_saved_ms_ = now;
+  ESP_LOGI(TAG, "PIN: %d wrong so far%s", state.pin_wrong,
+           state.pin_locked ? str_sprintf(", locked for another %u s", (unsigned) (saved.remaining_ms / 1000)).c_str() : "");
+}
+
+void HmiUi::keep_pin_(uint32_t now) {
+  const hmiui::UiState &state = this->ui_.state;
+  uint32_t remaining = 0;
+  if (state.pin_locked) {
+    const uint32_t gone = now - state.pin_locked_at_ms;
+    remaining = gone < hmiui::UiState::PIN_LOCK_MS ? hmiui::UiState::PIN_LOCK_MS - gone : 0;
+  }
+  const bool locked = state.pin_locked && remaining > 0;
+  // A lockout that has run out leaves a clean count behind
+  const uint8_t wrong = state.pin_locked && !locked ? 0 : (uint8_t) state.pin_wrong;
+  const bool changed = wrong != this->pin_saved_.wrong || locked != (this->pin_saved_.locked != 0);
+  // While locked the time left is written down twice a minute, so a restart costs little of it
+  if (!changed && !(locked && now - this->pin_saved_ms_ >= 30000)) return;
+  this->pin_saved_ = {wrong, (uint8_t) locked, remaining};
+  this->pin_saved_ms_ = now;
+  this->pin_pref_.save(&this->pin_saved_);
+  global_preferences->sync();
 }
 
 // ---- touch ----
@@ -110,11 +151,20 @@ void HmiUi::loop() {
   if (page >= 0) {
     this->pending_page_ = -1;
     if (page < (int) hmiui::Page::COUNT) {
-      this->ui_.state = hmiui::UiState();
-      this->ui_.state.page = (hmiui::Page) page;
+      this->ui_.state.start_over((hmiui::Page) page);
       this->ui_.poke(now);
     }
     this->touch_event_ = true;
+  }
+  const int tap_x = this->tap_x_;
+  if (tap_x >= 0) {
+    // A tap from the bench's request: the finger comes down and goes up again
+    this->tap_x_ = -1;
+    touchscreen::TouchPoint point{};
+    point.x = (uint16_t) tap_x;
+    point.y = (uint16_t) this->tap_y_;
+    this->touch(point);
+    this->release();
   }
   if (this->paused_) return;
   const bool busy = this->input_.down || now - this->last_touch_ms_ < AFTER_TOUCH_MS;
@@ -122,6 +172,7 @@ void HmiUi::loop() {
   this->touch_event_ = false;
   this->last_frame_ms_ = now;
   this->draw_frame_(now);
+  this->keep_pin_(now);
 
   if (this->input_.down) this->down_seen_ = true;
   if (this->release_waiting_) {
@@ -210,6 +261,16 @@ void HmiUi::handleRequest(AsyncWebServerRequest *request) {
     this->pending_page_ = atoi(request->arg("page").c_str());
     // Let the main loop show the page and send it to the display
     vTaskDelay(pdMS_TO_TICKS(1200));
+  }
+  if (request->hasParam("tap")) {
+    // "x,y": a tap there, as a finger would make it
+    const std::string where = request->arg("tap").c_str();
+    const size_t comma = where.find(',');
+    if (comma != std::string::npos) {
+      this->tap_y_ = atoi(where.c_str() + comma + 1);
+      this->tap_x_ = atoi(where.c_str());
+      vTaskDelay(pdMS_TO_TICKS(500));
+    }
   }
   void *fb = nullptr;
   esp_lcd_panel_handle_t panel = static_cast<mipi_dsi::MipiDsi *>(this->display_)->handle_;

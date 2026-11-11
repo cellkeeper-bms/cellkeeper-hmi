@@ -9,6 +9,7 @@
 #include "esphome/components/web_server_base/web_server_base.h"
 #include "esphome/core/automation.h"
 #include "esphome/core/component.h"
+#include "esphome/core/preferences.h"
 
 #include "ui.h"
 
@@ -70,6 +71,17 @@ class HmiUi : public Component, public touchscreen::TouchListener, public hmiui:
 
  protected:
   void draw_frame_(uint32_t now);
+  // Wrong PINs and the lockout are kept in flash, so that a restart does not clear them
+  void load_pin_(uint32_t now);
+  void keep_pin_(uint32_t now);
+  struct PinMemory {
+    uint8_t wrong;          // wrong PINs in a row
+    uint8_t locked;         // no PIN is taken
+    uint32_t remaining_ms;  // for this much longer
+  };
+  ESPPreferenceObject pin_pref_;
+  PinMemory pin_saved_{};
+  uint32_t pin_saved_ms_{0};
   void send_rows_(int y0, int y1);
 
   display::Display *display_{nullptr};
@@ -90,6 +102,7 @@ class HmiUi : public Component, public touchscreen::TouchListener, public hmiui:
   bool touch_event_{false}, down_seen_{true}, release_waiting_{false};
   bool dimmed_{false}, waking_{false};
   volatile int pending_page_{-1};
+  volatile int tap_x_{-1}, tap_y_{-1};  // a tap asked for by the bench's request
 
   uint32_t last_frame_ms_{0}, last_touch_ms_{0}, last_report_ms_{0}, started_ms_{0};
   uint32_t fill_us_{0}, dry_us_{0}, draw_us_{0}, push_us_{0}, worst_us_{0};

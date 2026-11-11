@@ -746,6 +746,10 @@ static void test_pin_lockout() {
   d.draw();
   CHECK(d.ui.state.page == Page::HOME);
   CHECK(d.ui.state.pin_locked);
+  // Nor does anything else that opens a page afresh (the bench's "show page" request did)
+  d.ui.state.start_over(Page::CONTROL);
+  CHECK(d.ui.state.pin_locked && d.ui.state.pin_wrong == UiState::PIN_TRIES);
+  CHECK(d.ui.state.popup.kind == Overlay::NONE);
   // Ten minutes after the tenth wrong PIN it takes PINs again, with a fresh count
   d.now += UiState::PIN_LOCK_MS;
   d.tap("Setup");

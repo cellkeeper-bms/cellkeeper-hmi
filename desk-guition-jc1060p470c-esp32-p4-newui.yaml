@@ -14,6 +14,9 @@ esphome:
 
 substitutions:
   hmi_pin: !secret hmi_pin  # PIN for commands and for unlocking the settings
+  # The network built into the firmware, which "Forget" on the display goes back to
+  wifi_ssid: !secret wifi_ssid
+  wifi_password: !secret wifi_password
 
 packages:
   core: !include bms_core.yaml
@@ -31,8 +34,8 @@ web_server:
     password: !secret web_server_password
 
 wifi:
-  ssid: !secret wifi_ssid
-  password: !secret wifi_password
+  ssid: ${wifi_ssid}
+  password: ${wifi_password}
   power_save_mode: none
   reboot_timeout: 0s
 

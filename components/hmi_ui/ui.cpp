@@ -48,11 +48,7 @@ bool Ui::frame(Canvas &c, const Model &m, const Input &input, Actions &actions, 
     last_touch_ms_ = now_ms;
   } else if (this->idle(now_ms) && (state.page != Page::HOME || state.popup.kind != Overlay::NONE)) {
     // Left alone: back to Home, with nothing half-entered left open. Wrong PINs still count.
-    const UiState before = state;
-    state = UiState();
-    state.pin_wrong = before.pin_wrong;
-    state.pin_locked = before.pin_locked;
-    state.pin_locked_at_ms = before.pin_locked_at_ms;
+    state.start_over(Page::HOME);
   }
 
   // First a dry run: the widgets see the touch and react, and what the frame would look like
