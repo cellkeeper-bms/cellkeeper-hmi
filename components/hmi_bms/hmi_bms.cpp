@@ -7,6 +7,10 @@
 #include <ctime>
 #include <vector>
 
+#ifdef USE_ESP32_VARIANT_ESP32P4
+#include "hal/usb_serial_jtag_ll.h"
+#endif
+
 namespace esphome {
 namespace hmi_bms {
 
@@ -23,6 +27,16 @@ static std::string format_build_time(time_t t) {
 }
 
 void HMIBMS::setup() {
+#ifdef USE_ESP32_VARIANT_ESP32P4
+  // The BMS link on the P4's USB pins (GPIO24/25): the USB PHY's pull-up on D+ is on at
+  // reset and stays on when the pin is used as a UART input. It loads the line the BMS and
+  // the supervisor answer on. The BMS drives it through 1k and still gets through; the
+  // supervisor drives it through 2k and doesn't (seen on a rev 1.1 board, 2026-11-10).
+  if (this->disable_usb_pullups_) {
+    usb_serial_jtag_pull_override_vals_t pulls = {};  // every pull-up and pull-down off
+    usb_serial_jtag_ll_phy_enable_pull_override(&pulls);
+  }
+#endif
   this->add_internal_registers_();
   std::stable_sort(this->registers_.begin(), this->registers_.end(),
                    [](const RegisterEntry &a, const RegisterEntry &b) { return a.reg < b.reg; });
@@ -80,6 +94,19 @@ void HMIBMS::update() {
   // Slot 0 comes first after the link is up, so the slow registers arrive at once
   uint8_t slot = this->update_count_ % 10;
   this->update_count_++;
+
+  // The supervisor's status (Tick 6). It is a separate chip that answers for itself on the
+  // same line as the BMS, so nothing is asked of the BMS in this tick: two answers at once
+  // would collide. After three requests without an answer it is taken as not there.
+  if (slot == 6 && this->wants_supervisor_()) {
+    if (this->supervisor_unanswered_ >= 3) {
+      this->publish_text_(this->supervisor_state_text_sensor_, "No answer");
+    } else {
+      this->supervisor_unanswered_++;
+    }
+    this->send_packet_({HMI_MSG_READ_SUPERVISOR, this->address_});
+    return;
+  }
 
   // 1. Registers: the fast group every poll, plus the group whose slot this is. Only the
   // registers this BMS firmware has are asked for.
@@ -334,6 +361,9 @@ void HMIBMS::handle_packet_(const uint8_t *payload, size_t length) {
         return;
       case HMI_MSG_NACK:
         this->handle_nack_(payload + offset, length - offset);
+        return;
+      case HMI_MSG_READ_SUPERVISOR_RESPONSE:
+        this->handle_supervisor_response_(payload + offset, length - offset);
         return;
       case HMI_MSG_READ_EVENTS_RESPONSE:
         this->handle_read_events_response_(payload + offset, length - offset);
@@ -641,8 +671,56 @@ void HMIBMS::handle_nack_(const uint8_t *data, size_t length) {
   if (nack.request == HMI_MSG_READ_EVENTS) this->event_sweep_.active = false;
 }
 
+void HMIBMS::publish_text_(text_sensor::TextSensor *s, const std::string &state) {
+  if (s != nullptr && (!s->has_state() || s->state != state)) s->publish_state(state);
+}
+
+// The supervisor's status: whether it enables the contactor drivers, and if not, why
+void HMIBMS::handle_supervisor_response_(const uint8_t *data, size_t length) {
+  protocol::SupervisorStatus st;
+  if (!protocol::parse_supervisor(data, length, st)) return;
+  this->supervisor_unanswered_ = 0;
+
+  static const char *const STATES[] = {"Disabled", "Enabled", "Latched off"};
+  this->publish_text_(this->supervisor_state_text_sensor_, st.state < 3 ? STATES[st.state] : "Unknown");
+
+  auto names = [](uint16_t bits) {
+    std::string out;
+    for (const auto &r : HMI_SUPERVISOR_REASONS) {
+      if (!(bits & r.bit)) continue;
+      if (!out.empty()) out += ", ";
+      out += r.name;
+      bits &= (uint16_t) ~r.bit;
+    }
+    if (bits != 0) out += str_sprintf("%s0x%04X", out.empty() ? "" : ", ", bits);
+    return out;
+  };
+  std::string reasons = st.reasons == 0 ? "none" : names(st.reasons);
+  if (st.latch_reasons != 0) reasons += " (latched by " + names(st.latch_reasons) + ")";
+  this->publish_text_(this->supervisor_reasons_text_sensor_, reasons);
+
+  // Its cell readings are its own, from the cell board traffic; -1 mV = none
+  if (this->supervisor_cell_min_sensor_) {
+    this->publish_queue_.push_back({this->supervisor_cell_min_sensor_, st.cell_min_mv < 0 ? NAN : st.cell_min_mv / 1000.0f});
+  }
+  if (this->supervisor_cell_max_sensor_) {
+    this->publish_queue_.push_back({this->supervisor_cell_max_sensor_, st.cell_max_mv < 0 ? NAN : st.cell_max_mv / 1000.0f});
+  }
+  if (this->supervisor_cells_in_range_sensor_) {
+    this->publish_queue_.push_back({this->supervisor_cells_in_range_sensor_, (float) st.cells_in_range});
+  }
+  if (this->supervisor_scans_sensor_) {
+    this->publish_queue_.push_back({this->supervisor_scans_sensor_, (float) st.scans});
+  }
+  if (this->supervisor_scan_age_sensor_) {
+    this->publish_queue_.push_back(
+        {this->supervisor_scan_age_sensor_, st.ms_since_scan == 0xFFFFFFFFu ? NAN : st.ms_since_scan / 1000.0f});
+  }
+}
+
 void HMIBMS::dump_config() {
   ESP_LOGCONFIG(TAG, "HMI BMS:");
+  if (this->disable_usb_pullups_) ESP_LOGCONFIG(TAG, "  USB pin pull-ups: switched off");
   this->check_uart_settings(this->baud_rate_);
 }
 

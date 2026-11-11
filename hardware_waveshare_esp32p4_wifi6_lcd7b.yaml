@@ -61,6 +61,12 @@ logger:
   logs:
     sensor: INFO
 
+# The BMS link is on the ESP32-P4's USB pins. Their USB pull-up is on at reset and loads the
+# line the BMS and the supervisor answer on: without this the supervisor's answers (through
+# 2k on a rev 1.1 board) don't get through.
+hmi_bms:
+  disable_usb_pullups: true
+
 uart:
   - id: uart_bus
     tx_pin: GPIO24  # USB JTAG pins of the ESP32-P4, on the "USB 1.1" Type-C

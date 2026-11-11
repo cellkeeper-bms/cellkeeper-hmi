@@ -89,6 +89,20 @@ CONF_INVERTER_REMAINING_CAPACITY = "inverter_remaining_capacity"
 CONF_INVERTER_MIN_VOLTAGE_LIMIT = "inverter_min_voltage_limit"
 CONF_INVERTER_MAX_VOLTAGE_LIMIT = "inverter_max_voltage_limit"
 CONF_MODULE_TEMPERATURES = "module_temperatures"
+CONF_LINK_VOLTAGE_MV = "link_voltage_mV"
+CONF_NAMEPLATE_CAPACITY = "nameplate_capacity"
+CONF_LEARNED_CAPACITY = "learned_capacity"
+CONF_LEARNED_CAPACITY_SD = "learned_capacity_sd"
+CONF_LEARNED_CAPACITY_STATE = "learned_capacity_state"
+CONF_LIFETIME_CHARGED = "lifetime_charged"
+CONF_LIFETIME_DISCHARGED = "lifetime_discharged"
+CONF_LIFETIME_ENERGY_CHARGED = "lifetime_energy_charged"
+CONF_LIFETIME_ENERGY_DISCHARGED = "lifetime_energy_discharged"
+CONF_SUPERVISOR_CELL_MIN = "supervisor_cell_min"
+CONF_SUPERVISOR_CELL_MAX = "supervisor_cell_max"
+CONF_SUPERVISOR_CELLS_IN_RANGE = "supervisor_cells_in_range"
+CONF_SUPERVISOR_SCANS = "supervisor_scans"
+CONF_SUPERVISOR_SCAN_AGE = "supervisor_scan_age"
 CONF_OVERCURRENT_CHARGE_BUFFER = "overcurrent_charge_buffer"
 CONF_OVERCURRENT_DISCHARGE_BUFFER = "overcurrent_discharge_buffer"
 CONF_SOFT_CHARGE_BUFFER = "soft_charge_buffer"
@@ -295,6 +309,64 @@ CONFIG_SCHEMA = cv.Schema({
         cv.Optional(key): sensor.sensor_schema(accuracy_decimals=0, state_class="total_increasing")
         for key in COUNTERS
     },
+    cv.Optional(CONF_LINK_VOLTAGE_MV): sensor.sensor_schema(
+        unit_of_measurement=UNIT_VOLT,
+        accuracy_decimals=3,
+        device_class=DEVICE_CLASS_VOLTAGE,
+        state_class=STATE_CLASS_MEASUREMENT,
+    ),
+    # Capacity: the label's (nameplate), and what the OCV learner has measured with its
+    # 1-sigma uncertainty and state (0 not learning, 1 no data, 2 preliminary, 3 good)
+    **{
+        cv.Optional(key): sensor.sensor_schema(
+            unit_of_measurement="Ah",
+            accuracy_decimals=2,
+            state_class=STATE_CLASS_MEASUREMENT,
+        )
+        for key in (CONF_NAMEPLATE_CAPACITY, CONF_LEARNED_CAPACITY, CONF_LEARNED_CAPACITY_SD)
+    },
+    cv.Optional(CONF_LEARNED_CAPACITY_STATE): sensor.sensor_schema(accuracy_decimals=0),
+    # Lifetime throughput, kept by the BMS over restarts
+    **{
+        cv.Optional(key): sensor.sensor_schema(
+            unit_of_measurement="Ah",
+            accuracy_decimals=1,
+            state_class="total_increasing",
+        )
+        for key in (CONF_LIFETIME_CHARGED, CONF_LIFETIME_DISCHARGED)
+    },
+    **{
+        cv.Optional(key): sensor.sensor_schema(
+            unit_of_measurement="kWh",
+            accuracy_decimals=3,
+            device_class="energy",
+            state_class="total_increasing",
+        )
+        for key in (CONF_LIFETIME_ENERGY_CHARGED, CONF_LIFETIME_ENERGY_DISCHARGED)
+    },
+    # The supervisor chip's own view (it reads the cell boards itself)
+    **{
+        cv.Optional(key): sensor.sensor_schema(
+            unit_of_measurement=UNIT_VOLT,
+            accuracy_decimals=3,
+            device_class=DEVICE_CLASS_VOLTAGE,
+            state_class=STATE_CLASS_MEASUREMENT,
+        )
+        for key in (CONF_SUPERVISOR_CELL_MIN, CONF_SUPERVISOR_CELL_MAX)
+    },
+    cv.Optional(CONF_SUPERVISOR_CELLS_IN_RANGE): sensor.sensor_schema(
+        accuracy_decimals=0,
+        state_class=STATE_CLASS_MEASUREMENT,
+    ),
+    cv.Optional(CONF_SUPERVISOR_SCANS): sensor.sensor_schema(
+        accuracy_decimals=0,
+        state_class="total_increasing",
+    ),
+    cv.Optional(CONF_SUPERVISOR_SCAN_AGE): sensor.sensor_schema(
+        unit_of_measurement="s",
+        accuracy_decimals=1,
+        state_class=STATE_CLASS_MEASUREMENT,
+    ),
     cv.Optional(CONF_ISOLATION_CHECK_AGE): sensor.sensor_schema(
         unit_of_measurement="s",
         accuracy_decimals=0,
@@ -542,6 +614,16 @@ REGISTER_SENSORS = {
     CONF_ISOLATION_CHECK_AGE: ("ISOLATION_OPEN_AGE", 1.0, POLL_SLOW),
     CONF_BOARD_STRAP_COUNTS: ("BOARD_STRAP_COUNTS", 1.0, POLL_SLOW),
     CONF_BMS_CHIP_TEMPERATURE: ("MCU_TEMPERATURE", 1.0, POLL_SLOW),
+    CONF_LINK_VOLTAGE_MV: ("LINK_VOLTAGE", 1.0, POLL_SLOW),
+    CONF_NAMEPLATE_CAPACITY: ("NAMEPLATE_CAPACITY", MC_TO_AH, POLL_SLOW),
+    CONF_LEARNED_CAPACITY: ("OCV_LEARN_CAPACITY", 1.0, POLL_SLOW),
+    CONF_LEARNED_CAPACITY_SD: ("OCV_LEARN_CAPACITY_SD", 1.0, POLL_SLOW),
+    CONF_LEARNED_CAPACITY_STATE: ("OCV_LEARN_CAPACITY_STATE", 1.0, POLL_SLOW),
+    # mAh and Wh counters that wrap at 2^32 (4.3 million Ah or kWh)
+    CONF_LIFETIME_CHARGED: ("LIFETIME_CHARGED_MAH", 0.001, POLL_SLOW),
+    CONF_LIFETIME_DISCHARGED: ("LIFETIME_DISCHARGED_MAH", 0.001, POLL_SLOW),
+    CONF_LIFETIME_ENERGY_CHARGED: ("LIFETIME_CHARGED_WH", 0.001, POLL_SLOW),
+    CONF_LIFETIME_ENERGY_DISCHARGED: ("LIFETIME_DISCHARGED_WH", 0.001, POLL_SLOW),
     # Health and diagnostics. A BMS firmware without these registers doesn't list them, and
     # the sensors stay unknown.
     CONF_BALANCING_STATE: ("BALANCING_STATE", 1.0, POLL_SLOW),
@@ -558,6 +640,11 @@ DERIVED_SENSORS = {
     CONF_CELL_COUNT: "set_cell_count_sensor",
     CONF_LAST_EVENT: "set_last_event_sensor",
     CONF_HIGHEST_EVENT_LEVEL: "set_highest_event_level_sensor",
+    CONF_SUPERVISOR_CELL_MIN: "set_supervisor_cell_min_sensor",
+    CONF_SUPERVISOR_CELL_MAX: "set_supervisor_cell_max_sensor",
+    CONF_SUPERVISOR_CELLS_IN_RANGE: "set_supervisor_cells_in_range_sensor",
+    CONF_SUPERVISOR_SCANS: "set_supervisor_scans_sensor",
+    CONF_SUPERVISOR_SCAN_AGE: "set_supervisor_scan_age_sensor",
 }
 
 

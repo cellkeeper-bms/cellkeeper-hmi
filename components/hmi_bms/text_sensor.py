@@ -17,6 +17,8 @@ CONF_BMS_FIRMWARE = "bms_firmware"
 CONF_HMI_FIRMWARE = "hmi_firmware"
 CONF_MODULE_IDS = "module_ids"
 CONF_PROTOCOL = "protocol"
+CONF_SUPERVISOR_STATE = "supervisor_state"
+CONF_SUPERVISOR_REASONS = "supervisor_reasons"
 CONF_EVENT_HISTORY = "event_history"
 CONF_CELLS_BALANCING = "cells_balancing"
 CONF_CELLS_BALANCING_ACTIVE = "cells_balancing_active"
@@ -32,6 +34,8 @@ CONFIG_SCHEMA = cv.Schema({
     cv.Optional(CONF_HMI_FIRMWARE): text_sensor.text_sensor_schema(),
     cv.Optional(CONF_MODULE_IDS): text_sensor.text_sensor_schema(),
     cv.Optional(CONF_PROTOCOL): text_sensor.text_sensor_schema(),
+    cv.Optional(CONF_SUPERVISOR_STATE): text_sensor.text_sensor_schema(),
+    cv.Optional(CONF_SUPERVISOR_REASONS): text_sensor.text_sensor_schema(),
     cv.Optional(CONF_EVENT_HISTORY): text_sensor.text_sensor_schema(),
     cv.Optional(CONF_CELLS_BALANCING): text_sensor.text_sensor_schema(),
     cv.Optional(CONF_CELLS_BALANCING_ACTIVE): text_sensor.text_sensor_schema(),
@@ -100,6 +104,12 @@ async def to_code(config):
     if CONF_PROTOCOL in config:
         sens = await text_sensor.new_text_sensor(config[CONF_PROTOCOL])
         cg.add(parent.set_protocol_text_sensor(sens))
+    if CONF_SUPERVISOR_STATE in config:
+        sens = await text_sensor.new_text_sensor(config[CONF_SUPERVISOR_STATE])
+        cg.add(parent.set_supervisor_state_text_sensor(sens))
+    if CONF_SUPERVISOR_REASONS in config:
+        sens = await text_sensor.new_text_sensor(config[CONF_SUPERVISOR_REASONS])
+        cg.add(parent.set_supervisor_reasons_text_sensor(sens))
     if CONF_EVENT_HISTORY in config:
         sens = await text_sensor.new_text_sensor(config[CONF_EVENT_HISTORY])
         cg.add(parent.set_event_history_text_sensor(sens))

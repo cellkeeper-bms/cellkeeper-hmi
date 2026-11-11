@@ -79,10 +79,66 @@ sensor:
       unit_of_measurement: "V"
       filters:
         - multiply: 0.001
+    # Capacity: "Capacity" is the figure the BMS works with (a setting, the nameplate's until it
+    # is changed); the learned one is what the BMS has measured from full charges, unknown until
+    # it has enough of them.
     capacity_mC:
       id: capacity_mC
       name: "Capacity"
       unit_of_measurement: "Ah"
+    nameplate_capacity:
+      name: "Nameplate Capacity"
+      icon: mdi:battery-outline
+    learned_capacity:
+      id: learned_capacity
+      name: "Learned Capacity"
+      icon: mdi:battery-heart-variant
+    learned_capacity_sd:
+      name: "Learned Capacity Uncertainty"
+      icon: mdi:plus-minus-variant
+    learned_capacity_state:
+      id: learned_capacity_state
+      name: "Learned Capacity State"
+      entity_category: diagnostic
+    # Lifetime throughput, counted by the BMS and kept over restarts
+    lifetime_charged:
+      name: "Lifetime Charged"
+      icon: mdi:battery-arrow-up-outline
+      filters: [delta: 0.1]
+    lifetime_discharged:
+      name: "Lifetime Discharged"
+      icon: mdi:battery-arrow-down-outline
+      filters: [delta: 0.1]
+    lifetime_energy_charged:
+      name: "Lifetime Energy Charged"
+      filters: [delta: 0.01]
+    lifetime_energy_discharged:
+      name: "Lifetime Energy Discharged"
+      filters: [delta: 0.01]
+    link_voltage_mV:
+      name: "Link Voltage"
+      unit_of_measurement: "V"
+      entity_category: diagnostic
+      filters:
+        - multiply: 0.001
+    # The supervisor chip's own view of the cells (it reads the cell boards itself)
+    supervisor_cell_min:
+      name: "Supervisor Cell Min"
+      entity_category: diagnostic
+    supervisor_cell_max:
+      name: "Supervisor Cell Max"
+      entity_category: diagnostic
+    supervisor_cells_in_range:
+      name: "Supervisor Cells In Range"
+      entity_category: diagnostic
+    supervisor_scans:
+      name: "Supervisor Scans"
+      entity_category: diagnostic
+      filters: [throttle: 60s]
+    supervisor_scan_age:
+      name: "Supervisor Scan Age"
+      entity_category: diagnostic
+      filters: [delta: 1.0]
     temperature_min_dC:
       id: module_temperature_min
       name: "Module Temperature Min"
@@ -844,6 +900,13 @@ text_sensor:
       name: "BMS Protocol"
       icon: mdi:handshake-outline
       entity_category: diagnostic
+    supervisor_state:
+      id: supervisor_state
+      name: "Supervisor State"
+      icon: mdi:shield-lock-outline
+    supervisor_reasons:
+      name: "Supervisor Reasons"
+      icon: mdi:shield-alert-outline
     module_ids:
       name: "Module IDs"
       icon: mdi:identifier
@@ -1038,6 +1101,16 @@ text_sensor:
     update_interval: 500ms
 
   - platform: template
+    name: "Learned Capacity State Text"
+    lambda: |-
+      static const char* states[] = {"NOT LEARNING", "NO DATA", "PRELIMINARY", "GOOD"};
+      if (!id(learned_capacity_state).has_state()) return {"UNKNOWN"};
+      int val = (int)id(learned_capacity_state).state;
+      if (val >= 0 && val <= 3) return {states[val]};
+      return {"UNKNOWN"};
+    update_interval: 5s
+
+  - platform: template
     id: contactor_state_text
     name: "Contactor State Text"
     lambda: |-
@@ -1045,10 +1118,10 @@ text_sensor:
         "OPEN", "TST_PRE_CL", "TST_NEG_OP", "TST_NEG_CL", "TST_POS_OP", "TST_POS_CL",
         "PRECHG_INIT", "PRECHARGING", "CLOSED", "AWAIT_OPEN", "CALIB",
         "CAL_PRE_INIT", "CAL_PRE", "CAL_CLOSED", "CAL_NEG_INIT", "CAL_NEG",
-        "PRE_FAIL", "TST_FAIL"
+        "PRE_FAIL", "TST_FAIL", "TST_ASSIST_PRE", "TST_ASSIST_OTH", "TST_ASSIST_OP"
       };
       int val = (int)id(contactor_state).state;
-      if (val >= 0 && val <= 17) return {states[val]};
+      if (val >= 0 && val <= 20) return {states[val]};
       return {"UNKNOWN"};
     update_interval: 500ms
 

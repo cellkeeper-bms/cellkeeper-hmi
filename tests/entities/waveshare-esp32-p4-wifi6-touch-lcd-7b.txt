@@ -289,6 +289,14 @@ sensor | Inverter CAN Voltage Limit Max | V | voltage | measurement | 1
 sensor | Inverter CAN Voltage Limit Min | V | voltage | measurement | 1
 sensor | Isolation Check Age | s |  | measurement | 0
 sensor | Isolation Resistance | MΩ |  | measurement | 2
+sensor | Learned Capacity State |  |  |  | 0
+sensor | Learned Capacity Uncertainty | Ah |  | measurement | 2
+sensor | Learned Capacity | Ah |  | measurement | 2
+sensor | Lifetime Charged | Ah |  | total_increasing | 1
+sensor | Lifetime Discharged | Ah |  | total_increasing | 1
+sensor | Lifetime Energy Charged | kWh | energy | total_increasing | 3
+sensor | Lifetime Energy Discharged | kWh | energy | total_increasing | 3
+sensor | Link Voltage | V | voltage | measurement | 3
 sensor | Loop Time | ms |  | measurement | 0
 sensor | Millis | ms |  | measurement | 0
 sensor | Module Temperature 1 | °C | temperature | measurement | 1
@@ -301,6 +309,7 @@ sensor | Module Temperature 7 | °C | temperature | measurement | 1
 sensor | Module Temperature 8 | °C | temperature | measurement | 1
 sensor | Module Temperature Max | °C | temperature | measurement | 1
 sensor | Module Temperature Min | °C | temperature | measurement | 1
+sensor | Nameplate Capacity | Ah |  | measurement | 2
 sensor | Overcurrent Charge Buffer | % |  | measurement | 1
 sensor | Overcurrent Discharge Buffer | % |  | measurement | 1
 sensor | Pack Internal Voltage BMB | V | voltage | measurement | 3
@@ -318,6 +327,11 @@ sensor | SOC | % | battery | measurement | 2
 sensor | Shunt Die Temperature | °C | temperature | measurement | 1
 sensor | Shunt NTC Temperature | °C | temperature | measurement | 1
 sensor | Soft Charge Buffer | % |  | measurement | 1
+sensor | Supervisor Cell Max | V | voltage | measurement | 3
+sensor | Supervisor Cell Min | V | voltage | measurement | 3
+sensor | Supervisor Cells In Range |  |  | measurement | 0
+sensor | Supervisor Scan Age | s |  | measurement | 1
+sensor | Supervisor Scans |  |  | total_increasing | 0
 sensor | Supply Voltage 12V | V | voltage | measurement | 3
 sensor | Supply Voltage 3V3 | V | voltage | measurement | 3
 sensor | Supply Voltage 5V | V | voltage | measurement | 3
@@ -407,6 +421,7 @@ text_sensor | Event Warning Supervisor Not Enabled |  |  |  |
 text_sensor | Event Warning Supply Voltage Stale |  |  |  |
 text_sensor | HMI Firmware |  |  |  |
 text_sensor | Last Event Text |  |  |  |
+text_sensor | Learned Capacity State Text |  |  |  |
 text_sensor | Log 01 |  |  |  |
 text_sensor | Log 02 |  |  |  |
 text_sensor | Log 03 |  |  |  |
@@ -461,6 +476,8 @@ text_sensor | Log |  |  |  | internal
 text_sensor | Module IDs |  |  |  |
 text_sensor | Serial |  |  |  |
 text_sensor | Settings Status |  |  |  |
+text_sensor | Supervisor Reasons |  |  |  |
+text_sensor | Supervisor State |  |  |  |
 text_sensor | System Request Text |  |  |  |
 text_sensor | System State Text |  |  |  |
 text_sensor | WiFi IP |  |  |  |

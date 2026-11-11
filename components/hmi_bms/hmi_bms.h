@@ -144,6 +144,15 @@ class HMIBMS : public PollingComponent, public uart::UARTDevice {
   void set_max_charge_current_number(HMIBMSNumber *n) { max_charge_current_number_ = n; }
   void set_max_discharge_current_number(HMIBMSNumber *n) { max_discharge_current_number_ = n; }
 
+  // The supervisor chip's own status (READ_SUPERVISOR): it answers for itself, at the BMS's address
+  void set_supervisor_state_text_sensor(text_sensor::TextSensor *s) { supervisor_state_text_sensor_ = s; }
+  void set_supervisor_reasons_text_sensor(text_sensor::TextSensor *s) { supervisor_reasons_text_sensor_ = s; }
+  void set_supervisor_cell_min_sensor(sensor::Sensor *s) { supervisor_cell_min_sensor_ = s; }
+  void set_supervisor_cell_max_sensor(sensor::Sensor *s) { supervisor_cell_max_sensor_ = s; }
+  void set_supervisor_cells_in_range_sensor(sensor::Sensor *s) { supervisor_cells_in_range_sensor_ = s; }
+  void set_supervisor_scans_sensor(sensor::Sensor *s) { supervisor_scans_sensor_ = s; }
+  void set_supervisor_scan_age_sensor(sensor::Sensor *s) { supervisor_scan_age_sensor_ = s; }
+
   void set_last_event_sensor(sensor::Sensor *s) { last_event_sensor_ = s; }
   void set_highest_event_level_sensor(sensor::Sensor *s) { highest_event_level_sensor_ = s; }
   void set_event_history_text_sensor(text_sensor::TextSensor *s) { event_history_text_sensor_ = s; }
@@ -166,6 +175,8 @@ class HMIBMS : public PollingComponent, public uart::UARTDevice {
   void set_bypass_crc(bool bypass) { rx_.set_bypass_crc(bypass); }
   void set_baud_rate(uint32_t baud) { baud_rate_ = baud; }
   void set_dump_raw(bool dump) { dump_raw_ = dump; }
+  // ESP32-P4 with the BMS link on its USB pins (GPIO24/25): switch the USB PHY's pulls off
+  void set_disable_usb_pullups(bool disable) { disable_usb_pullups_ = disable; }
   void set_address(uint8_t address) { address_ = address; }
   void set_log_sync_prefix(const std::string &prefix) { log_sync_prefix_ = prefix; }
   void set_log_enable_switch(HMIBMSLogSwitch *s) { log_enable_switch_ = s; }
@@ -208,6 +219,7 @@ class HMIBMS : public PollingComponent, public uart::UARTDevice {
   void handle_list_registers_response_(const uint8_t *data, size_t length);
   void handle_array_page_(const uint8_t *data, size_t length);
   void handle_nack_(const uint8_t *data, size_t length);
+  void handle_supervisor_response_(const uint8_t *data, size_t length);
   void handle_read_log_response_(const uint8_t *data, size_t length);
   void publish_log_();
   void handle_read_events_response_(const uint8_t *data, size_t length);
@@ -302,6 +314,20 @@ class HMIBMS : public PollingComponent, public uart::UARTDevice {
   text_sensor::TextSensor *cells_balancing_active_text_sensor_{nullptr};
   std::vector<int32_t> balancing_time_prev_;
   std::vector<uint32_t> balancing_active_until_ms_;
+  text_sensor::TextSensor *supervisor_state_text_sensor_{nullptr};
+  text_sensor::TextSensor *supervisor_reasons_text_sensor_{nullptr};
+  sensor::Sensor *supervisor_cell_min_sensor_{nullptr};
+  sensor::Sensor *supervisor_cell_max_sensor_{nullptr};
+  sensor::Sensor *supervisor_cells_in_range_sensor_{nullptr};
+  sensor::Sensor *supervisor_scans_sensor_{nullptr};
+  sensor::Sensor *supervisor_scan_age_sensor_{nullptr};
+  uint8_t supervisor_unanswered_{0};  // READ_SUPERVISOR requests since its last answer
+  bool wants_supervisor_() const {
+    return supervisor_state_text_sensor_ || supervisor_reasons_text_sensor_ || supervisor_cell_min_sensor_ ||
+           supervisor_cell_max_sensor_ || supervisor_cells_in_range_sensor_ || supervisor_scans_sensor_ ||
+           supervisor_scan_age_sensor_;
+  }
+  void publish_text_(text_sensor::TextSensor *s, const std::string &state);
   text_sensor::TextSensor *log_text_sensor_{nullptr};
   std::deque<std::string> log_tail_;  // the latest lines, for the line sensors when no status block comes
   uint32_t last_log_sync_ms_{0};      // when a status block last started; 0 = never
@@ -316,6 +342,7 @@ class HMIBMS : public PollingComponent, public uart::UARTDevice {
   std::vector<sensor::Sensor *> module_temperature_sensors_;
   uint32_t baud_rate_{460800};
   bool dump_raw_{false};
+  bool disable_usb_pullups_{false};
   SettingsLock settings_;
   uint32_t last_rx_ms_{0};
   bool log_enabled_{false};

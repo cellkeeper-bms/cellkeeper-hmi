@@ -270,5 +270,25 @@ static const char *const HMI_EVENT_NAMES[HMI_EVENT_COUNT] = {
     "INVERTER_DETECTED",
 };
 
+// The supervisor's reasons for not enabling the contactor drivers: bit and name
+struct HMISupervisorReason {
+  uint16_t bit;
+  const char *name;
+};
+static const HMISupervisorReason HMI_SUPERVISOR_REASONS[] = {
+    {0x0001, "NO_HEARTBEAT"},
+    {0x0002, "VERSION"},
+    {0x0004, "MAP_INVALID"},
+    {0x0008, "NO_SCAN"},
+    {0x0010, "CELL_HIGH"},
+    {0x0020, "CELL_LOW"},
+    {0x0040, "CELL_MISSING"},
+    {0x0080, "BMS_DISAGREE"},
+    {0x0100, "SETTLING"},
+    {0x0200, "ABSENT_READS"},
+    {0x0400, "CHEMISTRY"},
+    {0x0800, "MAP_CHANGED"},
+};
+
 }  // namespace hmi_bms
 }  // namespace esphome
