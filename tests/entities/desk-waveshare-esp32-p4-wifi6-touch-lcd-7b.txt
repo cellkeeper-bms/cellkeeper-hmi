@@ -1,0 +1,471 @@
+button | Calibrate Isolation Zero |  |  |  |
+button | Calibrate Online |  |  |  |
+button | Calibrate Short |  |  |  |
+button | Calibrate |  |  |  |
+button | HMI Restart |  | restart |  |
+button | Run |  |  |  |
+button | Start Balance Charge Now |  |  |  |
+button | Stop Balance Charge |  |  |  |
+button | Stop |  |  |  |
+light | Display Backlight |  |  |  |
+number | Auto Balancing Period | ms |  |  | 0
+number | Balance Charge Duration | h |  |  |
+number | Balance Charge Interval | d |  |  |
+number | Balance Charge Offset Upper |  |  |  |
+number | Balance Charge Start Hour | h |  |  |
+number | Balance Min Offset | mV | voltage |  | 0
+number | Balancing Periods per mV |  |  |  | 0
+number | Balancing Start Voltage | mV | voltage |  | 0
+number | Cell Voltage Soft Max | mV | voltage |  | 0
+number | Cell Voltage Soft Min | mV | voltage |  | 0
+number | Cell Voltage Working Max | mV | voltage |  | 0
+number | Cell Voltage Working Min | mV | voltage |  | 0
+number | Float Offset Upper |  |  |  |
+number | Log Update Rate | s |  |  |
+number | Max Charge Current | A | current |  | 1
+number | Max Discharge Current | A | current |  | 1
+number | Minimum Balancing Voltage | mV | voltage |  | 0
+number | SOC Scaling Max | % |  |  | 0
+number | SOC Scaling Min | % |  |  | 0
+number | SOC Set Cmd | % |  |  | 0
+number | Voltage Limit Offset Lower | dV | voltage |  | 0
+number | Voltage Limit Offset Upper | dV | voltage |  | 0
+sensor | BMS Chip Temperature | °C | temperature | measurement | 1
+sensor | Balance Cycle Time Remaining Seconds | s |  | measurement | 0 internal
+sensor | Balancing State |  |  |  | 0
+sensor | Board Strap Counts |  |  |  | 0
+sensor | CAN Frames Received |  |  | total_increasing | 0
+sensor | CAN Frames Sent |  |  | total_increasing | 0
+sensor | Calibration State |  |  |  | 0
+sensor | Capacity | Ah |  | measurement | 2
+sensor | Cell Balancing Time 001 |  |  | measurement | 0
+sensor | Cell Balancing Time 002 |  |  | measurement | 0
+sensor | Cell Balancing Time 003 |  |  | measurement | 0
+sensor | Cell Balancing Time 004 |  |  | measurement | 0
+sensor | Cell Balancing Time 005 |  |  | measurement | 0
+sensor | Cell Balancing Time 006 |  |  | measurement | 0
+sensor | Cell Balancing Time 007 |  |  | measurement | 0
+sensor | Cell Balancing Time 008 |  |  | measurement | 0
+sensor | Cell Balancing Time 009 |  |  | measurement | 0
+sensor | Cell Balancing Time 010 |  |  | measurement | 0
+sensor | Cell Balancing Time 011 |  |  | measurement | 0
+sensor | Cell Balancing Time 012 |  |  | measurement | 0
+sensor | Cell Balancing Time 013 |  |  | measurement | 0
+sensor | Cell Balancing Time 014 |  |  | measurement | 0
+sensor | Cell Balancing Time 015 |  |  | measurement | 0
+sensor | Cell Balancing Time 016 |  |  | measurement | 0
+sensor | Cell Balancing Time 017 |  |  | measurement | 0
+sensor | Cell Balancing Time 018 |  |  | measurement | 0
+sensor | Cell Balancing Time 019 |  |  | measurement | 0
+sensor | Cell Balancing Time 020 |  |  | measurement | 0
+sensor | Cell Balancing Time 021 |  |  | measurement | 0
+sensor | Cell Balancing Time 022 |  |  | measurement | 0
+sensor | Cell Balancing Time 023 |  |  | measurement | 0
+sensor | Cell Balancing Time 024 |  |  | measurement | 0
+sensor | Cell Balancing Time 025 |  |  | measurement | 0
+sensor | Cell Balancing Time 026 |  |  | measurement | 0
+sensor | Cell Balancing Time 027 |  |  | measurement | 0
+sensor | Cell Balancing Time 028 |  |  | measurement | 0
+sensor | Cell Balancing Time 029 |  |  | measurement | 0
+sensor | Cell Balancing Time 030 |  |  | measurement | 0
+sensor | Cell Balancing Time 031 |  |  | measurement | 0
+sensor | Cell Balancing Time 032 |  |  | measurement | 0
+sensor | Cell Balancing Time 033 |  |  | measurement | 0
+sensor | Cell Balancing Time 034 |  |  | measurement | 0
+sensor | Cell Balancing Time 035 |  |  | measurement | 0
+sensor | Cell Balancing Time 036 |  |  | measurement | 0
+sensor | Cell Balancing Time 037 |  |  | measurement | 0
+sensor | Cell Balancing Time 038 |  |  | measurement | 0
+sensor | Cell Balancing Time 039 |  |  | measurement | 0
+sensor | Cell Balancing Time 040 |  |  | measurement | 0
+sensor | Cell Balancing Time 041 |  |  | measurement | 0
+sensor | Cell Balancing Time 042 |  |  | measurement | 0
+sensor | Cell Balancing Time 043 |  |  | measurement | 0
+sensor | Cell Balancing Time 044 |  |  | measurement | 0
+sensor | Cell Balancing Time 045 |  |  | measurement | 0
+sensor | Cell Balancing Time 046 |  |  | measurement | 0
+sensor | Cell Balancing Time 047 |  |  | measurement | 0
+sensor | Cell Balancing Time 048 |  |  | measurement | 0
+sensor | Cell Balancing Time 049 |  |  | measurement | 0
+sensor | Cell Balancing Time 050 |  |  | measurement | 0
+sensor | Cell Balancing Time 051 |  |  | measurement | 0
+sensor | Cell Balancing Time 052 |  |  | measurement | 0
+sensor | Cell Balancing Time 053 |  |  | measurement | 0
+sensor | Cell Balancing Time 054 |  |  | measurement | 0
+sensor | Cell Balancing Time 055 |  |  | measurement | 0
+sensor | Cell Balancing Time 056 |  |  | measurement | 0
+sensor | Cell Balancing Time 057 |  |  | measurement | 0
+sensor | Cell Balancing Time 058 |  |  | measurement | 0
+sensor | Cell Balancing Time 059 |  |  | measurement | 0
+sensor | Cell Balancing Time 060 |  |  | measurement | 0
+sensor | Cell Balancing Time 061 |  |  | measurement | 0
+sensor | Cell Balancing Time 062 |  |  | measurement | 0
+sensor | Cell Balancing Time 063 |  |  | measurement | 0
+sensor | Cell Balancing Time 064 |  |  | measurement | 0
+sensor | Cell Balancing Time 065 |  |  | measurement | 0
+sensor | Cell Balancing Time 066 |  |  | measurement | 0
+sensor | Cell Balancing Time 067 |  |  | measurement | 0
+sensor | Cell Balancing Time 068 |  |  | measurement | 0
+sensor | Cell Balancing Time 069 |  |  | measurement | 0
+sensor | Cell Balancing Time 070 |  |  | measurement | 0
+sensor | Cell Balancing Time 071 |  |  | measurement | 0
+sensor | Cell Balancing Time 072 |  |  | measurement | 0
+sensor | Cell Balancing Time 073 |  |  | measurement | 0
+sensor | Cell Balancing Time 074 |  |  | measurement | 0
+sensor | Cell Balancing Time 075 |  |  | measurement | 0
+sensor | Cell Balancing Time 076 |  |  | measurement | 0
+sensor | Cell Balancing Time 077 |  |  | measurement | 0
+sensor | Cell Balancing Time 078 |  |  | measurement | 0
+sensor | Cell Balancing Time 079 |  |  | measurement | 0
+sensor | Cell Balancing Time 080 |  |  | measurement | 0
+sensor | Cell Balancing Time 081 |  |  | measurement | 0
+sensor | Cell Balancing Time 082 |  |  | measurement | 0
+sensor | Cell Balancing Time 083 |  |  | measurement | 0
+sensor | Cell Balancing Time 084 |  |  | measurement | 0
+sensor | Cell Balancing Time 085 |  |  | measurement | 0
+sensor | Cell Balancing Time 086 |  |  | measurement | 0
+sensor | Cell Balancing Time 087 |  |  | measurement | 0
+sensor | Cell Balancing Time 088 |  |  | measurement | 0
+sensor | Cell Balancing Time 089 |  |  | measurement | 0
+sensor | Cell Balancing Time 090 |  |  | measurement | 0
+sensor | Cell Balancing Time 091 |  |  | measurement | 0
+sensor | Cell Balancing Time 092 |  |  | measurement | 0
+sensor | Cell Balancing Time 093 |  |  | measurement | 0
+sensor | Cell Balancing Time 094 |  |  | measurement | 0
+sensor | Cell Balancing Time 095 |  |  | measurement | 0
+sensor | Cell Balancing Time 096 |  |  | measurement | 0
+sensor | Cell Balancing Time 097 |  |  | measurement | 0
+sensor | Cell Balancing Time 098 |  |  | measurement | 0
+sensor | Cell Balancing Time 099 |  |  | measurement | 0
+sensor | Cell Balancing Time 100 |  |  | measurement | 0
+sensor | Cell Balancing Time 101 |  |  | measurement | 0
+sensor | Cell Balancing Time 102 |  |  | measurement | 0
+sensor | Cell Balancing Time 103 |  |  | measurement | 0
+sensor | Cell Balancing Time 104 |  |  | measurement | 0
+sensor | Cell Balancing Time 105 |  |  | measurement | 0
+sensor | Cell Balancing Time 106 |  |  | measurement | 0
+sensor | Cell Balancing Time 107 |  |  | measurement | 0
+sensor | Cell Balancing Time 108 |  |  | measurement | 0
+sensor | Cell Count |  |  | measurement | 0
+sensor | Cell Voltage 001 | V | voltage | measurement | 3
+sensor | Cell Voltage 002 | V | voltage | measurement | 3
+sensor | Cell Voltage 003 | V | voltage | measurement | 3
+sensor | Cell Voltage 004 | V | voltage | measurement | 3
+sensor | Cell Voltage 005 | V | voltage | measurement | 3
+sensor | Cell Voltage 006 | V | voltage | measurement | 3
+sensor | Cell Voltage 007 | V | voltage | measurement | 3
+sensor | Cell Voltage 008 | V | voltage | measurement | 3
+sensor | Cell Voltage 009 | V | voltage | measurement | 3
+sensor | Cell Voltage 010 | V | voltage | measurement | 3
+sensor | Cell Voltage 011 | V | voltage | measurement | 3
+sensor | Cell Voltage 012 | V | voltage | measurement | 3
+sensor | Cell Voltage 013 | V | voltage | measurement | 3
+sensor | Cell Voltage 014 | V | voltage | measurement | 3
+sensor | Cell Voltage 015 | V | voltage | measurement | 3
+sensor | Cell Voltage 016 | V | voltage | measurement | 3
+sensor | Cell Voltage 017 | V | voltage | measurement | 3
+sensor | Cell Voltage 018 | V | voltage | measurement | 3
+sensor | Cell Voltage 019 | V | voltage | measurement | 3
+sensor | Cell Voltage 020 | V | voltage | measurement | 3
+sensor | Cell Voltage 021 | V | voltage | measurement | 3
+sensor | Cell Voltage 022 | V | voltage | measurement | 3
+sensor | Cell Voltage 023 | V | voltage | measurement | 3
+sensor | Cell Voltage 024 | V | voltage | measurement | 3
+sensor | Cell Voltage 025 | V | voltage | measurement | 3
+sensor | Cell Voltage 026 | V | voltage | measurement | 3
+sensor | Cell Voltage 027 | V | voltage | measurement | 3
+sensor | Cell Voltage 028 | V | voltage | measurement | 3
+sensor | Cell Voltage 029 | V | voltage | measurement | 3
+sensor | Cell Voltage 030 | V | voltage | measurement | 3
+sensor | Cell Voltage 031 | V | voltage | measurement | 3
+sensor | Cell Voltage 032 | V | voltage | measurement | 3
+sensor | Cell Voltage 033 | V | voltage | measurement | 3
+sensor | Cell Voltage 034 | V | voltage | measurement | 3
+sensor | Cell Voltage 035 | V | voltage | measurement | 3
+sensor | Cell Voltage 036 | V | voltage | measurement | 3
+sensor | Cell Voltage 037 | V | voltage | measurement | 3
+sensor | Cell Voltage 038 | V | voltage | measurement | 3
+sensor | Cell Voltage 039 | V | voltage | measurement | 3
+sensor | Cell Voltage 040 | V | voltage | measurement | 3
+sensor | Cell Voltage 041 | V | voltage | measurement | 3
+sensor | Cell Voltage 042 | V | voltage | measurement | 3
+sensor | Cell Voltage 043 | V | voltage | measurement | 3
+sensor | Cell Voltage 044 | V | voltage | measurement | 3
+sensor | Cell Voltage 045 | V | voltage | measurement | 3
+sensor | Cell Voltage 046 | V | voltage | measurement | 3
+sensor | Cell Voltage 047 | V | voltage | measurement | 3
+sensor | Cell Voltage 048 | V | voltage | measurement | 3
+sensor | Cell Voltage 049 | V | voltage | measurement | 3
+sensor | Cell Voltage 050 | V | voltage | measurement | 3
+sensor | Cell Voltage 051 | V | voltage | measurement | 3
+sensor | Cell Voltage 052 | V | voltage | measurement | 3
+sensor | Cell Voltage 053 | V | voltage | measurement | 3
+sensor | Cell Voltage 054 | V | voltage | measurement | 3
+sensor | Cell Voltage 055 | V | voltage | measurement | 3
+sensor | Cell Voltage 056 | V | voltage | measurement | 3
+sensor | Cell Voltage 057 | V | voltage | measurement | 3
+sensor | Cell Voltage 058 | V | voltage | measurement | 3
+sensor | Cell Voltage 059 | V | voltage | measurement | 3
+sensor | Cell Voltage 060 | V | voltage | measurement | 3
+sensor | Cell Voltage 061 | V | voltage | measurement | 3
+sensor | Cell Voltage 062 | V | voltage | measurement | 3
+sensor | Cell Voltage 063 | V | voltage | measurement | 3
+sensor | Cell Voltage 064 | V | voltage | measurement | 3
+sensor | Cell Voltage 065 | V | voltage | measurement | 3
+sensor | Cell Voltage 066 | V | voltage | measurement | 3
+sensor | Cell Voltage 067 | V | voltage | measurement | 3
+sensor | Cell Voltage 068 | V | voltage | measurement | 3
+sensor | Cell Voltage 069 | V | voltage | measurement | 3
+sensor | Cell Voltage 070 | V | voltage | measurement | 3
+sensor | Cell Voltage 071 | V | voltage | measurement | 3
+sensor | Cell Voltage 072 | V | voltage | measurement | 3
+sensor | Cell Voltage 073 | V | voltage | measurement | 3
+sensor | Cell Voltage 074 | V | voltage | measurement | 3
+sensor | Cell Voltage 075 | V | voltage | measurement | 3
+sensor | Cell Voltage 076 | V | voltage | measurement | 3
+sensor | Cell Voltage 077 | V | voltage | measurement | 3
+sensor | Cell Voltage 078 | V | voltage | measurement | 3
+sensor | Cell Voltage 079 | V | voltage | measurement | 3
+sensor | Cell Voltage 080 | V | voltage | measurement | 3
+sensor | Cell Voltage 081 | V | voltage | measurement | 3
+sensor | Cell Voltage 082 | V | voltage | measurement | 3
+sensor | Cell Voltage 083 | V | voltage | measurement | 3
+sensor | Cell Voltage 084 | V | voltage | measurement | 3
+sensor | Cell Voltage 085 | V | voltage | measurement | 3
+sensor | Cell Voltage 086 | V | voltage | measurement | 3
+sensor | Cell Voltage 087 | V | voltage | measurement | 3
+sensor | Cell Voltage 088 | V | voltage | measurement | 3
+sensor | Cell Voltage 089 | V | voltage | measurement | 3
+sensor | Cell Voltage 090 | V | voltage | measurement | 3
+sensor | Cell Voltage 091 | V | voltage | measurement | 3
+sensor | Cell Voltage 092 | V | voltage | measurement | 3
+sensor | Cell Voltage 093 | V | voltage | measurement | 3
+sensor | Cell Voltage 094 | V | voltage | measurement | 3
+sensor | Cell Voltage 095 | V | voltage | measurement | 3
+sensor | Cell Voltage 096 | V | voltage | measurement | 3
+sensor | Cell Voltage 097 | V | voltage | measurement | 3
+sensor | Cell Voltage 098 | V | voltage | measurement | 3
+sensor | Cell Voltage 099 | V | voltage | measurement | 3
+sensor | Cell Voltage 100 | V | voltage | measurement | 3
+sensor | Cell Voltage 101 | V | voltage | measurement | 3
+sensor | Cell Voltage 102 | V | voltage | measurement | 3
+sensor | Cell Voltage 103 | V | voltage | measurement | 3
+sensor | Cell Voltage 104 | V | voltage | measurement | 3
+sensor | Cell Voltage 105 | V | voltage | measurement | 3
+sensor | Cell Voltage 106 | V | voltage | measurement | 3
+sensor | Cell Voltage 107 | V | voltage | measurement | 3
+sensor | Cell Voltage 108 | V | voltage | measurement | 3
+sensor | Cell Voltage Delta | V | voltage | measurement | 3
+sensor | Cell Voltage Max | V | voltage | measurement | 3
+sensor | Cell Voltage Min | V | voltage | measurement | 3
+sensor | Cells Balancing Active Count |  |  |  | 0
+sensor | Cells Balancing Count |  |  |  | 0
+sensor | Charge Raw | Ah |  | measurement | 2
+sensor | Contactor State |  |  |  | 0
+sensor | Contactor Voltage Negative | V | voltage | measurement | 3
+sensor | Contactor Voltage Positive | V | voltage | measurement | 3
+sensor | Current Limit Cell Voltage Charge | A | current | measurement | 1
+sensor | Current Limit Cell Voltage Discharge | A | current | measurement | 1
+sensor | Current Limit Delta Charge | A | current | measurement | 1
+sensor | Current Limit Effective Charge | A | current | measurement | 1
+sensor | Current Limit Effective Discharge | A | current | measurement | 1
+sensor | Current Limit Hard Charge | A | current | measurement | 1
+sensor | Current Limit Hard Discharge | A | current | measurement | 1
+sensor | Current Limit Temperature Charge | A | current | measurement | 1
+sensor | Current Limit Temperature Discharge | A | current | measurement | 1
+sensor | Current Limit Working Charge | A | current | measurement | 1
+sensor | Current Limit Working Discharge | A | current | measurement | 1
+sensor | Current | A | current | measurement | 3
+sensor | EKF Capacity | Ah |  | measurement | 2
+sensor | Energy Daily Charge | kWh | energy | total_increasing | 3
+sensor | Energy Daily Discharge | kWh | energy | total_increasing | 3
+sensor | Energy Daily Net | kWh | energy | total | 3
+sensor | Heap Free | B |  | measurement | 0
+sensor | Heap Max Block | B |  | measurement | 0
+sensor | Internal Temperature | °C | temperature | measurement | 1
+sensor | Inverter CAN Capacity Full | Ah |  | measurement | 1
+sensor | Inverter CAN Capacity Remaining | Ah |  | measurement | 1
+sensor | Inverter CAN SOC | % | battery | measurement | 1
+sensor | Inverter CAN Voltage Limit Max | V | voltage | measurement | 1
+sensor | Inverter CAN Voltage Limit Min | V | voltage | measurement | 1
+sensor | Isolation Check Age | s |  | measurement | 0
+sensor | Isolation Resistance | MΩ |  | measurement | 2
+sensor | Loop Time | ms |  | measurement | 0
+sensor | Millis | ms |  | measurement | 0
+sensor | Module Temperature 1 | °C | temperature | measurement | 1
+sensor | Module Temperature 2 | °C | temperature | measurement | 1
+sensor | Module Temperature 3 | °C | temperature | measurement | 1
+sensor | Module Temperature 4 | °C | temperature | measurement | 1
+sensor | Module Temperature 5 | °C | temperature | measurement | 1
+sensor | Module Temperature 6 | °C | temperature | measurement | 1
+sensor | Module Temperature 7 | °C | temperature | measurement | 1
+sensor | Module Temperature 8 | °C | temperature | measurement | 1
+sensor | Module Temperature Max | °C | temperature | measurement | 1
+sensor | Module Temperature Min | °C | temperature | measurement | 1
+sensor | Overcurrent Charge Buffer | % |  | measurement | 1
+sensor | Overcurrent Discharge Buffer | % |  | measurement | 1
+sensor | Pack Internal Voltage BMB | V | voltage | measurement | 3
+sensor | Pack Internal Voltage | V | voltage | measurement | 3
+sensor | Pack Neg to Chassis | V | voltage | measurement | 1
+sensor | Pack Output Voltage | V | voltage | measurement | 3
+sensor | Pack Pos to Chassis | V | voltage | measurement | 1
+sensor | Power Charge | kW | power | measurement | 3
+sensor | Power Discharge | kW | power | measurement | 3
+sensor | Power W | W | power | measurement | 0
+sensor | Power | kW | power | measurement | 3
+sensor | SOC Basic Count | % | battery | measurement | 1
+sensor | SOC Fancy Count | % |  | measurement | 2
+sensor | SOC Voltage Based | % | battery | measurement | 1
+sensor | SOC | % | battery | measurement | 2
+sensor | Shunt Die Temperature | °C | temperature | measurement | 1
+sensor | Shunt NTC Temperature | °C | temperature | measurement | 1
+sensor | Soft Charge Buffer | % |  | measurement | 1
+sensor | Supply Voltage 12V | V | voltage | measurement | 3
+sensor | Supply Voltage 3V3 | V | voltage | measurement | 3
+sensor | Supply Voltage 5V | V | voltage | measurement | 3
+sensor | Supply Voltage Contactor | V | voltage | measurement | 3
+sensor | System Request |  |  |  | 0
+sensor | System State |  |  |  | 0
+sensor | UART0 CRC Errors |  |  | total_increasing | 0
+sensor | UART0 Packets Received |  |  | total_increasing | 0
+sensor | UART0 Packets Sent |  |  | total_increasing | 0
+sensor | UART1 CRC Errors |  |  | total_increasing | 0
+sensor | UART1 Packets Received |  |  | total_increasing | 0
+sensor | UART1 Packets Sent |  |  | total_increasing | 0
+sensor | Uptime HMI | s | duration | total_increasing | 0
+sensor | Uptime Pico | s |  | measurement | 0
+sensor | WiFi RSSI | dBm | signal_strength | measurement | 0
+switch | Audio Amplifier |  |  |  |
+switch | Log Enable |  |  |  |
+switch | Settings Unlock |  |  |  |
+text_sensor | BMS Firmware |  |  |  |
+text_sensor | BSSID |  |  |  |
+text_sensor | Balance Charge Status |  |  |  |
+text_sensor | Balance Cycle Time Remaining |  |  |  |
+text_sensor | Board Revision |  |  |  |
+text_sensor | Cells Balancing Active |  |  |  |
+text_sensor | Cells Balancing |  |  |  |
+text_sensor | Contactor State Text |  |  |  |
+text_sensor | Event Critical 3V3 High |  |  |  |
+text_sensor | Event Critical 3V3 Low |  |  |  |
+text_sensor | Event Critical BMB CRC Mismatch |  |  |  |
+text_sensor | Event Critical BMB Read Error |  |  |  |
+text_sensor | Event Critical Battery Temperature Very High |  |  |  |
+text_sensor | Event Critical Battery Temperature Very Low |  |  |  |
+text_sensor | Event Critical Battery Voltage Very High |  |  |  |
+text_sensor | Event Critical Battery Voltage Very Low |  |  |  |
+text_sensor | Event Critical Cell Voltage Very High |  |  |  |
+text_sensor | Event Critical Cell Voltage Very Low |  |  |  |
+text_sensor | Event Critical Closing Failed |  |  |  |
+text_sensor | Event Critical Ctr Supply Low |  |  |  |
+text_sensor | Event Critical NEG Unexpected Open |  |  |  |
+text_sensor | Event Critical Overcurrent Charging |  |  |  |
+text_sensor | Event Critical Overcurrent Discharging |  |  |  |
+text_sensor | Event Critical POS Unexpected Open |  |  |  |
+text_sensor | Event Critical PRE Current High |  |  |  |
+text_sensor | Event Critical PRE Voltage High |  |  |  |
+text_sensor | Event Critical Voltage Mismatch |  |  |  |
+text_sensor | Event Fatal BMB Module ID Conflict |  |  |  |
+text_sensor | Event Fatal Board Mismatch |  |  |  |
+text_sensor | Event Fatal Ctr Supply Very Low |  |  |  |
+text_sensor | Event Fatal E-Stop Pressed |  |  |  |
+text_sensor | Event Fatal NEG Stuck Closed |  |  |  |
+text_sensor | Event Fatal NEG Stuck Open |  |  |  |
+text_sensor | Event Fatal POS Stuck Closed |  |  |  |
+text_sensor | Event Fatal POS Stuck Open |  |  |  |
+text_sensor | Event Fatal PRE Stuck Closed |  |  |  |
+text_sensor | Event Fatal PRE Stuck Open |  |  |  |
+text_sensor | Event Fatal Supervisor Disabled Contactors |  |  |  |
+text_sensor | Event History |  |  |  |
+text_sensor | Event Info BMB Module ID Unknown |  |  |  |
+text_sensor | Event Info Boot Normal |  |  |  |
+text_sensor | Event Info Boot Watchdog |  |  |  |
+text_sensor | Event Info Contactor Port Energized |  |  |  |
+text_sensor | Event Info Inverter Detected |  |  |  |
+text_sensor | Event Info Restarting |  |  |  |
+text_sensor | Event Warning 12V High |  |  |  |
+text_sensor | Event Warning 12V Low |  |  |  |
+text_sensor | Event Warning 5V High |  |  |  |
+text_sensor | Event Warning 5V Low |  |  |  |
+text_sensor | Event Warning BMB Module ID Check Failed |  |  |  |
+text_sensor | Event Warning BMB Pack Mismatch |  |  |  |
+text_sensor | Event Warning Battery Temperature High |  |  |  |
+text_sensor | Event Warning Battery Temperature Low |  |  |  |
+text_sensor | Event Warning Battery Temperature Stale |  |  |  |
+text_sensor | Event Warning Battery Voltage High |  |  |  |
+text_sensor | Event Warning Battery Voltage Low |  |  |  |
+text_sensor | Event Warning Battery Voltage Stale |  |  |  |
+text_sensor | Event Warning Cell Voltage Glitch |  |  |  |
+text_sensor | Event Warning Cell Voltage High |  |  |  |
+text_sensor | Event Warning Cell Voltage Low |  |  |  |
+text_sensor | Event Warning Cell Voltages Stale |  |  |  |
+text_sensor | Event Warning Ctr Supply High |  |  |  |
+text_sensor | Event Warning Current Stale |  |  |  |
+text_sensor | Event Warning Fuse Voltage Drop High |  |  |  |
+text_sensor | Event Warning Isolation Asymmetry |  |  |  |
+text_sensor | Event Warning Link Voltage Mismatch |  |  |  |
+text_sensor | Event Warning Loop Overrun |  |  |  |
+text_sensor | Event Warning Module Temperature Glitch |  |  |  |
+text_sensor | Event Warning Soft Charge Exceeded |  |  |  |
+text_sensor | Event Warning Supervisor Not Enabled |  |  |  |
+text_sensor | Event Warning Supply Voltage Stale |  |  |  |
+text_sensor | HMI Firmware |  |  |  |
+text_sensor | Last Event Text |  |  |  |
+text_sensor | Log 01 |  |  |  |
+text_sensor | Log 02 |  |  |  |
+text_sensor | Log 03 |  |  |  |
+text_sensor | Log 04 |  |  |  |
+text_sensor | Log 05 |  |  |  |
+text_sensor | Log 06 |  |  |  |
+text_sensor | Log 07 |  |  |  |
+text_sensor | Log 08 |  |  |  |
+text_sensor | Log 09 |  |  |  |
+text_sensor | Log 10 |  |  |  |
+text_sensor | Log 11 |  |  |  |
+text_sensor | Log 12 |  |  |  |
+text_sensor | Log 13 |  |  |  |
+text_sensor | Log 14 |  |  |  |
+text_sensor | Log 15 |  |  |  |
+text_sensor | Log 16 |  |  |  |
+text_sensor | Log 17 |  |  |  |
+text_sensor | Log 18 |  |  |  |
+text_sensor | Log 19 |  |  |  |
+text_sensor | Log 20 |  |  |  |
+text_sensor | Log 21 |  |  |  |
+text_sensor | Log 22 |  |  |  |
+text_sensor | Log 23 |  |  |  |
+text_sensor | Log 24 |  |  |  |
+text_sensor | Log 25 |  |  |  |
+text_sensor | Log 26 |  |  |  |
+text_sensor | Log 27 |  |  |  |
+text_sensor | Log 28 |  |  |  |
+text_sensor | Log 29 |  |  |  |
+text_sensor | Log 30 |  |  |  |
+text_sensor | Log 31 |  |  |  |
+text_sensor | Log 32 |  |  |  |
+text_sensor | Log 33 |  |  |  |
+text_sensor | Log 34 |  |  |  |
+text_sensor | Log 35 |  |  |  |
+text_sensor | Log 36 |  |  |  |
+text_sensor | Log 37 |  |  |  |
+text_sensor | Log 38 |  |  |  |
+text_sensor | Log 39 |  |  |  |
+text_sensor | Log 40 |  |  |  |
+text_sensor | Log 41 |  |  |  |
+text_sensor | Log 42 |  |  |  |
+text_sensor | Log 43 |  |  |  |
+text_sensor | Log 44 |  |  |  |
+text_sensor | Log 45 |  |  |  |
+text_sensor | Log 46 |  |  |  |
+text_sensor | Log 47 |  |  |  |
+text_sensor | Log 48 |  |  |  |
+text_sensor | Log 49 |  |  |  |
+text_sensor | Log 50 |  |  |  |
+text_sensor | Log |  |  |  | internal
+text_sensor | Module IDs |  |  |  |
+text_sensor | Serial |  |  |  |
+text_sensor | Settings Status |  |  |  |
+text_sensor | System Request Text |  |  |  |
+text_sensor | System State Text |  |  |  |
+text_sensor | WiFi IP |  |  |  |
+text_sensor | WiFi SSID |  |  |  |
