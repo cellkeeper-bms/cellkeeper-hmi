@@ -9,7 +9,10 @@
 namespace hmiui {
 
 // Every event type the firmware has, in its order: which are active, which happened earlier
-static void all_types(Canvas &c, const Theme &t, const Model &m) {
+static void all_types(Frame &f) {
+  Canvas &c = f.c;
+  const Theme &t = f.t;
+  const Model &m = f.m;
   const int w = X1 - X0, h = Y1 - Y0, rows = 20, colw = (w - 32) / 3;
   card(c, t, X0, Y0, w, h);
   c.text(FONT_R14, X0 + 16, Y0 + 16, fmt("ALL EVENT TYPES  ·  %d", event_type_count()), t.caption);
@@ -20,7 +23,7 @@ static void all_types(Canvas &c, const Theme &t, const Model &m) {
   lx += 12 + c.text(FONT_R14, lx + 10, Y0 + 16, "happened earlier", t.caption) + 24;
   c.ring(lx, Y0 + 25.0f, 3.5f, 5.0f, 0, 360, t.track);
   c.text(FONT_R14, lx + 10, Y0 + 16, "never", t.caption);
-  button(c, t, X1 - 16 - 150, Y0 + 6, 150, 40, "‹  Active");
+  if (button(f, X1 - 16 - 150, Y0 + 6, 150, 40, "‹  Active")) f.s.events_view = 0;
   for (int i = 0; i < event_type_count(); i++) {
     const Event *e = nullptr;
     for (int k = 0; k < m.event_count; k++) {
@@ -56,10 +59,13 @@ static void arrow_head(Canvas &c, int x, int y, Rgb color) {
   c.triangle((float) x, y + 0.5f, x - 9.0f, y - 5.5f, x - 9.0f, y + 6.5f, color);
 }
 
-static void fault_logic(Canvas &c, const Theme &t, const Model &m) {
+static void fault_logic(Frame &f) {
+  Canvas &c = f.c;
+  const Theme &t = f.t;
+  const Model &m = f.m;
   const int w = X1 - X0, h = Y1 - Y0, left = X0 + 16, right = X1 - 16;
   card(c, t, X0, Y0, w, h);
-  button(c, t, X1 - 16 - 150, Y0 + 6, 150, 40, "‹  Active");
+  if (button(f, X1 - 16 - 150, Y0 + 6, 150, 40, "‹  Active")) f.s.events_view = 0;
   int active[5] = {0, 0, 0, 0, 0};
   for (int i = 0; i < m.event_count; i++) active[(int) m.events[i].level]++;
   const int warnings = active[(int) Level::WARNING], criticals = active[(int) Level::CRITICAL], fatals = active[(int) Level::FATAL];
@@ -186,16 +192,20 @@ static void fault_logic(Canvas &c, const Theme &t, const Model &m) {
   text_wrap(c, FONT_R20, left, ny + 38, right - left, now, t.text, 4);
 }
 
-void draw_events(Canvas &c, const Theme &t, const Model &m, int view) {
-  top_line(c, t, m, "Events");
+void draw_events(Frame &f) {
+  Canvas &c = f.c;
+  const Theme &t = f.t;
+  const Model &m = f.m;
+  const int view = f.s.events_view;
+  top_line(f, "Events");
   if (view == 2) {
-    fault_logic(c, t, m);
-    page_end(c, t, m, Page::EVENTS);
+    fault_logic(f);
+    page_end(f, Page::EVENTS);
     return;
   }
   if (view == 1) {
-    all_types(c, t, m);
-    page_end(c, t, m, Page::EVENTS);
+    all_types(f);
+    page_end(f, Page::EVENTS);
     return;
   }
   const Event *list[MAX_EVENTS];
@@ -212,10 +222,12 @@ void draw_events(Canvas &c, const Theme &t, const Model &m, int view) {
     c.line(cx - 4, cy + 11, cx + 15, cy - 10, 4.0f, t.good);
     c.text(FONT_R24, (int) cx, (int) cy + 52, "Nothing is active", t.text_dim, CENTER);
   }
-  int y = Y0 + 42, shown = 0;
-  for (; shown < n; shown++) {
+  // The list scrolls when it is longer than the card
+  const int list_y = Y0 + 36, list_h = h - 44;
+  const int top = scroll_begin(f, f.s.events_scroll, X0, list_y, lw, list_h) + 6;
+  int y = top;
+  for (int shown = 0; shown < n; shown++) {
     const Event &e = *list[shown];
-    if (y + 62 > Y1 - 12) break;
     c.text(FONT_M20, X0 + 36, y, event_title(e.type), t.text);
     const Rgb color = level_color(t, e.level);
     const char *level = level_name(e.level);
@@ -226,9 +238,11 @@ void draw_events(Canvas &c, const Theme &t, const Model &m, int view) {
     if (e.count > 1) c.text(FONT_R16, X0 + lw - 28 - tw, y + 3, fmt("×%u", (unsigned) e.count), t.caption, RIGHT);
     const int y1 = text_wrap(c, FONT_R16, X0 + 36, y + 27, lw - 60, event_help(e.type), t.text_dim, 2);
     c.round_rect(X0 + 16, y + 2, 6, y1 - y - 2, 3, color);
+    // A tap on an event tells more about it
+    if (hot(f, X0 + 8, y - 4, lw - 16, y1 - y + 8, event_title(e.type))) open_event(f.s, (int) (&e - m.events));
     y = y1 + 14;
   }
-  if (shown < n) c.text(FONT_R14, X0 + lw - 16, Y0 + 12, fmt("%d more below  ↓", n - shown), t.out, RIGHT);
+  scroll_end(f, f.s.events_scroll, X0, list_y, lw, list_h, y - top + 6);
 
   // ---- earlier ----
   const int rx = X0 + lw + 12, rw = X1 - rx;
@@ -247,10 +261,10 @@ void draw_events(Canvas &c, const Theme &t, const Model &m, int view) {
   }
   if (earlier == 0) c.text(FONT_R18, rx + 16, y, "Nothing since the BMS started", t.hint);
   c.text(FONT_R14, rx + 16, Y1 - 156, "Counts are since the BMS started.", t.hint);
-  button(c, t, rx + 16, Y1 - 132, rw - 32, 52, "How a fault happens");
-  button(c, t, rx + 16, Y1 - 68, rw - 32, 52, "All event types");
+  if (button(f, rx + 16, Y1 - 132, rw - 32, 52, "How a fault happens")) f.s.events_view = 2;
+  if (button(f, rx + 16, Y1 - 68, rw - 32, 52, "All event types")) f.s.events_view = 1;
 
-  page_end(c, t, m, Page::EVENTS);
+  page_end(f, Page::EVENTS);
 }
 
 }  // namespace hmiui

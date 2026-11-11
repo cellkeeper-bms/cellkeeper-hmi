@@ -30,8 +30,11 @@ static void rail(Canvas &c, const Theme &t, int x, int y, int w, const char *nam
   c.round_rect(at - 3, y + 23, 6, 14, 3, ok ? t.good : t.warning);
 }
 
-void draw_health(Canvas &c, const Theme &t, const Model &m) {
-  top_line(c, t, m, "Health");
+void draw_health(Frame &f) {
+  Canvas &c = f.c;
+  const Theme &t = f.t;
+  const Model &m = f.m;
+  top_line(f, "Health");
   const int gap = 12, cw = (X1 - X0 - 2 * gap) / 3, top_h = 252;
   const int x2 = X0 + cw + gap, x3 = x2 + cw + gap, w3 = X1 - x3;
 
@@ -110,7 +113,7 @@ void draw_health(Canvas &c, const Theme &t, const Model &m) {
   row(c, t, rx + 16, by + 188, rw - 32, "Running for: BMS / display",
       fmt("%s / %s", m.bms_uptime_s ? uptime_text(m.bms_uptime_s) : "--", uptime_text(m.hmi_uptime_s)));
 
-  page_end(c, t, m, Page::HEALTH);
+  page_end(f, Page::HEALTH);
 }
 
 }  // namespace hmiui

@@ -4,13 +4,11 @@
 
 #include "ui_canvas.h"
 #include "ui_fonts.h"
+#include "ui_frame.h"
 #include "ui_model.h"
 #include "ui_theme.h"
 
 namespace hmiui {
-
-static const int SCREEN_W = 1024;
-static const int SCREEN_H = 600;
 
 // printf into one of a few static buffers: good for the arguments of one drawing call
 const char *fmt(const char *format, ...) __attribute__((format(printf, 1, 2)));
@@ -84,55 +82,67 @@ void no_link_overlay(Canvas &c, const Theme &t, const Model &m, int x, int y, in
 
 // ---- navigation ----
 
-// The pages, in the order the rail lists them
-enum class Page : uint8_t { HOME, CONTROL, POWER, CELLS, HEALTH, EVENTS, SETUP, COUNT };
-
 static const int NAV_RAIL_W = 88;
 // Where a page draws: right of the rail, under the top line
 static const int X0 = NAV_RAIL_W + 16, X1 = SCREEN_W - 16, Y0 = 66, Y1 = SCREEN_H - 16;
 
-void nav_rail(Canvas &c, const Theme &t, const Model &m, Page selected);  // down the left side
+void nav_rail(Frame &f, Page selected);  // down the left side; a tap on it changes the page
 // The line above every page: its title and the BMS state, or the worst active alarm
-void top_line(Canvas &c, const Theme &t, const Model &m, const char *title, const char *subtitle = "");
+void top_line(Frame &f, const char *title, const char *subtitle = "");
 // What every page ends with: the no-link box when the BMS is silent, and the rail
-void page_end(Canvas &c, const Theme &t, const Model &m, Page selected, bool needs_bms = true);
+void page_end(Frame &f, Page selected, bool needs_bms = true);
 
 // A caption with a number and unit under it
 void stat(Canvas &c, const Theme &t, int x, int y, const char *caption, const char *number, const char *unit, Rgb color);
 // A label on the left and a value on the right of one row
 void row(Canvas &c, const Theme &t, int x, int y, int w, const char *label, const char *val, Rgb color = 0);
-// A touch button
-void button(Canvas &c, const Theme &t, int x, int y, int w, int h, const char *label, const char *note = "",
-            Rgb fill = 0, Rgb text = 0);
-
 // A padlock, open or closed
 void padlock(Canvas &c, float cx, float cy, bool open, Rgb color);
 // How far a list is scrolled: a thin bar with a thumb
 void scrollbar(Canvas &c, const Theme &t, int x, int y, int h, float start, float shown);
 
-// ---- pop-ups: drawn over the page ----
-enum class Overlay : uint8_t { NONE, CONFIRM, PIN, NUMBER, WIFI_LIST, KEYBOARD, EVENT_DETAIL };
-struct Popup {
-  Overlay kind = Overlay::NONE;
-  const char *title = "";   // CONFIRM: the question. KEYBOARD: what is being typed, and for what
-  const char *text = "";    // CONFIRM: what will happen
-  const char *action = "";  // CONFIRM: the button that does it. PIN: what the PIN is for
-  bool danger = false;      // CONFIRM: the action interrupts the pack
-  const char *entry = "";   // what has been typed so far
-  bool wrong = false;       // PIN: the last one entered was wrong
-  bool shifted = false;     // KEYBOARD: capitals
-  int index = -1;           // NUMBER: which setting. EVENT_DETAIL: which of the model's events
-};
-void draw_popup(Canvas &c, const Theme &t, const Model &m, const Popup &p);
+// ---- widgets: they draw themselves and return what the touch did (ui_widgets.cpp) ----
+
+// A button. True when it was tapped. A disabled one is drawn dim and never reacts.
+bool button(Frame &f, int x, int y, int w, int h, const char *label, const char *note = "", Rgb fill = 0, Rgb text = 0,
+            bool enabled = true);
+// An area that can be tapped but draws nothing itself (a list row, a link). `label` names it
+// for the tests.
+bool hot(Frame &f, int x, int y, int w, int h, const char *label);
+// A row of choices, one selected. True when the selection changed.
+bool tabs(Frame &f, int x, int y, int w, int h, const char *const *labels, int count, int &selected);
+// A slider from 0 to 100 with its track's centre line at y. True while the finger moves it.
+bool slider(Frame &f, int x, int y, int w, int &percent, const char *label);
+// A list that can be dragged up and down. Draw the content between the two calls, starting at
+// the y that scroll_begin returns; tell scroll_end how tall the content was.
+int scroll_begin(Frame &f, Scroll &s, int x, int y, int w, int h);
+void scroll_end(Frame &f, Scroll &s, int x, int y, int w, int h, int content_h);
+
+// ---- pop-ups: opened by a page, drawn over it, closed by themselves (ui_popups.cpp) ----
+
+// Asks "are you sure", then for the PIN, then sends the command
+void ask_command(UiState &s, Command command, const char *title, const char *text, const char *action, const char *purpose,
+                 bool danger);
+// Asks "are you sure" and sends the command: for what does not touch the pack
+void ask_plain(UiState &s, Command command, const char *title, const char *text, const char *action);
+// Asks for the PIN, then unlocks the BMS settings
+void ask_unlock(UiState &s);
+// The number pad for one BMS setting
+void open_number(UiState &s, int setting);
+// More about one of the model's events
+void open_event(UiState &s, int event);
+// The list of Wi-Fi networks, then the keyboard for the password
+void open_wifi(UiState &s);
+void close_popup(UiState &s);
+void draw_popup(Frame &f);
 
 // ---- pages: one source file each ----
-void draw_home(Canvas &c, const Theme &t, const Model &m);
-void draw_cells(Canvas &c, const Theme &t, const Model &m);
-void draw_power(Canvas &c, const Theme &t, const Model &m);
-void draw_health(Canvas &c, const Theme &t, const Model &m);
-// view: 0 = what is active, 1 = every event type, 2 = the fault logic chart
-void draw_events(Canvas &c, const Theme &t, const Model &m, int view);
-void draw_control(Canvas &c, const Theme &t, const Model &m);
-void draw_setup(Canvas &c, const Theme &t, const Model &m, int section, bool raw_registers);
+void draw_home(Frame &f);
+void draw_cells(Frame &f);
+void draw_power(Frame &f);
+void draw_health(Frame &f);
+void draw_events(Frame &f);
+void draw_control(Frame &f);
+void draw_setup(Frame &f);
 
 }  // namespace hmiui

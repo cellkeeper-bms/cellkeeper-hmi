@@ -16,7 +16,10 @@ static const char *uptime_text(uint32_t s) {
   return fmt("%u:%02u:%02u", (unsigned) (s / 3600), (unsigned) (s % 3600 / 60), (unsigned) (s % 60));
 }
 
-static void settings_section(Canvas &c, const Theme &t, const Model &m) {
+static void settings_section(Frame &f) {
+  Canvas &c = f.c;
+  const Theme &t = f.t;
+  const Model &m = f.m;
   const int w = X1 - X0;
   // The lock
   card(c, t, X0, BODY_Y, w, 64);
@@ -26,7 +29,13 @@ static void settings_section(Canvas &c, const Theme &t, const Model &m) {
          m.settings_unlocked ? "Tap a value to change it. They lock again after 30 seconds."
                              : "Unlock with the PIN to change a value. Values are what the BMS has confirmed.",
          t.caption);
-  button(c, t, X1 - 16 - 150, BODY_Y + 8, 150, 48, m.settings_unlocked ? "Lock" : "Unlock");
+  if (button(f, X1 - 16 - 150, BODY_Y + 8, 150, 48, m.settings_unlocked ? "Lock" : "Unlock")) {
+    if (m.settings_unlocked) {
+      f.act.set_settings_unlocked(false);
+    } else {
+      ask_unlock(f.s);
+    }
+  }
 
   // The values, in two columns, grouped
   const int top = BODY_Y + 76, colw = (w - 12) / 2, row_h = 44;
@@ -63,27 +72,33 @@ static void settings_section(Canvas &c, const Theme &t, const Model &m) {
     c.round_frame(x + cw - vw, y + 2, vw, row_h - 8, 8, 1, m.settings_unlocked ? 0x3A464B : t.card_border);
     c.text(FONT_M20, x + cw - vw / 2, y + 8, fmt("%.*f %s", s.decimals, (double) s.value, s.unit),
            m.settings_unlocked ? t.text : t.text_dim, CENTER);
+    if (m.settings_unlocked && hot(f, x + cw - vw, y + 2, vw, row_h - 8, s.name)) open_number(f.s, i);
     y += row_h;
   }
 }
 
-static void display_section(Canvas &c, const Theme &t, const Model &m) {
+static void display_section(Frame &f) {
+  Canvas &c = f.c;
+  const Theme &t = f.t;
+  const Model &m = f.m;
   const int w = X1 - X0, lw = (w - 12) / 2, rx = X0 + lw + 12, rw = X1 - rx, h = Y1 - BODY_Y;
   card(c, t, X0, BODY_Y, lw, h);
   c.text(FONT_R14, X0 + 16, BODY_Y + 12, "DISPLAY", t.caption);
   c.text(FONT_R20, X0 + 16, BODY_Y + 44, "Brightness", t.text);
   c.text(FONT_M24, X0 + lw - 16, BODY_Y + 40, fmt("%d %%", m.brightness), t.text, RIGHT);
   {
-    const int sx = X0 + 32, sw = lw - 64, sy = BODY_Y + 104, at = sx + sw * m.brightness / 100;
-    c.round_rect(sx, sy - 6, sw, 12, 6, t.track);
-    c.round_rect(sx, sy - 6, at - sx, 12, 6, t.good);
-    c.disc((float) at, (float) sy, 20.0f, t.text);
+    // Never all the way down: a black screen can't be found again
+    int percent = m.brightness;
+    if (slider(f, X0 + 32, BODY_Y + 104, lw - 64, percent, "Brightness")) f.act.set_brightness(percent < 5 ? 5 : percent);
   }
   text_wrap(c, FONT_R16, X0 + 16, BODY_Y + 144, lw - 32,
             "Kept across restarts. After 5 minutes without a touch the display goes back to Home and dims to 10 % "
             "until it is touched.",
             t.caption, 3);
-  button(c, t, X0 + 16, Y1 - 16 - 60, lw - 32, 60, "Restart the display");
+  if (button(f, X0 + 16, Y1 - 16 - 60, lw - 32, 60, "Restart the display")) {
+    ask_plain(f.s, Command::RESTART_DISPLAY, "Restart the display?",
+              "Only the display restarts. The BMS keeps running and the contactors stay as they are.", "Restart");
+  }
 
   card(c, t, rx, BODY_Y, rw, h);
   c.text(FONT_R14, rx + 16, BODY_Y + 12, "WI-FI", t.caption);
@@ -95,17 +110,25 @@ static void display_section(Canvas &c, const Theme &t, const Model &m) {
   text_wrap(c, FONT_R16, rx + 16, BODY_Y + 208, rw - 32,
             "The display works without Wi-Fi. Wi-Fi is for Home Assistant and updates.", t.caption, 3);
   const int bw = (rw - 32 - 12) / 2;
-  button(c, t, rx + 16, Y1 - 16 - 60, bw, 60, "Set up a network");
-  button(c, t, rx + 16 + bw + 12, Y1 - 16 - 60, bw, 60, "Forget");
+  if (button(f, rx + 16, Y1 - 16 - 60, bw, 60, "Set up a network")) open_wifi(f.s);
+  if (button(f, rx + 16 + bw + 12, Y1 - 16 - 60, bw, 60, "Forget", "", 0, 0, on)) {
+    ask_plain(f.s, Command::WIFI_FORGET, "Forget this network?",
+              "The display leaves the Wi-Fi network and forgets its password. Home Assistant loses the display until a "
+              "network is set up again.",
+              "Forget the network");
+  }
 }
 
 // Every register the BMS lists, with its number and what it reads now
-static void registers_view(Canvas &c, const Theme &t, const Model &m) {
+static void registers_view(Frame &f) {
+  Canvas &c = f.c;
+  const Theme &t = f.t;
+  const Model &m = f.m;
   const int w = X1 - X0, h = Y1 - BODY_Y;
   card(c, t, X0, BODY_Y, w, h);
   c.text(FONT_R14, X0 + 16, BODY_Y + 20, "RAW REGISTERS", t.caption);
   c.text(FONT_R14, X0 + 144, BODY_Y + 20, fmt("%d listed by the BMS, as it sends them", m.register_count), t.hint);
-  button(c, t, X1 - 16 - 170, BODY_Y + 8, 170, 44, "‹  Log");
+  if (button(f, X1 - 16 - 170, BODY_Y + 8, 170, 44, "‹  Log")) f.s.raw_registers = false;
   const int ty = BODY_Y + 62, th = h - 62 - 12, rows = (th - 16) / 21, colw = (w - 24) / 2;
   c.round_rect(X0 + 12, ty, w - 24, th, 8, 0x050606);
   for (int i = 0; i < m.register_count && i < 2 * rows; i++) {
@@ -118,14 +141,19 @@ static void registers_view(Canvas &c, const Theme &t, const Model &m) {
   if (m.register_count > 2 * rows) scrollbar(c, t, X1 - 22, ty + 8, th - 16, 0.0f, 2.0f * rows / m.register_count);
 }
 
-static void log_section(Canvas &c, const Theme &t, const Model &m) {
+static void log_section(Frame &f) {
+  Canvas &c = f.c;
+  const Theme &t = f.t;
+  const Model &m = f.m;
   const int w = X1 - X0, h = Y1 - BODY_Y;
   card(c, t, X0, BODY_Y, w, h);
   c.text(FONT_R14, X0 + 16, BODY_Y + 20, "BMS LOG", t.caption);
   c.text(FONT_R14, X0 + 96, BODY_Y + 20, m.log_enabled ? "newest at the bottom" : "off", t.hint);
-  button(c, t, X1 - 16 - 2 * 170 - 12, BODY_Y + 8, 170, 44, m.log_enabled ? "Log: on" : "Log: off", "",
-         m.log_enabled ? 0x1B4A35 : 0);
-  button(c, t, X1 - 16 - 170, BODY_Y + 8, 170, 44, "Raw registers");
+  if (button(f, X1 - 16 - 2 * 170 - 12, BODY_Y + 8, 170, 44, m.log_enabled ? "Log: on" : "Log: off", "",
+             m.log_enabled ? 0x1B4A35 : 0)) {
+    f.act.set_log_enabled(!m.log_enabled);
+  }
+  if (button(f, X1 - 16 - 170, BODY_Y + 8, 170, 44, "Raw registers")) f.s.raw_registers = true;
   const int ty = BODY_Y + 62, th = h - 62 - 12;
   c.round_rect(X0 + 12, ty, w - 24, th, 8, 0x050606);
   if (!m.log_enabled || m.log_count == 0) {
@@ -141,7 +169,10 @@ static void log_section(Canvas &c, const Theme &t, const Model &m) {
   c.reset_clip();
 }
 
-static void about_section(Canvas &c, const Theme &t, const Model &m) {
+static void about_section(Frame &f) {
+  Canvas &c = f.c;
+  const Theme &t = f.t;
+  const Model &m = f.m;
   const int w = X1 - X0, lw = (w - 12) / 2, rx = X0 + lw + 12, rw = X1 - rx, h = Y1 - BODY_Y;
   card(c, t, X0, BODY_Y, lw, h);
   c.text(FONT_R14, X0 + 16, BODY_Y + 12, "BMS", t.caption);
@@ -166,25 +197,19 @@ static void about_section(Canvas &c, const Theme &t, const Model &m) {
   c.text(FONT_R14, rx + 16, Y1 - 40, "github.com/cellkeeper-bms", t.hint);
 }
 
-void draw_setup(Canvas &c, const Theme &t, const Model &m, int section, bool raw_registers) {
-  top_line(c, t, m, "Setup");
+void draw_setup(Frame &f) {
+  top_line(f, "Setup");
   // The sections, along the top
-  const int w = X1 - X0;
-  c.round_rect(X0, Y0, w, TABS_H, 12, t.card);
-  for (int i = 0; i < SECTION_COUNT; i++) {
-    const int x0 = X0 + 4 + i * (w - 8) / SECTION_COUNT, x1 = X0 + 4 + (i + 1) * (w - 8) / SECTION_COUNT;
-    const bool on = i == section;
-    if (on) c.round_rect(x0, Y0 + 4, x1 - x0, TABS_H - 8, 9, t.nav_active);
-    c.text(on ? FONT_M20 : FONT_R20, (x0 + x1) / 2, Y0 + 13, SECTIONS[i], on ? t.good : t.text_dim, CENTER);
-  }
+  if (tabs(f, X0, Y0, X1 - X0, TABS_H, SECTIONS, SECTION_COUNT, f.s.setup_section)) f.s.raw_registers = false;
+  const int section = f.s.setup_section;
   switch (section) {
-    case 0: settings_section(c, t, m); break;
-    case 1: display_section(c, t, m); break;
-    case 2: raw_registers ? registers_view(c, t, m) : log_section(c, t, m); break;
-    default: about_section(c, t, m); break;
+    case 0: settings_section(f); break;
+    case 1: display_section(f); break;
+    case 2: f.s.raw_registers ? registers_view(f) : log_section(f); break;
+    default: about_section(f); break;
   }
   // The BMS settings and its log need the BMS; the display's own pages don't
-  page_end(c, t, m, Page::SETUP, section == 0 || section == 2);
+  page_end(f, Page::SETUP, section == 0 || section == 2);
 }
 
 }  // namespace hmiui

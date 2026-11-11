@@ -70,12 +70,15 @@ static void sent_to_inverter(Canvas &c, const Theme &t, const Model &m, int y) {
   limit(xa + 712, "DISCHARGE LIMIT", m.discharge_limit, m.discharge_limited_by, t.out);
 }
 
-void draw_home(Canvas &c, const Theme &t, const Model &m) {
+void draw_home(Frame &f) {
+  Canvas &c = f.c;
+  const Theme &t = f.t;
+  const Model &m = f.m;
   const Flow flow = flow_of(m);
   const bool linked = m.link == Link::OK;
   const Event *list[MAX_EVENTS];
 
-  top_line(c, t, m, m.pack_name[0] ? m.pack_name : "CellKeeper",
+  top_line(f, m.pack_name[0] ? m.pack_name : "CellKeeper",
            m.cell_count > 0 && !std::isnan(m.capacity_ah) ? fmt("%ds  ·  %.0f Ah", m.cell_count, (double) m.capacity_ah) : "");
 
   // ---- the power path ----
@@ -148,6 +151,7 @@ void draw_home(Canvas &c, const Theme &t, const Model &m) {
     x += c.text(FONT_R14, x, cy + 12, "CELLS", t.caption) + 10;
     c.text(FONT_R14, x, cy + 12, fmt("%d in series", cells.count), t.hint);
     c.text(FONT_R16, X0 + cw - 16, cy + 11, "All cells ›", t.out, RIGHT);
+    if (hot(f, X0 + cw - 140, cy, 140, 44, "All cells")) f.s.page = Page::CELLS;
     const float spread = cells.high_mv - cells.low_mv;
     stat(c, t, X0 + 16, cy + 36, fmt("LOWEST #%d – HIGHEST #%d", cells.lowest + 1, cells.highest + 1),
          fmt("%.3f – %.3f", (double) cells.low_mv / 1000.0, (double) cells.high_mv / 1000.0), "V", t.text);
@@ -194,7 +198,7 @@ void draw_home(Canvas &c, const Theme &t, const Model &m) {
     c.text(FONT_R18, rx0 + rw / 2, cy + ch / 2 - 10, "No readings", t.hint, CENTER);
   }
 
-  page_end(c, t, m, Page::HOME);
+  page_end(f, Page::HOME);
 }
 
 }  // namespace hmiui

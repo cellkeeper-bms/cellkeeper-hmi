@@ -8,9 +8,12 @@ namespace hmiui {
 
 static const char *minutes_seconds(uint32_t s) { return fmt("%u:%02u", (unsigned) (s / 60), (unsigned) (s % 60)); }
 
-void draw_cells(Canvas &c, const Theme &t, const Model &m) {
+void draw_cells(Frame &f) {
+  Canvas &c = f.c;
+  const Theme &t = f.t;
+  const Model &m = f.m;
   const CellStats s = cell_stats(m);
-  top_line(c, t, m, "Cells", s.count > 0 ? fmt("%d in series", s.count) : "");
+  top_line(f, "Cells", s.count > 0 ? fmt("%d in series", s.count) : "");
   const int w = X1 - X0;
   int balancing = 0, queued = 0;
   for (int i = 0; i < MAX_CELLS; i++) {
@@ -49,7 +52,7 @@ void draw_cells(Canvas &c, const Theme &t, const Model &m) {
     c.text(FONT_R24, X0 + w / 2, cy + ch / 2 - 30, "No cell readings", t.hint, CENTER);
     c.text(FONT_R18, X0 + w / 2, cy + ch / 2 + 6, "The cell boards are not answering. See Events for the cause.", t.hint,
            CENTER);
-    page_end(c, t, m, Page::CELLS);
+    page_end(f, Page::CELLS);
     return;
   }
   const int px = X0 + 66, pw = X1 - 16 - px, py = cy + 20, ph = ch - 20 - 108;
@@ -114,7 +117,7 @@ void draw_cells(Canvas &c, const Theme &t, const Model &m) {
   key(t.balance, "balancing now", false);
   key(mix(t.card, t.balance, 0.4f), "waiting to balance", false);
 
-  page_end(c, t, m, Page::CELLS);
+  page_end(f, Page::CELLS);
 }
 
 }  // namespace hmiui

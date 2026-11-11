@@ -90,8 +90,11 @@ static void history_chart(Canvas &c, const Theme &t, const Model &m, int x, int 
   scale(x + w - 6, gy + gh - 21, "0 %", RIGHT);
 }
 
-void draw_power(Canvas &c, const Theme &t, const Model &m) {
-  top_line(c, t, m, "Power");
+void draw_power(Frame &f) {
+  Canvas &c = f.c;
+  const Theme &t = f.t;
+  const Model &m = f.m;
+  top_line(f, "Power");
   const int lw = 440, h = Y1 - Y0;
 
   // ---- current limits ----
@@ -138,7 +141,7 @@ void draw_power(Canvas &c, const Theme &t, const Model &m) {
   row(c, t, cx + 16, by + 152, bw - 32, "Lifetime in", value(m.lifetime_in_kwh, "%.0f kWh"));
   row(c, t, cx + 16, by + 188, bw - 32, "Lifetime out", value(m.lifetime_out_kwh, "%.0f kWh"));
 
-  page_end(c, t, m, Page::POWER);
+  page_end(f, Page::POWER);
 }
 
 }  // namespace hmiui

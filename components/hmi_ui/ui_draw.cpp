@@ -312,14 +312,27 @@ static int events_badge(Canvas &c, const Theme &t, const Model &m, int x, int y,
   return w;
 }
 
-void nav_rail(Canvas &c, const Theme &t, const Model &m, Page selected) {
+void nav_rail(Frame &f, Page selected) {
+  Canvas &c = f.c;
+  const Theme &t = f.t;
+  const Model &m = f.m;
   c.fill(0, 0, NAV_RAIL_W, SCREEN_H, t.nav);
   c.fill(NAV_RAIL_W - 1, 0, 1, SCREEN_H, t.card_border);
   const int step = 82, top = (SCREEN_H - TAB_COUNT * step) / 2;
   for (int i = 0; i < TAB_COUNT; i++) {
     const int y = top + i * step;
     const bool on = i == (int) selected;
-    if (on) c.round_rect(7, y + 3, NAV_RAIL_W - 15, step - 6, 12, t.nav_active);
+    if (hot(f, 0, y, NAV_RAIL_W, step, TABS[i]) && !on) {
+      f.s.page = (Page) i;
+      // A page opens on its first view
+      f.s.events_view = 0;
+      f.s.raw_registers = false;
+    }
+    if (on) {
+      c.round_rect(7, y + 3, NAV_RAIL_W - 15, step - 6, 12, t.nav_active);
+    } else if (f.held(0, y, NAV_RAIL_W, step)) {
+      c.round_rect(7, y + 3, NAV_RAIL_W - 15, step - 6, 12, 0x171B1D);
+    }
     const Rgb color = on ? t.good : t.text_dim;
     tab_icon(c, (Page) i, NAV_RAIL_W / 2.0f - 0.5f, y + 31.0f, color);
     c.text(on ? FONT_M16 : FONT_R16, NAV_RAIL_W / 2, y + 51, TABS[i], color, CENTER);
@@ -340,13 +353,21 @@ void scrollbar(Canvas &c, const Theme &t, int x, int y, int h, float start, floa
   c.round_rect(x, y + (int) (h * start), 4, std::max(12, (int) (h * shown)), 2, t.caption);
 }
 
-void top_line(Canvas &c, const Theme &t, const Model &m, const char *title, const char *subtitle) {
+void top_line(Frame &f, const char *title, const char *subtitle) {
+  Canvas &c = f.c;
+  const Theme &t = f.t;
+  const Model &m = f.m;
   const bool linked = m.link == Link::OK;
   const Event *list[MAX_EVENTS];
   const int alarms = top_events(m, list, MAX_EVENTS, Level::WARNING);
   if (alarms > 0) {
     const Level worst = list[0]->level;
     const Rgb on = level_text_color(worst);
+    // The alarm strip leads to the events
+    if (hot(f, X0, 12, X1 - X0, 44, "Alarm") && f.s.page != Page::EVENTS) {
+      f.s.page = Page::EVENTS;
+      f.s.events_view = 0;
+    }
     c.round_rect(X0, 12, X1 - X0, 44, 10, level_color(t, worst));
     warning_sign(c, X0 + 30.0f, 34.0f, 26.0f, on, level_color(t, worst));
     int x = X0 + 56;
@@ -370,9 +391,12 @@ void top_line(Canvas &c, const Theme &t, const Model &m, const char *title, cons
   }
 }
 
-void page_end(Canvas &c, const Theme &t, const Model &m, Page selected, bool needs_bms) {
+void page_end(Frame &f, Page selected, bool needs_bms) {
+  Canvas &c = f.c;
+  const Theme &t = f.t;
+  const Model &m = f.m;
   if (needs_bms && m.link != Link::OK) no_link_overlay(c, t, m, NAV_RAIL_W, 62, SCREEN_W - NAV_RAIL_W, SCREEN_H - 62);
-  nav_rail(c, t, m, selected);
+  nav_rail(f, selected);
 }
 
 void stat(Canvas &c, const Theme &t, int x, int y, const char *caption, const char *number, const char *unit, Rgb color) {
@@ -383,19 +407,6 @@ void stat(Canvas &c, const Theme &t, int x, int y, const char *caption, const ch
 void row(Canvas &c, const Theme &t, int x, int y, int w, const char *label, const char *val, Rgb color) {
   c.text(FONT_R18, x, y, label, t.text_dim);
   c.text(FONT_M20, x + w, y - 1, val, color ? color : t.text, RIGHT);
-}
-
-void button(Canvas &c, const Theme &t, int x, int y, int w, int h, const char *label, const char *note, Rgb fill,
-            Rgb text) {
-  const Rgb face = fill ? fill : 0x222A2E;
-  c.round_rect(x, y, w, h, 10, face);
-  c.round_frame(x, y, w, h, 10, 1, mix(face, 0xFFFFFF, 0.14f));
-  const Font &font = h >= 100 ? FONT_M32 : FONT_M20;
-  const int th = font.line_height() + (note[0] ? 22 : 0);
-  c.text(font, x + w / 2, y + (h - th) / 2, label, text ? text : t.text, CENTER);
-  if (note[0]) {
-    c.text(FONT_R16, x + w / 2, y + (h - th) / 2 + font.line_height() + 3, note, mix(face, 0xFFFFFF, 0.7f), CENTER);
-  }
 }
 
 }  // namespace hmiui
