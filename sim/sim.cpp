@@ -39,14 +39,14 @@ int main(int argc, char **argv) {
 
   const sim::Scenario scenarios[] = {sim::charging(), sim::discharging(), sim::idle(), sim::desk_fault(),
                                      sim::no_link()};
-  static const char *const PAGE_NAMES[] = {"main"};
   int written = 0;
   for (const auto &s : scenarios) {
-    Ui ui;
-    for (int p = 0; p < (int) (sizeof(PAGE_NAMES) / sizeof(PAGE_NAMES[0])); p++) {
-      ui.page = (Page) p;
+    for (const char design : {'a', 'b', 'c'}) {
+      Ui ui;
+      ui.page = Page::HOME;
+      ui.design = design;
       ui.render(canvas, s.model, 0);
-      const std::string path = out + "/" + s.name + "-" + PAGE_NAMES[p] + ".ppm";
+      const std::string path = out + "/" + s.name + "-home-" + design + ".ppm";
       if (!write_ppm(path, canvas)) {
         fprintf(stderr, "cannot write %s\n", path.c_str());
         return 1;

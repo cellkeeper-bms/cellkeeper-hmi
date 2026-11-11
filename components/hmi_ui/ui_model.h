@@ -11,6 +11,7 @@ namespace hmiui {
 static const int MAX_CELLS = 120;
 static const int MAX_MODULES = 8;
 static const int MAX_EVENTS = 64;
+static const int HISTORY_POINTS = 96;  // 24 hours, one point per 15 minutes
 
 // What the link to the BMS is doing
 enum class Link : uint8_t {
@@ -35,6 +36,7 @@ struct Event {
 
 struct Model {
   Link link = Link::NO_DATA;
+  uint32_t link_silent_s = 0;       // how long nothing has been heard from the BMS
   SystemState system_state = SystemState::UNKNOWN;
   uint8_t contactor_state = 0;      // the firmware's contactors state number
   bool contactors_closed = false;
@@ -46,6 +48,11 @@ struct Model {
   float current = NAN;              // A, + = charging
   float power = NAN;                // W, + = charging
   float soc_change_1h = NAN;        // % over the last hour
+
+  // The last 24 hours as the display saw them, oldest first (kept in RAM: empty after a reboot)
+  int history_count = 0;
+  float history_soc[HISTORY_POINTS];  // %
+  float history_kw[HISTORY_POINTS];   // kW, + = charging
 
   // Cells
   int cell_count = 0;               // cells with a reading
@@ -90,6 +97,7 @@ struct Model {
   const char *wifi_ssid = "";
   const char *ip = "";
   int wifi_rssi = 0;
+  const char *clock = "";           // "14:32"; "" until the time is known
   uint32_t bms_uptime_s = 0, hmi_uptime_s = 0;
 
   const char *balance_charge_status = "";
@@ -99,6 +107,8 @@ struct Model {
     for (auto &v : balance_s) v = 0;
     for (auto &v : balancing_now) v = false;
     for (auto &v : module_temp) v = NAN;
+    for (auto &v : history_soc) v = NAN;
+    for (auto &v : history_kw) v = NAN;
   }
 
   // The most severe active event's level

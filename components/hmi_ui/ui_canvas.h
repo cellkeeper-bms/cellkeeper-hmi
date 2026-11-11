@@ -58,6 +58,7 @@ class Canvas {
   // Part of a ring. Angles in degrees, 0 = right, growing clockwise; drawn from a0 to a1.
   void ring(float cx, float cy, float r_in, float r_out, float a0, float a1, Rgb c, bool round_caps = false);
   void line(float x0, float y0, float x1, float y1, float width, Rgb c);
+  void triangle(float x0, float y0, float x1, float y1, float x2, float y2, Rgb c);
 
   // Text with its line box's top at y. x is the left edge, the centre or the right edge,
   // by `align`. UTF-8; characters the font doesn't have are skipped. Returns the width drawn.
@@ -70,6 +71,15 @@ class Canvas {
   int w_, h_;
   int cx0_, cy0_, cx1_, cy1_;  // clip, x1/y1 exclusive
 };
+
+// A colour between a (t = 0) and b (t = 1)
+inline Rgb mix(Rgb a, Rgb b, float t) {
+  t = t < 0.0f ? 0.0f : (t > 1.0f ? 1.0f : t);
+  const int ar = (a >> 16) & 0xFF, ag = (a >> 8) & 0xFF, ab = a & 0xFF;
+  const int br = (b >> 16) & 0xFF, bg = (b >> 8) & 0xFF, bb = b & 0xFF;
+  const int r = ar + (int) ((br - ar) * t + 0.5f), g = ag + (int) ((bg - ag) * t + 0.5f), bl = ab + (int) ((bb - ab) * t + 0.5f);
+  return ((Rgb) r << 16) | ((Rgb) g << 8) | (Rgb) bl;
+}
 
 inline uint16_t to565(Rgb c) { return (uint16_t) (((c >> 8) & 0xF800) | ((c >> 5) & 0x07E0) | ((c >> 3) & 0x001F)); }
 // A 565 pixel as 0xRRGGBB, the way a panel shows it

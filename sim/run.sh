@@ -7,9 +7,9 @@ cd "$(dirname "$0")/.."
 PYTHON="${PYTHON:-$HOME/esphome/venv/bin/python}"
 bin="${TMPDIR:-/tmp}/hmi_ui_sim"
 mkdir -p sim/out
-rm -f sim/out/*.ppm
+rm -f sim/out/*.ppm sim/out/*.png
 g++ -std=c++17 -O2 -g -Wall -Wextra -Werror -fsanitize=address,undefined -o "$bin" \
-  sim/sim.cpp components/hmi_ui/ui.cpp components/hmi_ui/ui_canvas.cpp components/hmi_ui/ui_fonts_data.cpp
+  sim/sim.cpp components/hmi_ui/*.cpp
 "$bin" sim/out
 "$PYTHON" - <<'EOF'
 import glob, os

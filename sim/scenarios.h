@@ -42,6 +42,32 @@ inline void fill_cells(Model &m, int cells, float mean, float spread_mv) {
   m.output_voltage = m.pack_voltage - 0.2f;
 }
 
+// A made-up day ending now at `soc_now`: load through the night, sun from 8 to 17 h
+inline void fill_history(Model &m, float soc_now, float hour_now, float capacity_kwh) {
+  const int n = hmiui::HISTORY_POINTS;
+  float start = 50.0f;
+  for (int attempt = 0; attempt < 12; attempt++) {
+    float soc = start;
+    for (int i = 0; i < n; i++) {
+      float hour = hour_now - (n - 1 - i) * 0.25f;
+      while (hour < 0) hour += 24.0f;
+      const float sun = hour > 7.5f && hour < 17.5f ? 9.5f * std::sin((hour - 7.5f) / 10.0f * 3.14159f) : 0.0f;
+      const float load = 1.1f + (hour > 17.5f && hour < 22.5f ? 2.4f : 0.0f) + (hour > 6.0f && hour < 8.0f ? 1.0f : 0.0f);
+      float kw = sun - load;
+      if (soc >= 99.9f && kw > 0) kw = 0.05f;  // full: only a trickle goes in
+      if (soc <= 8.0f && kw < 0) kw = 0;       // empty: the inverter stops drawing
+      soc += kw * 0.25f / capacity_kwh * 100.0f;
+      soc = soc < 8.0f ? 8.0f : (soc > 100.0f ? 100.0f : soc);
+      m.history_kw[i] = kw;
+      m.history_soc[i] = soc;
+    }
+    if (std::fabs(soc - soc_now) < 0.3f) break;
+    start += soc_now - soc;
+    start = start < 8.0f ? 8.0f : (start > 100.0f ? 100.0f : start);
+  }
+  m.history_count = n;
+}
+
 inline void healthy_pack(Model &m) {
   using namespace esphome::hmi_bms;
   m.link = hmiui::Link::OK;
@@ -75,6 +101,7 @@ inline void healthy_pack(Model &m) {
   m.v12 = 13.18f;
   m.v_contactor = 13.37f;
   m.pack_name = "ck0";
+  m.clock = "13:40";
   add_event(m, HMI_EVENT_BOOT_NORMAL, Level::INACTIVE, 1);
 }
 
@@ -83,6 +110,7 @@ inline Scenario charging() {
   healthy_pack(s.model);
   s.model.current = 22.4f;
   s.model.power = s.model.pack_voltage * s.model.current;
+  fill_history(s.model, s.model.soc, 13.67f, 86.0f);
   return s;
 }
 
@@ -93,6 +121,10 @@ inline Scenario discharging() {
   s.model.soc_change_1h = -6.8f;
   s.model.current = -8.3f;
   s.model.power = s.model.pack_voltage * s.model.current;
+  s.model.clock = "20:15";
+  s.model.today_in_kwh = 38.2f;
+  s.model.today_out_kwh = 24.7f;
+  fill_history(s.model, s.model.soc, 20.25f, 86.0f);
   add_event(s.model, esphome::hmi_bms::HMI_EVENT_BATTERY_TEMPERATURE_HIGH, Level::WARNING, 2);
   return s;
 }
@@ -106,6 +138,8 @@ inline Scenario idle() {
   s.model.power = 7.0f;
   s.model.charge_limit = 0.0f;
   s.model.charge_limited_by = "cell voltage";
+  s.model.clock = "15:05";
+  fill_history(s.model, s.model.soc, 15.08f, 86.0f);
   return s;
 }
 
@@ -127,6 +161,10 @@ inline Scenario desk_fault() {
   m.today_in_kwh = 0.0f;
   m.today_out_kwh = 0.0f;
   m.balance_charge_status = "Off";
+  m.pack_name = "ck0";
+  m.clock = "13:40";
+  m.capacity_ah = 1.0f;
+  m.output_voltage = 0.0f;
   add_event(m, HMI_EVENT_BOOT_NORMAL, Level::INFO, 1);
   add_event(m, HMI_EVENT_CELL_VOLTAGES_STALE, Level::FATAL, 1);
   add_event(m, HMI_EVENT_BATTERY_TEMPERATURE_STALE, Level::FATAL, 1);
@@ -137,6 +175,9 @@ inline Scenario desk_fault() {
 
 inline Scenario no_link() {
   Scenario s{"no-link", "the BMS does not answer", {}};
+  s.model.pack_name = "ck0";
+  s.model.clock = "13:40";
+  s.model.link_silent_s = 42;
   return s;
 }
 

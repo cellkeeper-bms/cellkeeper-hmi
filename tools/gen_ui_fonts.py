@@ -21,10 +21,12 @@ OUT_CPP = REPO / "components" / "hmi_ui" / "ui_fonts_data.cpp"
 
 ASCII = "".join(chr(c) for c in range(32, 127))
 # Beyond ASCII: units and marks the screens use. Ones a font lacks are left out.
-EXTRA = "°Ωµ±·–×≤≥Δ←→↑↓"
+EXTRA = "°Ωµ±·–−×≈≤≥Δ←→↑↓‹›…"
 TEXT = ASCII + EXTRA
 # For the big numbers
 DIGITS = "0123456789.,:-+% kWVAhmC°"
+# For the biggest: digits alone (a 128 px digit is about 3 kB)
+BARE_DIGITS = "0123456789.-+"
 
 # name, file, pixel size, characters
 FONTS = [
@@ -40,6 +42,7 @@ FONTS = [
     ("M32", "Roboto-Medium.ttf", 32, TEXT),
     ("M48", "Roboto-Medium.ttf", 48, DIGITS),
     ("M72", "Roboto-Medium.ttf", 72, DIGITS),
+    ("M128", "Roboto-Medium.ttf", 128, BARE_DIGITS),
     ("B20", "Roboto-Bold.ttf", 20, TEXT),
     ("MONO14", "RobotoMono-Regular.ttf", 14, TEXT),
 ]

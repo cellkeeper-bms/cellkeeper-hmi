@@ -174,6 +174,30 @@ void Canvas::line(float x0, float y0, float x1, float y1, float width, Rgb c) {
   }
 }
 
+void Canvas::triangle(float x0, float y0, float x1, float y1, float x2, float y2, Rgb c) {
+  const uint32_t r = (c >> 16) & 0xFF, g = (c >> 8) & 0xFF, b = c & 0xFF;
+  const float xs[3] = {x0, x1, x2}, ys[3] = {y0, y1, y2};
+  // Which way round the corners go, so "inside" has the same sign for every edge
+  const float turn = (x1 - x0) * (y2 - y0) - (y1 - y0) * (x2 - x0) < 0.0f ? -1.0f : 1.0f;
+  const int xmin = (int) std::floor(std::min({x0, x1, x2}) - 1), xmax = (int) std::ceil(std::max({x0, x1, x2}) + 1);
+  const int ymin = (int) std::floor(std::min({y0, y1, y2}) - 1), ymax = (int) std::ceil(std::max({y0, y1, y2}) + 1);
+  for (int y = ymin; y <= ymax; y++) {
+    for (int x = xmin; x <= xmax; x++) {
+      float inside = 1e9f;
+      for (int i = 0; i < 3; i++) {
+        const int j = (i + 1) % 3;
+        const float ex = xs[j] - xs[i], ey = ys[j] - ys[i];
+        const float len = std::sqrt(ex * ex + ey * ey);
+        if (len <= 0.0f) continue;
+        const float d = turn * (ex * (y + 0.5f - ys[i]) - ey * (x + 0.5f - xs[i])) / len;
+        inside = std::min(inside, d);
+      }
+      const float cover = clamp01(inside + 0.5f);
+      if (cover > 0.0f) this->blend_(x, y, r, g, b, (uint32_t) (cover * 255.0f));
+    }
+  }
+}
+
 // The next code point of a UTF-8 string (0 at the end; bad bytes are skipped)
 static uint32_t next_codepoint(const char *&s) {
   while (*s) {

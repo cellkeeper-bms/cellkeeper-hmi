@@ -5,19 +5,20 @@
 
 namespace hmiui {
 
-extern const Font FONT_R14;  // Roboto-Regular 14 px, 105 characters
-extern const Font FONT_R16;  // Roboto-Regular 16 px, 105 characters
-extern const Font FONT_R18;  // Roboto-Regular 18 px, 105 characters
-extern const Font FONT_R20;  // Roboto-Regular 20 px, 105 characters
-extern const Font FONT_R24;  // Roboto-Regular 24 px, 105 characters
-extern const Font FONT_R32;  // Roboto-Regular 32 px, 105 characters
-extern const Font FONT_M16;  // Roboto-Medium 16 px, 105 characters
-extern const Font FONT_M20;  // Roboto-Medium 20 px, 105 characters
-extern const Font FONT_M24;  // Roboto-Medium 24 px, 105 characters
-extern const Font FONT_M32;  // Roboto-Medium 32 px, 105 characters
+extern const Font FONT_R14;  // Roboto-Regular 14 px, 110 characters
+extern const Font FONT_R16;  // Roboto-Regular 16 px, 110 characters
+extern const Font FONT_R18;  // Roboto-Regular 18 px, 110 characters
+extern const Font FONT_R20;  // Roboto-Regular 20 px, 110 characters
+extern const Font FONT_R24;  // Roboto-Regular 24 px, 110 characters
+extern const Font FONT_R32;  // Roboto-Regular 32 px, 110 characters
+extern const Font FONT_M16;  // Roboto-Medium 16 px, 110 characters
+extern const Font FONT_M20;  // Roboto-Medium 20 px, 110 characters
+extern const Font FONT_M24;  // Roboto-Medium 24 px, 110 characters
+extern const Font FONT_M32;  // Roboto-Medium 32 px, 110 characters
 extern const Font FONT_M48;  // Roboto-Medium 48 px, 25 characters
 extern const Font FONT_M72;  // Roboto-Medium 72 px, 25 characters
-extern const Font FONT_B20;  // Roboto-Bold 20 px, 105 characters
-extern const Font FONT_MONO14;  // RobotoMono-Regular 14 px, 105 characters
+extern const Font FONT_M128;  // Roboto-Medium 128 px, 13 characters
+extern const Font FONT_B20;  // Roboto-Bold 20 px, 110 characters
+extern const Font FONT_MONO14;  // RobotoMono-Regular 14 px, 110 characters
 
 }  // namespace hmiui
