@@ -95,7 +95,6 @@ struct UiState {
   int setup_section = 0;       // Setup: 0 BMS settings, 1 display and Wi-Fi, 2 log, 3 about
   int events_view = 0;         // Events: 0 what is active, 1 every event type, 2 the fault logic chart
   bool raw_registers = false;  // Setup, Log: the registers instead of the log
-  bool home_limits_bar = false;  // Home: the current between its limits as a bar under the power (a variant)
   Popup popup;
   // Wrong PINs in a row. After PIN_TRIES of them no PIN is taken for PIN_LOCK_MS. Kept when
   // the UI goes back to Home by itself, and by the device over a restart (hmi_ui.cpp).

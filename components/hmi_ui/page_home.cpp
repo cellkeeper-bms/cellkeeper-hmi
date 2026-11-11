@@ -1,7 +1,7 @@
 // Home: the pack, the contactors and the inverter drawn as the circuit they are, with the power
-// on the line between them, and under it what the BMS tells the inverter it may do (voltage
-// targets and current limits). Below: the cells at a glance, or what is wrong when there are
-// none, and the day's energy.
+// on the line between them and the current between its limits under it; below that what the
+// BMS tells the inverter it may do (voltage targets and current limits); below that the cells
+// at a glance, or what is wrong when there are none, and the day's energy.
 #include "ui_draw.h"
 
 #include <algorithm>
@@ -91,9 +91,10 @@ static void limits_bar(Canvas &c, const Theme &t, const Model &m, int x, int y, 
   c.fill(mid - 1, y - 5, 2, 20, t.text_dim);
   c.disc((float) now, y + 5.0f, 9.0f, t.text);
   c.disc((float) now, y + 5.0f, 5.0f, flow == Flow::IDLE || flow == Flow::UNKNOWN ? t.caption : flow_color(t, flow));
-  // The limits, written at the ends of the allowed band
-  c.text(FONT_R14, std::max(left, x), y + 17, std::isinf(dis) ? "no limit" : fmt("%.0f A out", (double) dis), t.caption);
-  c.text(FONT_R14, std::min(right, x + w), y + 17, std::isinf(chg) ? "no limit" : fmt("%.0f A in", (double) chg), t.caption, RIGHT);
+  // The limits, written at the two ends of the bar (at the ends of the band they would run
+  // into each other and into the zero when a limit is small)
+  c.text(FONT_R14, x, y + 17, std::isinf(dis) ? "no limit out" : fmt("%.0f A out", (double) dis), t.caption);
+  c.text(FONT_R14, x + w, y + 17, std::isinf(chg) ? "no limit in" : fmt("%.0f A in", (double) chg), t.caption, RIGHT);
   c.text(FONT_R14, mid, y + 17, "0", t.hint, CENTER);
 }
 
@@ -165,9 +166,9 @@ void draw_home(Frame &f) {
     const char *eta = time_to_text(m);
     const char *line = std::isnan(m.current) ? "" : (eta[0] ? fmt("%+.1f A   ·   %s", (double) m.current, eta)
                                                              : fmt("%+.1f A", (double) m.current));
-    c.text(FONT_R20, mid, f.s.home_limits_bar ? 218 : 228, line, t.text_dim, CENTER);
+    c.text(FONT_R20, mid, 218, line, t.text_dim, CENTER);
   }
-  if (f.s.home_limits_bar && linked) limits_bar(c, t, m, xa + 14, 254, xb - xa - 28);
+  if (linked) limits_bar(c, t, m, xa + 14, 254, xb - xa - 28);
   sent_to_inverter(c, t, m, 298);
 
   // ---- cells, or what is wrong when there are none ----
