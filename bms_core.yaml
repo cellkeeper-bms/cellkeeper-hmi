@@ -11,7 +11,7 @@ external_components:
   - source:
       type: local
       path: components
-    components: [ hmi_bms ]
+    components: [ hmi_bms, lcd_screenshot ]
 
 # Time component required for daily energy sensors
 time:

@@ -92,3 +92,8 @@ ota:
 
 safe_mode:
   disabled: true
+
+# Bench only: serves the LCD frame buffer at /screenshot.raw for tools/screenshot.py
+lcd_screenshot:
+  display_id: my_display
+  lvgl_id: my_lvgl
