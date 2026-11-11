@@ -16,6 +16,13 @@ fail=0
 echo "== host tests"
 sh tests/run_tests.sh || fail=1
 
+# The protocol map against the firmware it was generated from, when a checkout is at hand:
+# BMS_FIRMWARE=/path/to/bmstest1 tools/check.sh
+if [ -n "${BMS_FIRMWARE:-}" ]; then
+  echo "== protocol map"
+  "$PYTHON" tools/gen_protocol_map.py "$BMS_FIRMWARE" --check || fail=1
+fi
+
 mkdir -p tests/entities
 for d in $DEVICES; do
   echo "== $d"
