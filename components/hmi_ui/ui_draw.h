@@ -130,7 +130,8 @@ void draw_home(Canvas &c, const Theme &t, const Model &m);
 void draw_cells(Canvas &c, const Theme &t, const Model &m);
 void draw_power(Canvas &c, const Theme &t, const Model &m);
 void draw_health(Canvas &c, const Theme &t, const Model &m);
-void draw_events(Canvas &c, const Theme &t, const Model &m, bool all_types);
+// view: 0 = what is active, 1 = every event type, 2 = the fault logic chart
+void draw_events(Canvas &c, const Theme &t, const Model &m, int view);
 void draw_control(Canvas &c, const Theme &t, const Model &m);
 void draw_setup(Canvas &c, const Theme &t, const Model &m, int section, bool raw_registers);
 

@@ -42,7 +42,7 @@ int main(int argc, char **argv) {
                                      sim::desk_fault(),       sim::wrong_protocol(), sim::no_link()};
   // What to draw: the page, the name its files get, for Setup which section, and anything
   // open over or instead of the page. A view with `only` is drawn for that scenario alone.
-  enum Extra { PLAIN, ALL_TYPES, REGISTERS, UNLOCKED, CONFIRM_STOP, PIN, PIN_WRONG, NUMBER, WIFI_LIST, KEYBOARD, EVENT };
+  enum Extra { PLAIN, LOGIC, ALL_TYPES, REGISTERS, UNLOCKED, CONFIRM_STOP, PIN, PIN_WRONG, NUMBER, WIFI_LIST, KEYBOARD, EVENT };
   struct View {
     Page page;
     const char *name;
@@ -61,6 +61,7 @@ int main(int argc, char **argv) {
       {Page::SETUP, "setup-display", 1, PLAIN, nullptr},
       {Page::SETUP, "setup-log", 2, PLAIN, nullptr},
       {Page::SETUP, "setup-about", 3, PLAIN, nullptr},
+      {Page::EVENTS, "events-logic", 0, LOGIC, nullptr},
       {Page::EVENTS, "events-all-types", 0, ALL_TYPES, "fault-cells"},
       {Page::EVENTS, "events-all-types", 0, ALL_TYPES, "desk-fault"},
       {Page::EVENTS, "popup-event", 0, EVENT, "desk-fault"},
@@ -81,7 +82,7 @@ int main(int argc, char **argv) {
       Model model = s.model;
       ui.page = v.page;
       ui.setup_section = v.section;
-      ui.all_event_types = v.extra == ALL_TYPES;
+      ui.events_view = v.extra == ALL_TYPES ? 1 : (v.extra == LOGIC ? 2 : 0);
       ui.raw_registers = v.extra == REGISTERS;
       model.settings_unlocked = v.extra == UNLOCKED || v.extra == NUMBER;
       Popup &p = ui.popup;

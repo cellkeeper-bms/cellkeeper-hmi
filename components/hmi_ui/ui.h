@@ -14,7 +14,7 @@ class Ui {
   Theme theme;
   Page page = Page::HOME;
   int setup_section = 0;        // which part of the Setup page is open
-  bool all_event_types = false; // Events: the list of every event type instead of the active ones
+  int events_view = 0;          // Events: 0 what is active, 1 every event type, 2 the fault logic chart
   bool raw_registers = false;   // Setup, Log: the registers instead of the log
   Popup popup;                  // what is open over the page
 

@@ -379,7 +379,7 @@ inline Scenario lfp() {
 // A pack that is fine in itself but in FAULT: a contactor opened by itself
 inline Scenario fault_with_cells() {
   using namespace esphome::hmi_bms;
-  Scenario s{"fault-cells", "FAULT with a healthy pack: a contactor opened unexpectedly, isolation low", {}};
+  Scenario s{"fault-cells", "FAULT with cells present: the supervisor cut the contactors, isolation low", {}};
   healthy_pack(s.model);
   Model &m = s.model;
   m.system_state = hmiui::SystemState::FAULT;
@@ -393,8 +393,12 @@ inline Scenario fault_with_cells() {
   m.soc_change_1h = -1.4f;
   m.isolation_kohm = 220.0f;
   m.isolation_age_s = 45;
-  add_event(m, HMI_EVENT_CONTACTOR_POS_UNEXPECTED_OPEN, Level::FATAL, 1);
-  add_event(m, HMI_EVENT_ISOLATION_LOW, Level::CRITICAL, 1);
+  // Levels as the firmware gives them: the supervisor cutting the drivers is what becomes FATAL
+  add_event(m, HMI_EVENT_SUPERVISOR_DISABLED_CONTACTORS, Level::FATAL, 1);
+  add_event(m, HMI_EVENT_CONTACTOR_POS_UNEXPECTED_OPEN, Level::WARNING, 1);
+  add_event(m, HMI_EVENT_ISOLATION_LOW, Level::WARNING, 1);
+  m.supervisor_state = 2;
+  m.supervisor_reasons = "CELL_HIGH";
   fill_history(m, m.soc, 13.67f, 86.0f);
   return s;
 }
