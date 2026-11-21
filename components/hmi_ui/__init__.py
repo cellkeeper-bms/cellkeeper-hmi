@@ -67,7 +67,13 @@ CONFIG_SCHEMA = cv.Schema(
 
 
 async def to_code(config):
-    var = cg.new_Pvariable(config[CONF_ID])
+    # Allocate the component at setup time instead of in static storage
+    # (what cg.new_Pvariable does). Static data sits in the small block of
+    # internal RAM that is all the heap there is until FreeRTOS starts; the
+    # Wi-Fi co-processor driver and the system tasks fill the rest of it. With
+    # this object there, about 2 KB more state made the P4 assert in
+    # vApplicationGetIdleTaskMemory at every boot (desk display, 2026-11-20).
+    var = cg.Pvariable(config[CONF_ID], cg.RawExpression(f"new {config[CONF_ID].type}()"))
     await cg.register_component(var, config)
     cg.add(var.set_display(await cg.get_variable(config[CONF_DISPLAY_ID])))
     cg.add(var.set_touchscreen(await cg.get_variable(config[CONF_TOUCHSCREEN_ID])))

@@ -28,7 +28,13 @@ CONFIG_SCHEMA = cv.Schema({
 }).extend(cv.polling_component_schema("60s")).extend(uart.UART_DEVICE_SCHEMA)
 
 async def to_code(config):
-    var = cg.new_Pvariable(config[CONF_ID])
+    # Allocate the component at setup time instead of in static storage
+    # (what cg.new_Pvariable does). Static data sits in the small block of
+    # internal RAM that is all the heap there is until FreeRTOS starts; the
+    # Wi-Fi co-processor driver and the system tasks fill the rest of it. With
+    # this object there, about 2 KB more state made the P4 assert in
+    # vApplicationGetIdleTaskMemory at every boot (desk display, 2026-11-20).
+    var = cg.Pvariable(config[CONF_ID], cg.RawExpression(f"new {config[CONF_ID].type}()"))
     await cg.register_component(var, config)
     await uart.register_uart_device(var, config)
     cg.add(var.set_bypass_crc(config[CONF_BYPASS_CRC]))
