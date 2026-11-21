@@ -90,6 +90,32 @@ CHECK(d.actions.did("command STOP"));
 `sim/sim.cpp` has the stories: the same taps, with pictures taken along the way.
 `sim/scenarios.h` has the made-up packs; add one when a page needs a situation none of them has.
 
+## Before an OTA: internal RAM at start-up
+
+On the ESP32-P4 boards (pre-v3 silicon), static data shares a small block of internal RAM with
+the only heap there is until FreeRTOS starts: from `_heap_start` to 0x4ff3afc0. The ESP-hosted
+Wi-Fi driver and the system tasks fill that heap. If too little is left, the P4 asserts in
+`vApplicationGetIdleTaskMemory` before `app_main` at every boot, and an OTA can no longer reach
+it. With ESPHome 2026.10.2 the desk display bricked at 106,624 bytes (`c522861`) and boots at
+113,360 (`a63453f`); the wheel balancer, same board, asserted at 108,720 and booted at 108,928.
+So objects of any size are created on the heap (`cg.Pvariable` with `new`, see
+`__init__.py`), not with `cg.new_Pvariable`.
+
+- **The build checks it:** `hmi_bms` adds `boot_heap.ld` to the link on pre-v3 P4s with
+  ESPHome 2026.10 or later; below 110,000 bytes the link fails with a message saying so.
+  The five LVGL device files leave 108,752 to 108,784 bytes with ESPHome 2026.10.2 and fail
+  this check (2026-11-20): the way back to the LVGL UI needs RAM freed first. ck0 and ck1
+  run 2026.7.2 builds that boot at 104,960; that ESPHome needs less at start-up, so the
+  check does not judge builds older than 2026.10.
+- **Before every OTA**, run (in WSL) `tools/boot_heap.py <build>/build/firmware.elf`, or
+  `tools/check.sh`, which checks every build in ESPHome's build folder. It fails below 110,000
+  bytes and warns below 112,000. It reads the end of the region from the ELF's own heap table.
+- **If a display is bricked:** unplug its BMS link (on the USB variants it shares the USB D+/D−
+  pins), hold BOOT and press RESET for download mode, and flash a good build over USB:
+  `esptool --chip esp32p4 --port <COM> --after watchdog-reset write-flash 0x0
+  firmware.factory.bin` (with the default reset the desk display stayed in download mode,
+  2026-11-20).
+
 ## Not here yet
 
 The ESPHome component that fills the model from the BMS sensors, puts the frame on the display,

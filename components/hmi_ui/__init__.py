@@ -73,6 +73,8 @@ async def to_code(config):
     # Wi-Fi co-processor driver and the system tasks fill the rest of it. With
     # this object there, about 2 KB more state made the P4 assert in
     # vApplicationGetIdleTaskMemory at every boot (desk display, 2026-11-20).
+    # Before any OTA: tools/boot_heap.py <firmware.elf> must pass (110,000 bytes or more);
+    # hmi_bms's boot_heap.ld fails the link below that.
     var = cg.Pvariable(config[CONF_ID], cg.RawExpression(f"new {config[CONF_ID].type}()"))
     await cg.register_component(var, config)
     cg.add(var.set_display(await cg.get_variable(config[CONF_DISPLAY_ID])))

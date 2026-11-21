@@ -4,6 +4,9 @@
 #   tools/check.sh --update   the same, rewriting tests/entities/ (commit the change with its reason)
 #   tools/check.sh --build    the same, then compile every device config
 # The entity lists are what Home Assistant sees of each device. A refactor must not change them.
+# Last, every build already in ESPHome's build folder gets tools/boot_heap.py: the internal RAM it
+# leaves for the ESP32-P4's start-up. Below 110,000 bytes a display asserts at every boot and
+# needs a USB flash: never OTA a build that fails it.
 set -u
 cd "$(dirname "$0")/.."
 ESPHOME="${ESPHOME:-$HOME/.local/bin/esphome-wsl}"
@@ -48,6 +51,12 @@ if [ "$mode" = "--build" ] && [ "$fail" = 0 ]; then
     "$ESPHOME" compile "$d.yaml" > "/tmp/build-$d.log" 2>&1 || { echo "build failed, see /tmp/build-$d.log"; tail -15 "/tmp/build-$d.log"; fail=1; }
   done
 fi
+
+# esphome-wsl builds in ~/esphome/data/<repo>; plain ESPHome in .esphome
+echo "== boot heap (start-up RAM of each build; tools/boot_heap.py)"
+DATA="${ESPHOME_DATA_DIR:-$HOME/esphome/data/$(basename "$PWD")}"
+[ -d "$DATA/build" ] || DATA=.esphome
+"$PYTHON" tools/boot_heap.py --builds "$DATA" || fail=1
 
 [ "$fail" = 0 ] && echo "OK" || echo "FAILED"
 exit "$fail"
