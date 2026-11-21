@@ -34,7 +34,10 @@ void LcdScreenshot::loop() {
 void LcdScreenshot::dump_config() { ESP_LOGCONFIG(TAG, "LCD screenshot: GET /screenshot.raw[?page=N]"); }
 
 bool LcdScreenshot::canHandle(AsyncWebServerRequest *request) const {
-  return request->method() == HTTP_GET && request->url() == "/screenshot.raw";
+  if (request->method() != HTTP_GET) return false;
+  // ESPHome 2026.10 has url_to() into a buffer, no longer url()
+  char url[AsyncWebServerRequest::URL_BUF_SIZE];
+  return request->url_to(url) == "/screenshot.raw";
 }
 
 void LcdScreenshot::handleRequest(AsyncWebServerRequest *request) {
