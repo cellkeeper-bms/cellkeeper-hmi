@@ -378,6 +378,7 @@ text_sensor | Event Critical Overcurrent Discharging |  |  |  |
 text_sensor | Event Critical POS Unexpected Open |  |  |  |
 text_sensor | Event Critical PRE Current High |  |  |  |
 text_sensor | Event Critical PRE Voltage High |  |  |  |
+text_sensor | Event Critical Thermistor Fault |  |  |  |
 text_sensor | Event Critical Voltage Mismatch |  |  |  |
 text_sensor | Event Fatal Board Mismatch |  |  |  |
 text_sensor | Event Fatal Ctr Supply Very Low |  |  |  |
@@ -399,6 +400,7 @@ text_sensor | Event Warning 12V Low |  |  |  |
 text_sensor | Event Warning 5V High |  |  |  |
 text_sensor | Event Warning 5V Low |  |  |  |
 text_sensor | Event Warning BMB Pack Mismatch |  |  |  |
+text_sensor | Event Warning BMB Temperature Glitch |  |  |  |
 text_sensor | Event Warning Battery Temperature High |  |  |  |
 text_sensor | Event Warning Battery Temperature Low |  |  |  |
 text_sensor | Event Warning Battery Temperature Stale |  |  |  |
@@ -415,7 +417,6 @@ text_sensor | Event Warning Fuse Voltage Drop High |  |  |  |
 text_sensor | Event Warning Isolation Low |  |  |  |
 text_sensor | Event Warning Link Voltage Mismatch |  |  |  |
 text_sensor | Event Warning Loop Overrun |  |  |  |
-text_sensor | Event Warning Module Temperature Glitch |  |  |  |
 text_sensor | Event Warning Soft Charge Exceeded |  |  |  |
 text_sensor | Event Warning Supervisor Not Enabled |  |  |  |
 text_sensor | Event Warning Supply Voltage Stale |  |  |  |

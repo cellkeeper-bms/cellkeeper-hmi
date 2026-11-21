@@ -112,6 +112,14 @@ bool parse_array_page(const uint8_t *payload, size_t len, ArrayPage &out);
 bool array_element(const ArrayPage &page, size_t index, double &out);
 std::vector<uint8_t> read_array_request(uint8_t address, uint8_t array_id, uint16_t start);
 
+// One temperature per BMB from the pack thermistors. `thermistors` is array THERMISTOR_TEMPS (one
+// element per thermistor the profile lists, in chain order, channel A before B on each BMB),
+// `presence` is array THERMISTOR_PRESENCE (per BMB: bit 0 = channel A listed, bit 1 = channel B).
+// A BMB's value is the hotter of its thermistors; NAN for a BMB with none listed, or when one of
+// its thermistors has no reading (not read yet, or open or shorted: the BMS sends NAN then and
+// raises THERMISTOR_FAULT). Empty when the two arrays disagree on the number of thermistors.
+std::vector<float> module_temperatures(const std::vector<double> &thermistors, const std::vector<double> &presence);
+
 // One entry of a LIST_REGISTERS_RESPONSE: a register the firmware has
 struct RegisterInfo {
   uint16_t id;

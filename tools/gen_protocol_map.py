@@ -3,6 +3,9 @@
 
   tools/gen_protocol_map.py <bmstest1 checkout>          rewrite the generated files
   tools/gen_protocol_map.py <bmstest1 checkout> --check  fail if they differ from the headers
+  tools/gen_protocol_map.py <dir> --source "<text>"      name the source in the header yourself
+                                                         (a folder of headers that isn't a git
+                                                         checkout, or one git can't read from WSL)
 
 The register IDs, types and flags, the event list and the array IDs are read from
 bms/protocols/hmi_serial/hmi_serial.h, hmi_registers.c, hmi_arrays.h and bms/sys/events/events.h,
@@ -134,11 +137,17 @@ def main():
     if len(sys.argv) < 2:
         sys.exit(__doc__)
     fw = Path(sys.argv[1])
-    h, py = render(*parse(fw))
+    parsed = parse(fw)
+    if "--source" in sys.argv[2:]:
+        i = sys.argv.index("--source")
+        if i + 1 >= len(sys.argv):
+            sys.exit("--source needs a text")
+        parsed = parsed[:-1] + (sys.argv[i + 1],)
+    h, py = render(*parsed)
     if "--check" in sys.argv[2:]:
         # The commit named in the header isn't compared: git may not be usable where this runs
         def body(text):
-            return re.sub(r"change \w+\.", "change .", text, count=1)
+            return re.sub(r"change .*?\. Do not edit", "change . Do not edit", text, count=1, flags=re.S)
 
         stale = [p.name for p, text in ((OUT_H, h), (OUT_PY, py))
                  if not p.exists() or body(read(p)) != body(text)]

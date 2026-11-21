@@ -335,6 +335,33 @@ static void test_array_floats_and_edges() {
   CHECK(!parse_array_page(reply.data(), reply.size(), page));
 }
 
+// Arrays THERMISTOR_TEMPS and THERMISTOR_PRESENCE (hmi_arrays.h since e857ee9) to one value per BMB
+static void test_module_temperatures() {
+  // lfp1's profile: both channels on even BMBs, channel A only on odd ones (12 thermistors)
+  std::vector<double> presence = {3, 1, 3, 1, 3, 1, 3, 1};
+  std::vector<double> temps = {20.0, 22.5, 19.0, 21.0, 20.5, 18.0, 25.0, 24.0, 23.0, 30.0, 26.5, 27.0};
+  auto m = module_temperatures(temps, presence);
+  CHECK(m.size() == 8);
+  CHECK(m.size() == 8 && m[0] == 22.5f && m[1] == 19.0f && m[2] == 21.0f && m[3] == 18.0f);
+  CHECK(m.size() == 8 && m[4] == 25.0f && m[5] == 23.0f && m[6] == 30.0f && m[7] == 27.0f);
+
+  // A thermistor without a reading (open, shorted, not read yet) leaves its BMB without a value
+  temps[1] = NAN;
+  m = module_temperatures(temps, presence);
+  CHECK(m.size() == 8 && std::isnan(m[0]) && m[1] == 19.0f);
+
+  // Channel B only, and a BMB with none listed
+  m = module_temperatures({31.0, 32.0}, {2, 0, 2});
+  CHECK(m.size() == 3 && m[0] == 31.0f && std::isnan(m[1]) && m[2] == 32.0f);
+
+  // The two arrays disagree (a different profile between the reads): nothing
+  CHECK(module_temperatures({20.0, 21.0, 22.0}, {3, 0}).empty());
+  CHECK(module_temperatures({}, {3}).empty());
+  // No thermistors at all (the desk profile): one NAN per BMB
+  m = module_temperatures({}, {0});
+  CHECK(m.size() == 1 && std::isnan(m[0]));
+}
+
 // hmi_build_list_registers_response (hmi_registers.c): entries from start that fit in 256 bytes
 static std::vector<uint8_t> bms_register_list_reply(const std::vector<RegisterInfo> &regs, uint16_t start) {
   std::vector<uint8_t> tx = {0x8C, 0x01};
@@ -483,6 +510,7 @@ int main() {
   test_registers();
   test_array_cells();
   test_array_floats_and_edges();
+  test_module_temperatures();
   test_register_list();
   test_nack_and_supervisor();
   test_events_paging();

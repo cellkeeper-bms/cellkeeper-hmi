@@ -46,8 +46,9 @@ void HMIBMS::handle_read_events_response_(const uint8_t *data, size_t length) {
 
   for (const auto &rec : records) {
     const uint16_t type = rec.type;
-    // Override: Inverter Detected is always Info level
-    const uint16_t level = (type == HMI_EVENT_INVERTER_DETECTED) ? 1 : rec.level;
+    // The level is the BMS's own (events.h gives each event its starting level; INVERTER_DETECTED
+    // is INFO there and never escalates)
+    const uint16_t level = rec.level;
     const char *type_str = event_type_name(type);
     const char *level_str = (level < sizeof(EVENT_LEVELS) / sizeof(EVENT_LEVELS[0])) ? EVENT_LEVELS[level] : "??";
 

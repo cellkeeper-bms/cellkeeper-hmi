@@ -1,5 +1,6 @@
-// The BMS's arrays: cell voltages, balancing times, module temperatures and module IDs,
-// each read a page at a time (READ_ARRAY)
+// The BMS's arrays: cell voltages, balancing times, module temperatures (from the thermistors,
+// or the BMB die temperatures on a pack without any) and module IDs, each read a page at a time
+// (READ_ARRAY)
 #include "hmi_bms.h"
 #include "esphome/core/log.h"
 #include "esphome/core/helpers.h"
@@ -65,10 +66,16 @@ void HMIBMS::finish_array_read_(bool complete) {
     switch (rd.id) {
       case HMI_ARRAY_CELL_VOLTAGES: this->publish_cell_voltages_(rd.values); break;
       case HMI_ARRAY_BALANCING_TIMES: this->publish_balancing_times_(rd.values); break;
-      case HMI_ARRAY_MODULE_TEMPS: this->publish_module_temperatures_(rd.values); break;
+      case HMI_ARRAY_THERMISTOR_PRESENCE: this->thermistor_presence_read_(rd.values); break;
+      case HMI_ARRAY_THERMISTOR_TEMPS: this->publish_thermistor_temperatures_(rd.values); break;
+      case HMI_ARRAY_BMB_DIE_TEMPS: this->publish_module_temperatures_(rd.values); break;
       case HMI_ARRAY_MODULE_IDS: this->publish_module_ids_(rd.values); break;
       default: break;
     }
+  } else if (rd.id == HMI_ARRAY_THERMISTOR_PRESENCE) {
+    // A BMS without the array (firmware before e857ee9, where array 3 had one temperature
+    // per BMB): its temperatures can't be told apart, so none are published
+    this->thermistor_presence_.clear();
   }
   if (!this->array_queue_.empty()) {
     const uint8_t next = this->array_queue_.front();
@@ -77,12 +84,37 @@ void HMIBMS::finish_array_read_(bool complete) {
   }
 }
 
+// The "Module Temperature N" sensors, one per BMB in chain order
 void HMIBMS::publish_module_temperatures_(const std::vector<double> &values) {
   for (size_t i = 0; i < values.size() && i < this->module_temperature_sensors_.size(); i++) {
     if (this->module_temperature_sensors_[i] != nullptr) {
       this->publish_queue_.push_back({this->module_temperature_sensors_[i], (float) values[i]});
     }
   }
+}
+
+// Which thermistors the BMS's profile lists on each BMB. The module temperatures come from those
+// thermistors, as the BMS's own pack temperature does; a pack with none listed uses the BMBs' die
+// temperatures, as the BMS does then too. The next read is put first in the queue.
+void HMIBMS::thermistor_presence_read_(const std::vector<double> &values) {
+  this->thermistor_presence_ = values;
+  bool any = false;
+  for (double p : values) any = any || (((uint16_t) p) & 0x3) != 0;
+  const uint8_t next = any ? HMI_ARRAY_THERMISTOR_TEMPS : HMI_ARRAY_BMB_DIE_TEMPS;
+  if (std::find(this->array_queue_.begin(), this->array_queue_.end(), next) == this->array_queue_.end()) {
+    this->array_queue_.insert(this->array_queue_.begin(), next);
+  }
+}
+
+// Array THERMISTOR_TEMPS has one element per listed thermistor: to one value per BMB (the hotter
+// of its thermistors, unknown while one of them has no reading)
+void HMIBMS::publish_thermistor_temperatures_(const std::vector<double> &values) {
+  const auto per_module = protocol::module_temperatures(values, this->thermistor_presence_);
+  if (per_module.empty()) {
+    ESP_LOGW(TAG, "Thermistor temperatures (%zu) don't match the thermistors listed", values.size());
+    return;
+  }
+  this->publish_module_temperatures_(std::vector<double>(per_module.begin(), per_module.end()));
 }
 
 // "023 023": each BMB's module ID in chain order (as the BMS's pack type table has them),

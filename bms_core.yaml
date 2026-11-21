@@ -1074,11 +1074,12 @@ text_sensor:
     error_battery_temperature_very_high: { name: "Event Critical Battery Temperature Very High" }
     error_battery_temperature_low: { name: "Event Warning Battery Temperature Low" }
     error_battery_temperature_very_low: { name: "Event Critical Battery Temperature Very Low" }
+    error_thermistor_fault: { name: "Event Critical Thermistor Fault" }
     error_voltage_mismatch: { name: "Event Critical Voltage Mismatch" }
     error_bmb_read_error: { name: "Event Critical BMB Read Error" }
     error_bmb_crc_mismatch: { name: "Event Critical BMB CRC Mismatch" }
     error_cell_voltage_glitch: { name: "Event Warning Cell Voltage Glitch" }
-    error_module_temperature_glitch: { name: "Event Warning Module Temperature Glitch" }
+    error_bmb_temperature_glitch: { name: "Event Warning BMB Temperature Glitch" }
     error_inverter_detected: { name: "Event Info Inverter Detected" }
     error_estop_pressed: { name: "Event Fatal E-Stop Pressed" }
     error_boot_normal: { name: "Event Info Boot Normal" }

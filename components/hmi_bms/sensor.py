@@ -534,6 +534,8 @@ CONFIG_SCHEMA = cv.Schema({
         device_class=DEVICE_CLASS_VOLTAGE,
         state_class=STATE_CLASS_MEASUREMENT,
     ),
+    # One per BMB in chain order: the hotter of its listed thermistors, or its die temperature
+    # on a pack whose profile lists no thermistors (as the BMS's own pack temperature)
     cv.Optional(CONF_MODULE_TEMPERATURES): cv.ensure_list(sensor.sensor_schema(
         unit_of_measurement=UNIT_CELSIUS,
         accuracy_decimals=1,

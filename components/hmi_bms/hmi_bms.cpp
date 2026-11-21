@@ -128,7 +128,9 @@ void HMIBMS::update() {
 
   // 2. Arrays, each on its own slot
   if (slot == 0 && this->module_ids_text_sensor_ != nullptr) this->request_array_(HMI_ARRAY_MODULE_IDS);
-  if (slot == 1 && !this->module_temperature_sensors_.empty()) this->request_array_(HMI_ARRAY_MODULE_TEMPS);
+  // The module temperatures: which thermistors are listed first, then their temperatures (or the
+  // BMB die temperatures), see thermistor_presence_read_()
+  if (slot == 1 && !this->module_temperature_sensors_.empty()) this->request_array_(HMI_ARRAY_THERMISTOR_PRESENCE);
   if (slot == 2 && (!this->cell_voltage_sensors_.empty() || this->cell_count_sensor_ != nullptr)) {
     this->request_array_(HMI_ARRAY_CELL_VOLTAGES);
   }

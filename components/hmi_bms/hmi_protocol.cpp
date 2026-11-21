@@ -1,6 +1,7 @@
 #include "hmi_protocol.h"
 #include "hmi_map.h"
 
+#include <cmath>
 #include <cstring>
 
 namespace esphome {
@@ -161,6 +162,31 @@ bool array_element(const ArrayPage &page, size_t index, double &out) {
 
 std::vector<uint8_t> read_array_request(uint8_t address, uint8_t array_id, uint16_t start) {
   return {HMI_MSG_READ_ARRAY, address, array_id, (uint8_t) (start & 0xFF), (uint8_t) (start >> 8)};
+}
+
+std::vector<float> module_temperatures(const std::vector<double> &thermistors, const std::vector<double> &presence) {
+  size_t listed = 0;
+  for (double p : presence) listed += (((uint16_t) p) & 1) + ((((uint16_t) p) >> 1) & 1);
+  if (listed != thermistors.size()) return {};
+  std::vector<float> out;
+  size_t next = 0;
+  for (double p : presence) {
+    const uint16_t bits = (uint16_t) p;
+    float hottest = NAN;
+    bool any = false, missing = false;
+    for (int channel = 0; channel < 2; channel++) {
+      if (!(bits & (1 << channel))) continue;
+      const double t = thermistors[next++];
+      any = true;
+      if (std::isnan(t)) {
+        missing = true;
+      } else if (std::isnan(hottest) || t > hottest) {
+        hottest = (float) t;
+      }
+    }
+    out.push_back(any && !missing ? hottest : NAN);
+  }
+  return out;
 }
 
 bool parse_register_list(const uint8_t *payload, size_t len, uint16_t &start, uint16_t &total,

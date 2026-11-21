@@ -251,8 +251,9 @@ class HMIBMS : public PollingComponent, public uart::UARTDevice {
   void publish_protocol_status_(const std::string &status);
   bool bms_has_register_(uint16_t reg) const;
 
-  // Arrays (cell voltages, balancing times, module temperatures, module IDs) are read a page
-  // at a time, one array at a time; the others wait their turn.
+  // Arrays (cell voltages, balancing times, thermistor presence and temperatures or the BMB die
+  // temperatures, module IDs) are read a page at a time, one array at a time; the others wait
+  // their turn.
   struct ArrayRead {
     bool active{false};
     uint8_t id{0};
@@ -267,6 +268,8 @@ class HMIBMS : public PollingComponent, public uart::UARTDevice {
   void publish_cell_voltages_(const std::vector<double> &values);
   void publish_balancing_times_(const std::vector<double> &values);
   void publish_module_temperatures_(const std::vector<double> &values);
+  void thermistor_presence_read_(const std::vector<double> &values);
+  void publish_thermistor_temperatures_(const std::vector<double> &values);
   void publish_module_ids_(const std::vector<double> &values);
   
   struct RegisterEntry {
@@ -340,6 +343,9 @@ class HMIBMS : public PollingComponent, public uart::UARTDevice {
   std::vector<sensor::Sensor *> cell_voltage_sensors_;
   std::vector<sensor::Sensor *> balancing_time_sensors_;
   std::vector<sensor::Sensor *> module_temperature_sensors_;
+  // Each BMB's listed thermistor channels (array THERMISTOR_PRESENCE), from the last read; empty
+  // until read, or when the BMS doesn't have the array
+  std::vector<double> thermistor_presence_;
   uint32_t baud_rate_{460800};
   bool dump_raw_{false};
   bool disable_usb_pullups_{false};
